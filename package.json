@@ -1,15 +1,15 @@
 {
-  "name": "@endge/process-modeler",
+  "name": "@endge/nova-process-modeler",
   "private": false,
   "version": "0.2.1",
   "license": "Apache-2.0",
   "type": "module",
-  "module": "./dist/process-modeler.js",
+  "module": "./dist/nova-process-modeler.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/process-modeler.js"
+      "import": "./dist/nova-process-modeler.js"
     }
   },
   "sideEffects": false,

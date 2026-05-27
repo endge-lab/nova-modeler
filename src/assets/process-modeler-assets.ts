@@ -8,7 +8,7 @@ import userSource from '@/assets/icons/user.svg?raw'
 import xSource from '@/assets/icons/x.svg?raw'
 import type { ProcessNodeKind } from '@/model/types/process-modeler.types'
 
-export const PROCESS_MODELER_ASSET_NAMESPACE = 'endge-process-modeler'
+export const PROCESS_MODELER_ASSET_NAMESPACE = 'endge-nova-process-modeler'
 
 export const PROCESS_MODELER_TABLER_ICON_SVG = Object.freeze({
   circle: circleSource,
