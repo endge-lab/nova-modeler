@@ -19,13 +19,13 @@ import {
 @NovaStore()
 export class ViewportStore {
   @Reactive({ phase: 'render' })
-  accessor x = DEFAULT_MODELER_VIEWPORT.x
+  x = DEFAULT_MODELER_VIEWPORT.x
 
   @Reactive({ phase: 'render' })
-  accessor y = DEFAULT_MODELER_VIEWPORT.y
+  y = DEFAULT_MODELER_VIEWPORT.y
 
   @Reactive({ phase: 'render' })
-  accessor scale = DEFAULT_MODELER_VIEWPORT.scale
+  scale = DEFAULT_MODELER_VIEWPORT.scale
 
   load(input: Partial<ModelerViewport> = {}): void {
     this.x = input.x ?? DEFAULT_MODELER_VIEWPORT.x
@@ -45,19 +45,19 @@ export class ViewportStore {
 @NovaStore()
 export class CanvasStore {
   @Reactive({ phase: 'render' })
-  accessor x = DEFAULT_MODELER_CANVAS.x
+  x = DEFAULT_MODELER_CANVAS.x
 
   @Reactive({ phase: 'render' })
-  accessor y = DEFAULT_MODELER_CANVAS.y
+  y = DEFAULT_MODELER_CANVAS.y
 
   @Reactive({ phase: 'render' })
-  accessor width = DEFAULT_MODELER_CANVAS.width
+  width = DEFAULT_MODELER_CANVAS.width
 
   @Reactive({ phase: 'render' })
-  accessor height = DEFAULT_MODELER_CANVAS.height
+  height = DEFAULT_MODELER_CANVAS.height
 
   @Reactive({ phase: 'render' })
-  accessor gridSize = DEFAULT_MODELER_CANVAS.gridSize
+  gridSize = DEFAULT_MODELER_CANVAS.gridSize
 
   load(input: Partial<ModelerCanvas> = {}): void {
     this.x = input.x ?? DEFAULT_MODELER_CANVAS.x
@@ -81,7 +81,7 @@ export class CanvasStore {
 @NovaStore()
 export class SelectionStore {
   @Reactive({ phase: 'render' })
-  accessor ids: Array<string> = []
+  ids: Array<string> = []
 
   set(ids: Array<string>): void {
     this.ids = [...ids]
@@ -95,25 +95,25 @@ export class SelectionStore {
 @NovaStore()
 export class Store implements ModelerStore {
   @Reactive()
-  accessor viewport = new ViewportStore()
+  viewport = new ViewportStore()
 
   @Reactive()
-  accessor canvas = new CanvasStore()
+  canvas = new CanvasStore()
 
   @Reactive()
-  accessor selection = new SelectionStore()
+  selection = new SelectionStore()
 
   @Reactive({ phase: 'render' })
-  accessor id = 'modeler'
+  id = 'modeler'
 
   @Reactive({ phase: 'render' })
-  accessor version = 0
+  version = 0
 
   @Reactive({ phase: 'render' })
-  accessor viewportVersion = 0
+  viewportVersion = 0
 
   @Reactive({ phase: 'render' })
-  accessor selectionVersion = 0
+  selectionVersion = 0
 
   constructor(input: ModelerModel | ModelerModelInput = {}) {
     this.load(input)
