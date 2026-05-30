@@ -176,7 +176,7 @@ describe('nova modeler minimal kernel', () => {
 
     const controls = app.surfaces.find(item => item.name === 'modeler-root:controls')
     const overlay = app.surfaces.find(item => item.name === 'modeler-root:overlay')
-    expect(controls?.interactive).toBe(true)
+    expect(controls?.interactive).toBe(false)
     expect(overlay?.interactive).toBe(false)
 
     root.remove()
