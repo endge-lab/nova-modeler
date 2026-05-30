@@ -1,4 +1,5 @@
-import type { ModelerCanvas, ModelerModel, ModelerModelInput, ModelerViewport } from '@/domain/types/model.types'
+import type { ModelerViewport } from '@/domain/types/geometry.types'
+import type { ModelerCanvas, ModelerModel, ModelerModelInput } from '@/domain/types/model.types'
 import type { ModelerCommand } from '@/domain/types/command.types'
 
 export interface ModelerViewportStore {
