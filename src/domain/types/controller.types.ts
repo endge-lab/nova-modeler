@@ -1,4 +1,5 @@
 import type {
+  NovaApp,
   NovaNode,
   NovaSurface,
   NovaTemplateChildSchema,
@@ -23,9 +24,11 @@ import type {
   ModelerPluginLayer,
 } from '@/domain/types/plugin.types'
 import type { ModelerPluginRuntime } from '@/domain/types/plugin-runtime.types'
+import type { ModelerStore } from '@/domain/types/store.types'
 
 export interface ControllerOptions {
   model?: ModelerModel | ModelerModelInput
+  store?: ModelerStore
   options?: ModelerOptions | ModelerOptionsRef
   pluginRuntime?: ModelerPluginRuntime
   plugins?: Array<ModelerPlugin>
@@ -34,6 +37,8 @@ export interface ControllerOptions {
 }
 
 export interface ControllerHost {
+  id: string
+  app: NovaApp<any>
   width: number
   height: number
   invalidate(phase?: 'update' | 'render' | 'both'): void
@@ -47,6 +52,7 @@ export interface ControllerHost {
 }
 
 export interface ModelerController {
+  readonly store: ModelerStore
   mount(host: ControllerHost): void
   unmount(): void
   configure(options: ControllerOptions): void

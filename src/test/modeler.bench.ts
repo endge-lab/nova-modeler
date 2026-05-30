@@ -12,6 +12,16 @@ describe('nova modeler minimal benchmarks', () => {
   it('keeps viewport operations and hit-test bounded', () => {
     const controller = createModelerController({ model: createModelerModel() })
     controller.mount({
+      id: 'bench-host',
+      app: {
+        raph: {
+          kernel: {
+            set: () => {},
+            notify: () => {},
+            transaction: (fn: () => void) => fn(),
+          },
+        },
+      } as never,
       width: 1200,
       height: 800,
       invalidate: () => {},

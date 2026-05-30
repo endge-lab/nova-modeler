@@ -8,7 +8,10 @@ import {
   type ZoomControlsResolvedProps,
 } from '@endge/nova-ui-kit'
 import { Modeler } from '@/config/schema.config'
-import { MODELER_CONTEXT } from '@/config/context.config'
+import {
+  MODELER_CONTEXT,
+  MODELER_STORE,
+} from '@/config/context.config'
 import { clamp } from '@/tools/number'
 
 export interface ZoomControlsProps extends Omit<UIKitZoomControlsProps, 'value' | 'onChange'> {}
@@ -62,12 +65,13 @@ export class ZoomControls<E extends EventList = Record<string, any>>
 
   render(): void {
     const context = this.inject(MODELER_CONTEXT)
+    const store = this.injectOptional(MODELER_STORE)
     this.renderer.schema([{
       type: NovaUIKit.ZoomControls,
       id: this.childId,
       props: {
         ...this.props,
-        value: context?.getViewport().scale ?? 1,
+        value: store?.viewport.scale ?? context?.getViewport().scale ?? 1,
         onChange: (value: number) => context?.setViewport({ scale: value }),
       },
     }])

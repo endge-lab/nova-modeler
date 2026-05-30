@@ -54,6 +54,24 @@ describe('nova modeler minimal kernel', () => {
     expect(boundsContainsPoint({ x: 0, y: 0, width: 10, height: 10 }, 15, 5)).toBe(false)
   })
 
+  it('keeps controller store as reactive source of truth', () => {
+    const controller = createModelerController({
+      model: createModelerModel({ viewport: { scale: 1.25 }, selection: ['old'] }),
+    })
+    controller.mount(createControllerHost(320, 200))
+
+    expect(controller.store.viewport.scale).toBe(1.25)
+    expect(controller.store.selection.ids).toEqual(['old'])
+
+    controller.setViewport({ scale: 1.75 })
+    expect(controller.store.viewport.scale).toBe(1.75)
+    expect(controller.getModel().viewport.scale).toBe(1.75)
+
+    controller.applyCommand({ type: 'select', ids: ['next'] })
+    expect(controller.store.selection.ids).toEqual(['next'])
+    expect(controller.getModel().selection).toEqual(['next'])
+  })
+
   it('keeps dot grid render plan bounded on tiny zoom', () => {
     const normal = createGridRenderPlan({
       width: 640,
@@ -274,7 +292,16 @@ class TestMultiLayerPlugin extends PluginBase {
 }
 
 function createControllerHost(width: number, height: number) {
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+  const app = Nova.createApp({
+    target: document.createElement('canvas'),
+    size: { width, height, dpr: 1 },
+    renderer: { main: RendererType.Web2D },
+    scheduler: { type: RaphSchedulerType.Sync, loop: false },
+  })
   return {
+    id: 'test-host',
+    app,
     width,
     height,
     invalidate: vi.fn(),

@@ -1,81 +1,196 @@
+import {
+  Nova,
+  Reactive,
+  Store as NovaStore,
+} from '@endge/nova'
 import type {
+  ModelerCanvas,
   ModelerCommand,
+  ModelerStore,
   ModelerModel,
   ModelerModelInput,
+  ModelerViewport,
 } from '@/domain/types'
 import {
   DEFAULT_MODELER_CANVAS,
   DEFAULT_MODELER_VIEWPORT,
 } from '@/config/model.config'
 
-export class Store {
-  private model: ModelerModel
-  private readonly listeners = new Set<(model: ModelerModel) => void>()
+@NovaStore()
+export class ViewportStore {
+  @Reactive({ phase: 'render' })
+  accessor x = DEFAULT_MODELER_VIEWPORT.x
+
+  @Reactive({ phase: 'render' })
+  accessor y = DEFAULT_MODELER_VIEWPORT.y
+
+  @Reactive({ phase: 'render' })
+  accessor scale = DEFAULT_MODELER_VIEWPORT.scale
+
+  load(input: Partial<ModelerViewport> = {}): void {
+    this.x = input.x ?? DEFAULT_MODELER_VIEWPORT.x
+    this.y = input.y ?? DEFAULT_MODELER_VIEWPORT.y
+    this.scale = input.scale ?? DEFAULT_MODELER_VIEWPORT.scale
+  }
+
+  toJSON(): ModelerViewport {
+    return {
+      x: this.x,
+      y: this.y,
+      scale: this.scale,
+    }
+  }
+}
+
+@NovaStore()
+export class CanvasStore {
+  @Reactive({ phase: 'render' })
+  accessor x = DEFAULT_MODELER_CANVAS.x
+
+  @Reactive({ phase: 'render' })
+  accessor y = DEFAULT_MODELER_CANVAS.y
+
+  @Reactive({ phase: 'render' })
+  accessor width = DEFAULT_MODELER_CANVAS.width
+
+  @Reactive({ phase: 'render' })
+  accessor height = DEFAULT_MODELER_CANVAS.height
+
+  @Reactive({ phase: 'render' })
+  accessor gridSize = DEFAULT_MODELER_CANVAS.gridSize
+
+  load(input: Partial<ModelerCanvas> = {}): void {
+    this.x = input.x ?? DEFAULT_MODELER_CANVAS.x
+    this.y = input.y ?? DEFAULT_MODELER_CANVAS.y
+    this.width = input.width ?? DEFAULT_MODELER_CANVAS.width
+    this.height = input.height ?? DEFAULT_MODELER_CANVAS.height
+    this.gridSize = input.gridSize ?? DEFAULT_MODELER_CANVAS.gridSize
+  }
+
+  toJSON(): ModelerCanvas {
+    return {
+      x: this.x,
+      y: this.y,
+      width: this.width,
+      height: this.height,
+      gridSize: this.gridSize,
+    }
+  }
+}
+
+@NovaStore()
+export class SelectionStore {
+  @Reactive({ phase: 'render' })
+  accessor ids: Array<string> = []
+
+  set(ids: Array<string>): void {
+    this.ids = [...ids]
+  }
+
+  toJSON(): Array<string> {
+    return [...this.ids]
+  }
+}
+
+@NovaStore()
+export class Store implements ModelerStore {
+  @Reactive()
+  accessor viewport = new ViewportStore()
+
+  @Reactive()
+  accessor canvas = new CanvasStore()
+
+  @Reactive()
+  accessor selection = new SelectionStore()
+
+  @Reactive({ phase: 'render' })
+  accessor id = 'modeler'
+
+  @Reactive({ phase: 'render' })
+  accessor version = 0
+
+  @Reactive({ phase: 'render' })
+  accessor viewportVersion = 0
+
+  @Reactive({ phase: 'render' })
+  accessor selectionVersion = 0
 
   constructor(input: ModelerModel | ModelerModelInput = {}) {
-    this.model = Store.normalize(input)
+    this.load(input)
   }
 
   getModel(): ModelerModel {
-    return this.model
+    return this.toModel()
   }
 
   setModel(input: ModelerModel | ModelerModelInput): ModelerModel {
-    return this.commit(Store.normalize(input))
+    this.load(input)
+    return this.toModel()
   }
 
   apply(command: ModelerCommand): ModelerModel {
-    return this.commit(Store.applyCommand(this.model, command))
+    if (command.type === 'setViewport') {
+      this.setViewport(command.viewport)
+      return this.toModel()
+    }
+    this.setSelection(command.ids)
+    return this.toModel()
   }
 
-  subscribe(listener: (model: ModelerModel) => void): () => void {
-    this.listeners.add(listener)
-    return () => this.listeners.delete(listener)
+  setViewport(viewport: Partial<ModelerViewport>): void {
+    Nova.batchStore(this, () => {
+      if (viewport.x !== undefined) this.viewport.x = viewport.x
+      if (viewport.y !== undefined) this.viewport.y = viewport.y
+      if (viewport.scale !== undefined) this.viewport.scale = viewport.scale
+      this.version += 1
+      this.viewportVersion += 1
+    })
   }
 
-  private commit(model: ModelerModel): ModelerModel {
-    this.model = model
-    for (const listener of this.listeners) listener(model)
-    return model
+  setSelection(ids: Array<string>): void {
+    Nova.batchStore(this, () => {
+      this.selection.set(ids)
+      this.version += 1
+      this.selectionVersion += 1
+    })
+  }
+
+  load(input: ModelerModel | ModelerModelInput = {}): void {
+    const maybeModel = input as Partial<ModelerModel>
+    Nova.batchStore(this, () => {
+      this.id = input.id ?? 'modeler'
+      this.viewport.load(input.viewport)
+      this.canvas.load(input.canvas)
+      this.selection.set(input.selection ?? [])
+      this.version = maybeModel.version ?? 0
+      this.viewportVersion = maybeModel.viewportVersion ?? 0
+      this.selectionVersion = maybeModel.selectionVersion ?? 0
+    })
+  }
+
+  toModel(): ModelerModel {
+    return {
+      id: this.id,
+      viewport: this.viewport.toJSON(),
+      canvas: this.canvas.toJSON(),
+      selection: this.selection.toJSON(),
+      version: this.version,
+      viewportVersion: this.viewportVersion,
+      selectionVersion: this.selectionVersion,
+    }
   }
 
   static create(input: ModelerModelInput = {}): ModelerModel {
-    return {
-      id: input.id ?? 'modeler',
-      viewport: { ...DEFAULT_MODELER_VIEWPORT, ...(input.viewport ?? {}) },
-      canvas: { ...DEFAULT_MODELER_CANVAS, ...(input.canvas ?? {}) },
-      selection: [...(input.selection ?? [])],
-      version: 0,
-      viewportVersion: 0,
-      selectionVersion: 0,
-    }
+    return new Store(input).toModel()
   }
 
   static normalize(input: ModelerModel | ModelerModelInput): ModelerModel {
-    const maybeModel = input as Partial<ModelerModel>
-    return {
-      ...Store.create(input),
-      version: maybeModel.version ?? 0,
-      viewportVersion: maybeModel.viewportVersion ?? 0,
-      selectionVersion: maybeModel.selectionVersion ?? 0,
-    }
+    return new Store(input).toModel()
   }
 
   static applyCommand(model: ModelerModel, command: ModelerCommand): ModelerModel {
-    if (command.type === 'setViewport') {
-      return {
-        ...model,
-        viewport: { ...model.viewport, ...command.viewport },
-        version: model.version + 1,
-        viewportVersion: model.viewportVersion + 1,
-      }
-    }
-    return {
-      ...model,
-      selection: [...command.ids],
-      version: model.version + 1,
-      selectionVersion: model.selectionVersion + 1,
-    }
+    const store = new Store(model)
+    return store.apply(command)
   }
 }
 

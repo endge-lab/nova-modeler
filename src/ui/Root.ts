@@ -51,6 +51,7 @@ import type {
 import {
   MODELER_CONTEXT,
   MODELER_CONTROLLER,
+  MODELER_STORE,
 } from '@/config/context.config'
 import {
   MODELER_LAYER_NAMES,
@@ -137,6 +138,7 @@ export class Root<E extends EventList = Record<string, any>>
     super(app, surface, descriptor, props, options)
     this.controllerHost = this.createControllerHost()
     this.controllerInstance = this.resolveController()
+    this.provide(MODELER_STORE, this.controllerInstance.store)
     this.provide(MODELER_CONTROLLER, this.controllerInstance)
     this.provide(MODELER_CONTEXT, this.controllerInstance.getPluginContext())
     this.options({ width: props.width, height: props.height, interactive: true })
@@ -289,6 +291,7 @@ export class Root<E extends EventList = Record<string, any>>
         interactive: config.interactive,
       })
       surface.provide(MODELER_CONTROLLER, this.controllerInstance)
+      surface.provide(MODELER_STORE, this.controllerInstance.store)
       surface.provide(MODELER_CONTEXT, this.controllerInstance.getPluginContext())
       this.layerSurfaces.set(name, surface)
       this.layerRuntimes.set(name, new NovaTemplateRuntime(surface))
@@ -307,6 +310,7 @@ export class Root<E extends EventList = Record<string, any>>
         interactive: config.interactive,
       })
       surface.provide(MODELER_CONTROLLER, this.controllerInstance)
+      surface.provide(MODELER_STORE, this.controllerInstance.store)
       surface.provide(MODELER_CONTEXT, this.controllerInstance.getPluginContext())
       surface.dirty({ update: true, matrix: true, render: true })
     }
@@ -414,6 +418,8 @@ export class Root<E extends EventList = Record<string, any>>
 
   private createControllerHost(): ControllerHost {
     return {
+      id: this.id,
+      app: this.nova,
       width: this.props.width,
       height: this.props.height,
       invalidate: phase => this.invalidate(phase),
@@ -447,8 +453,10 @@ export class Root<E extends EventList = Record<string, any>>
       this.controllerInstance.unmount()
       this.controllerInstance = nextController
       this.provide(MODELER_CONTROLLER, this.controllerInstance)
+      this.provide(MODELER_STORE, this.controllerInstance.store)
       this.provide(MODELER_CONTEXT, this.controllerInstance.getPluginContext())
       this.controllerInstance.mount(this.controllerHost)
+      this.syncLayerSurfaces()
       return
     }
     const hasPluginPatch = Object.prototype.hasOwnProperty.call(patch, 'pluginRuntime')

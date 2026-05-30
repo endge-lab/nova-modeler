@@ -9,7 +9,10 @@ import {
 } from '@endge/nova'
 import type { EventList } from '@endge/utils'
 import { Modeler } from '@/config/schema.config'
-import { MODELER_CONTEXT } from '@/config/context.config'
+import {
+  MODELER_CONTEXT,
+  MODELER_STORE,
+} from '@/config/context.config'
 import { MODELER_GRID_RENDER_CONFIG } from '@/config/grid.config'
 import {
   MODELER_THEME_FALLBACKS,
@@ -69,23 +72,25 @@ export class Grid<E extends EventList = Record<string, any>>
   render(): void {
     super.render()
     const context = this.inject(MODELER_CONTEXT)
+    const store = this.injectOptional(MODELER_STORE)
     if (!this.props.visible || !context) {
       this.renderer.schema([] as unknown as NovaSchema)
       return
     }
 
-    const model = context.getModel()
     const layout = context.getLayout()
     const gridSize = this.props.gridSize
+      ?? store?.canvas.gridSize
       ?? context.getOptions().interaction?.gridSize
-      ?? model.canvas.gridSize
+      ?? context.getModel().canvas.gridSize
+    const viewport = store?.viewport.toJSON() ?? context.getModel().viewport
     const plan = Grid.createRenderPlan({
       width: layout.width,
       height: layout.height,
       gridSize,
-      scale: model.viewport.scale,
-      viewportX: model.viewport.x,
-      viewportY: model.viewport.y,
+      scale: viewport.scale,
+      viewportX: viewport.x,
+      viewportY: viewport.y,
     })
     const schema = [] as unknown as NovaSchema
     Grid.appendSchema(schema, plan, this.resolveDotColor())

@@ -15,16 +15,18 @@ import type {
   ModelerPluginLayer,
   ModelerPluginRuntime,
   ModelerPoint,
+  ModelerStore,
   ModelerStoreKey,
   ModelerViewport,
 } from '@/domain/types/index'
+import { Nova } from '@endge/nova'
 import { normalizeModelerOptions } from '@/config/options.config'
 import { clamp } from '@/tools/number'
 import { Store } from '@/model/Store'
 import { createPluginRuntime } from '@/model/plugin-runtime/PluginRuntime'
 
 export class Controller implements ModelerController {
-  private readonly store: Store
+  readonly store: ModelerStore
   private options: ModelerOptionsRef
   private host: ControllerHost | null = null
   private layout: ModelerLayout
@@ -38,7 +40,7 @@ export class Controller implements ModelerController {
   private onSelectionChange?: (selection: Array<string>) => void
 
   constructor(options: ControllerOptions = {}) {
-    this.store = new Store(options.model)
+    this.store = options.store ?? new Store(options.model)
     this.options = normalizeModelerOptions(options.options)
     this.pluginRuntime = options.pluginRuntime ?? createPluginRuntime({ plugins: options.plugins })
     this.onModelChange = options.onModelChange
@@ -49,6 +51,10 @@ export class Controller implements ModelerController {
 
   mount(host: ControllerHost): void {
     this.host = host
+    Nova.createStore(this.store, {
+      app: host.app,
+      scope: `modeler.${host.id}`,
+    })
     this.recomputeLayout()
     this.pluginRuntime.bindRoot(this.pluginContext)
   }
@@ -117,10 +123,8 @@ export class Controller implements ModelerController {
   setViewport(viewport: Partial<ModelerViewport>): ModelerModel {
     const current = this.getModel().viewport
     const previous = this.getModel()
-    const next = this.store.apply({
-      type: 'setViewport',
-      viewport: this.clampViewport({ ...current, ...viewport }),
-    })
+    this.store.setViewport(this.clampViewport({ ...current, ...viewport }))
+    const next = this.getModel()
     return this.afterModelCommit(previous, next)
   }
 
@@ -184,7 +188,6 @@ export class Controller implements ModelerController {
     this.onSelectionChange?.(next.selection)
     for (const listener of this.modelListeners) listener(next)
     this.host?.onModelCommit(previous, next)
-    this.invalidate()
     return next
   }
 
