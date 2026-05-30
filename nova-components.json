@@ -1,0 +1,93 @@
+{
+  "packageName": "@endge/nova-modeler",
+  "version": "0.22.0",
+  "registrar": {
+    "source": "@endge/nova-modeler",
+    "import": "registerModeler"
+  },
+  "groups": [
+    {
+      "id": "modeler",
+      "title": "Modeler",
+      "components": [
+        {
+          "name": "Modeler.Root",
+          "title": "Modeler.Root",
+          "description": {
+            "ru": "Canvas-kernel Modeler с surface-слоями background, interaction, controls и overlay.",
+            "en": "Modeler canvas kernel with background, interaction, controls and overlay surfaces."
+          },
+          "source": "packages/@endge-nova-modeler/src/ui/Root.ts",
+          "snippet": "<Modeler.Root :model=\"model\" />",
+          "props": [],
+          "slots": [
+            { "name": "background" },
+            { "name": "interaction" },
+            { "name": "controls" },
+            { "name": "overlay" }
+          ]
+        },
+        {
+          "name": "Modeler.Background",
+          "title": "Modeler.Background",
+          "description": {
+            "ru": "Фоновая заливка canvas по токену Modeler.",
+            "en": "Canvas background fill based on Modeler theme token."
+          },
+          "source": "packages/@endge-nova-modeler/src/ui/layers/Background.ts",
+          "snippet": "<Modeler.Background />",
+          "props": [],
+          "slots": []
+        },
+        {
+          "name": "Modeler.Grid",
+          "title": "Modeler.Grid",
+          "description": {
+            "ru": "Dots grid layer для canvas.",
+            "en": "Dots grid layer for the canvas."
+          },
+          "source": "packages/@endge-nova-modeler/src/ui/layers/Grid.ts",
+          "snippet": "<Modeler.Grid variant=\"dots\" />",
+          "props": [],
+          "slots": []
+        },
+        {
+          "name": "Modeler.MiniMap",
+          "title": "Modeler.MiniMap",
+          "description": {
+            "ru": "Миникарта как компонент controls-слоя.",
+            "en": "Mini-map as a controls layer component."
+          },
+          "source": "packages/@endge-nova-modeler/src/plugins/mini-map/ui/MiniMap.ts",
+          "snippet": "<Modeler.MiniMap />",
+          "props": [],
+          "slots": []
+        },
+        {
+          "name": "Modeler.MarqueeSelection",
+          "title": "Modeler.MarqueeSelection",
+          "description": {
+            "ru": "Компонент marquee selection для interaction-слоя.",
+            "en": "Marquee selection component for the interaction layer."
+          },
+          "source": "packages/@endge-nova-modeler/src/plugins/marquee-selection/ui/MarqueeSelection.ts",
+          "snippet": "<Modeler.MarqueeSelection />",
+          "props": [],
+          "slots": []
+        },
+        {
+          "name": "Modeler.ZoomControls",
+          "title": "Modeler.ZoomControls",
+          "description": {
+            "ru": "Zoom controls, подключенные к ближайшему Modeler.Root.",
+            "en": "Zoom controls bound to the nearest Modeler.Root."
+          },
+          "source": "packages/@endge-nova-modeler/src/ui/controls/ZoomControls.ts",
+          "snippet": "<Modeler.ZoomControls />",
+          "props": [],
+          "slots": []
+        }
+      ]
+    }
+  ]
+}

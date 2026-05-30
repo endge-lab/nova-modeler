@@ -17,8 +17,8 @@ export default defineConfig({
     lib: {
       entry: path.resolve(__dirname, 'src/index.ts'),
       formats: ['es'],
-      name: 'endge-nova-process-modeler',
-      fileName: 'nova-process-modeler',
+      name: 'endge-nova-modeler',
+      fileName: 'nova-modeler',
     },
     rollupOptions: {
       external: isExternal,
@@ -38,7 +38,7 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'json-summary'],
       include: ['src/model/**/*.ts'],
-      exclude: ['src/model/types/**/*.ts'],
+      exclude: ['src/model/types.ts', 'src/model/types/**/*.ts', 'src/model/module/**/*.ts'],
       thresholds: {
         statements: 100,
         branches: 100,

@@ -1,0 +1,6 @@
+export * from '@/plugins/mini-map/mini-map-plugin'
+export * from '@/plugins/mini-map/mini-map.types'
+export * from '@/plugins/mini-map/mini-map-schema'
+export * from '@/plugins/marquee-selection/marquee-selection-plugin'
+export * from '@/plugins/marquee-selection/marquee-selection.types'
+export * from '@/plugins/marquee-selection/marquee-selection-schema'

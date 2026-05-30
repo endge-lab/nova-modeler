@@ -1,20 +1,24 @@
 {
-  "name": "@endge/nova-process-modeler",
+  "name": "@endge/nova-modeler",
   "private": false,
-  "version": "0.2.1",
+  "version": "0.22.0",
   "license": "Apache-2.0",
   "type": "module",
-  "module": "./dist/nova-process-modeler.js",
+  "module": "./dist/nova-modeler.js",
   "types": "./dist/index.d.ts",
+  "nova": {
+    "components": "./nova-components.json"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/nova-process-modeler.js"
+      "import": "./dist/nova-modeler.js"
     }
   },
   "sideEffects": false,
   "files": [
-    "dist"
+    "dist",
+    "nova-components.json"
   ],
   "scripts": {
     "clean": "rimraf dist coverage tsconfig.tsbuildinfo",

@@ -1,0 +1,321 @@
+import type {
+  ControllerHost,
+  ControllerOptions,
+  ModelerController,
+  ModelerCommand,
+  ModelerGesture,
+  ModelerHitTarget,
+  ModelerLayout,
+  ModelerModel,
+  ModelerModelInput,
+  ModelerOptions,
+  ModelerOptionsRef,
+  ModelerPlugin,
+  ModelerPluginContext,
+  ModelerPluginLayer,
+  ModelerPluginRuntime,
+  ModelerPoint,
+  ModelerStoreKey,
+  ModelerViewport,
+} from '@/domain/types/index'
+import { normalizeModelerOptions } from '@/config/options.config'
+import { clamp } from '@/tools/number'
+import { Store } from '@/model/Store'
+import { createPluginRuntime } from '@/model/plugin-runtime/PluginRuntime'
+
+export class Controller implements ModelerController {
+  private readonly store: Store
+  private options: ModelerOptionsRef
+  private host: ControllerHost | null = null
+  private layout: ModelerLayout
+  private pluginRuntime: ModelerPluginRuntime
+  private readonly storeValues = new Map<ModelerStoreKey<unknown>, unknown>()
+  private readonly modelListeners = new Set<(model: ModelerModel) => void>()
+  private pluginLayers: Array<ModelerPluginLayer> = []
+  private pluginGestures: Array<ModelerGesture> = []
+  private readonly pluginContext: ModelerPluginContext
+  private onModelChange?: (model: ModelerModel) => void
+  private onSelectionChange?: (selection: Array<string>) => void
+
+  constructor(options: ControllerOptions = {}) {
+    this.store = new Store(options.model)
+    this.options = normalizeModelerOptions(options.options)
+    this.pluginRuntime = options.pluginRuntime ?? createPluginRuntime({ plugins: options.plugins })
+    this.onModelChange = options.onModelChange
+    this.onSelectionChange = options.onSelectionChange
+    this.layout = this.createLayout()
+    this.pluginContext = this.createPluginContext()
+  }
+
+  mount(host: ControllerHost): void {
+    this.host = host
+    this.recomputeLayout()
+    this.pluginRuntime.bindRoot(this.pluginContext)
+  }
+
+  unmount(): void {
+    this.pluginRuntime.unbindRoot()
+    this.pluginLayers = []
+    this.pluginGestures = []
+    this.host = null
+  }
+
+  configure(options: ControllerOptions): void {
+    if (options.options) this.options = normalizeModelerOptions(options.options)
+    this.onModelChange = options.onModelChange ?? this.onModelChange
+    this.onSelectionChange = options.onSelectionChange ?? this.onSelectionChange
+    if (options.pluginRuntime || options.plugins) {
+      this.setPluginRuntime(options.pluginRuntime ?? createPluginRuntime({ plugins: options.plugins }))
+    }
+    if (options.model) this.setModel(options.model)
+    else {
+      this.recomputeLayout()
+      this.invalidate()
+    }
+  }
+
+  resize(width: number, height: number): void {
+    if (!this.host) return
+    if (this.host.width === width && this.host.height === height) return
+    this.host.width = width
+    this.host.height = height
+    this.recomputeLayout()
+    this.invalidate()
+  }
+
+  use(plugin: ModelerPlugin): this {
+    this.pluginRuntime.use(plugin)
+    return this
+  }
+
+  unuse(pluginOrId: ModelerPlugin | string): this {
+    this.pluginRuntime.unuse(pluginOrId)
+    return this
+  }
+
+  getModel(): ModelerModel {
+    return this.store.getModel()
+  }
+
+  setModel(model: ModelerModel | ModelerModelInput): ModelerModel {
+    const previous = this.getModel()
+    const next = this.store.setModel(model)
+    return this.afterModelCommit(previous, next)
+  }
+
+  applyCommand(command: ModelerCommand): ModelerModel {
+    if (command.type === 'setViewport') return this.setViewport(command.viewport)
+    const previous = this.getModel()
+    const next = this.store.apply(command)
+    return this.afterModelCommit(previous, next)
+  }
+
+  getViewport(): ModelerViewport {
+    return this.getModel().viewport
+  }
+
+  setViewport(viewport: Partial<ModelerViewport>): ModelerModel {
+    const current = this.getModel().viewport
+    const previous = this.getModel()
+    const next = this.store.apply({
+      type: 'setViewport',
+      viewport: this.clampViewport({ ...current, ...viewport }),
+    })
+    return this.afterModelCommit(previous, next)
+  }
+
+  fitView(): ModelerViewport {
+    const viewport = this.fitViewportToWorld()
+    this.setViewport(viewport)
+    return viewport
+  }
+
+  getLayout(): ModelerLayout {
+    return this.layout
+  }
+
+  getOptions(): ModelerOptions {
+    return this.options.current
+  }
+
+  getPluginContext(): ModelerPluginContext {
+    return this.pluginContext
+  }
+
+  getPluginLayers(): ReadonlyArray<ModelerPluginLayer> {
+    return this.pluginLayers
+  }
+
+  getGestures(): ReadonlyArray<ModelerGesture> {
+    return this.pluginGestures
+  }
+
+  hitTest(point: ModelerPoint): ModelerHitTarget {
+    const canvas = this.layout.canvas
+    return point.x >= canvas.x
+      && point.x <= canvas.x + canvas.width
+      && point.y >= canvas.y
+      && point.y <= canvas.y + canvas.height
+      ? { type: 'canvas' }
+      : { type: 'empty' }
+  }
+
+  screenToWorld(point: ModelerPoint): ModelerPoint {
+    return {
+      x: (point.x - this.layout.viewport.x) / this.layout.viewport.scale,
+      y: (point.y - this.layout.viewport.y) / this.layout.viewport.scale,
+    }
+  }
+
+  worldToScreen(point: ModelerPoint): ModelerPoint {
+    return {
+      x: point.x * this.layout.viewport.scale + this.layout.viewport.x,
+      y: point.y * this.layout.viewport.scale + this.layout.viewport.y,
+    }
+  }
+
+  invalidate(phase: 'update' | 'render' | 'both' = 'both'): void {
+    this.host?.invalidate(phase)
+  }
+
+  private afterModelCommit(previous: ModelerModel, next: ModelerModel): ModelerModel {
+    this.recomputeLayout()
+    this.onModelChange?.(next)
+    this.onSelectionChange?.(next.selection)
+    for (const listener of this.modelListeners) listener(next)
+    this.host?.onModelCommit(previous, next)
+    this.invalidate()
+    return next
+  }
+
+  private setPluginRuntime(pluginRuntime: ModelerPluginRuntime): void {
+    if (pluginRuntime === this.pluginRuntime) return
+    this.pluginRuntime.unbindRoot()
+    this.pluginLayers = []
+    this.pluginGestures = []
+    this.pluginRuntime = pluginRuntime
+    if (this.host) this.pluginRuntime.bindRoot(this.pluginContext)
+  }
+
+  private recomputeLayout(): void {
+    this.layout = this.createLayout()
+  }
+
+  private createLayout(): ModelerLayout {
+    const model = this.getModel()
+    return {
+      width: this.host?.width ?? 0,
+      height: this.host?.height ?? 0,
+      canvas: { x: 0, y: 0, width: this.host?.width ?? 0, height: this.host?.height ?? 0 },
+      viewport: model.viewport,
+      worldBounds: { ...model.canvas },
+    }
+  }
+
+  private clampViewport(viewport: ModelerViewport): ModelerViewport {
+    const opts = this.options.current.viewport
+    const scale = clamp(viewport.scale, opts?.minZoom ?? 0.1, opts?.maxZoom ?? 3)
+    const layout = { ...this.layout, viewport: { ...viewport, scale } }
+    const minX = layout.canvas.width - (layout.worldBounds.x + layout.worldBounds.width) * scale
+    const maxX = -layout.worldBounds.x * scale
+    const minY = layout.canvas.height - (layout.worldBounds.y + layout.worldBounds.height) * scale
+    const maxY = -layout.worldBounds.y * scale
+    return {
+      x: clamp(viewport.x, Math.min(minX, maxX), Math.max(minX, maxX)),
+      y: clamp(viewport.y, Math.min(minY, maxY), Math.max(minY, maxY)),
+      scale,
+    }
+  }
+
+  private fitViewportToWorld(padding = 80): ModelerViewport {
+    const scale = Math.min(
+      this.layout.canvas.width / (this.layout.worldBounds.width + padding * 2),
+      this.layout.canvas.height / (this.layout.worldBounds.height + padding * 2),
+    )
+    return this.clampViewport({
+      x: this.layout.canvas.width / 2 - (this.layout.worldBounds.x + this.layout.worldBounds.width / 2) * scale,
+      y: this.layout.canvas.height / 2 - (this.layout.worldBounds.y + this.layout.worldBounds.height / 2) * scale,
+      scale,
+    })
+  }
+
+  private addLayer(layer: ModelerPluginLayer): () => void {
+    this.pluginLayers.push(layer)
+    this.pluginLayers.sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    this.invalidate('render')
+    return () => {
+      this.pluginLayers = this.pluginLayers.filter(item => item !== layer)
+      this.invalidate('render')
+    }
+  }
+
+  private addGesture(gesture: ModelerGesture): () => void {
+    this.pluginGestures.push(gesture)
+    this.pluginGestures.sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0))
+    return () => {
+      this.pluginGestures = this.pluginGestures.filter(item => item !== gesture)
+    }
+  }
+
+  private createPluginContext(): ModelerPluginContext {
+    return {
+      model: {
+        get: () => this.getModel(),
+        set: model => this.setModel(model),
+        update: updater => this.setModel(updater(this.getModel())),
+        subscribe: listener => {
+          this.modelListeners.add(listener)
+          return () => this.modelListeners.delete(listener)
+        },
+      },
+      store: {
+        provide: (key, value) => {
+          this.storeValues.set(key as ModelerStoreKey<unknown>, value)
+          return () => {
+            if (this.storeValues.get(key as ModelerStoreKey<unknown>) === value) {
+              this.storeValues.delete(key as ModelerStoreKey<unknown>)
+            }
+          }
+        },
+        inject: key => this.storeValues.get(key as ModelerStoreKey<unknown>) as never,
+      },
+      getModel: () => this.getModel(),
+      getLayout: () => this.getLayout(),
+      getOptions: () => this.getOptions(),
+      getViewport: () => this.getViewport(),
+      setViewport: viewport => this.setViewport(viewport),
+      applyCommand: command => this.applyCommand(command),
+      hitTest: point => this.hitTest(point),
+      screenToWorld: point => this.screenToWorld(point),
+      worldToScreen: point => this.worldToScreen(point),
+      invalidate: phase => this.invalidate(phase),
+      layers: {
+        add: layer => this.addLayer(layer),
+        get: name => this.requireHost().layers.get(name),
+        mount: (name, schema) => this.requireHost().layers.mount(name, schema),
+        unmount: node => this.requireHost().layers.unmount(node),
+        reconcile: (name, ownerId, schema) => this.requireHost().layers.reconcile(name, ownerId, schema),
+      },
+      gestures: { add: gesture => this.addGesture(gesture) },
+    }
+  }
+
+  private requireHost(): ControllerHost {
+    if (!this.host) throw new Error('[Controller] Modeler host is not mounted.')
+    return this.host
+  }
+
+  static shouldSyncLayerTemplates(previous: ModelerModel, next: ModelerModel): boolean {
+    if (previous.id !== next.id) return true
+    if (previous.selectionVersion !== next.selectionVersion) return true
+    return previous.canvas.x !== next.canvas.x
+      || previous.canvas.y !== next.canvas.y
+      || previous.canvas.width !== next.canvas.width
+      || previous.canvas.height !== next.canvas.height
+      || previous.canvas.gridSize !== next.canvas.gridSize
+  }
+}
+
+export function createModelerController(options: ControllerOptions = {}): Controller {
+  return new Controller(options)
+}
