@@ -1,7 +1,11 @@
 import type { EventList } from '@endge/utils'
 import { NovaComponent, NovaComponentNode, Prop, createNovaDecoratedComponentDescriptor, type NovaApp, type NovaComponentDescriptor, type NovaSurface } from '@endge/nova'
 import {
+  NOVA_UI_LAYOUT_TARGET,
   NovaUIKit,
+  type NovaUiLayoutConstraints,
+  type NovaUiLayoutMeasure,
+  type NovaUiLayoutRect,
   normalizeZoomControlsProps,
   type ZoomControlsApi,
   type ZoomControlsProps as UIKitZoomControlsProps,
@@ -33,7 +37,10 @@ export type ZoomControlsDescriptor = NovaComponentDescriptor<
 })
 export class ZoomControls<E extends EventList = Record<string, any>>
   extends NovaComponentNode<ZoomControlsResolvedProps, ZoomControlsApi, Record<string, never>, ZoomControlsProps, E> {
+  readonly [NOVA_UI_LAYOUT_TARGET] = true as const
+
   private childId = `${this.id}:zoom`
+  private externalLayout = false
 
   @Prop.number({ default: 0.2 })
   declare step: number
@@ -61,6 +68,37 @@ export class ZoomControls<E extends EventList = Record<string, any>>
       setProps: patch => this.setProps(patch),
       getProps: () => this.props,
     }
+  }
+
+  override setProps(patch: ZoomControlsProps): this {
+    super.setProps(patch as Partial<ZoomControlsResolvedProps>)
+    if (!this.externalLayout) {
+      this.options({ width: this.props.width, height: this.props.height, interactive: false })
+    }
+    return this
+  }
+
+  applyLayoutRect(rect: NovaUiLayoutRect): boolean {
+    this.externalLayout = true
+    const sizeChanged = this.width !== rect.width || this.height !== rect.height
+    const changed = this.x !== rect.x
+      || this.y !== rect.y
+      || sizeChanged
+    this.options({
+      x: rect.x,
+      y: rect.y,
+      width: rect.width,
+      height: rect.height,
+      interactive: false,
+      zIndex: this.props.zIndex,
+    })
+    this.setLocalRenderBounds({ x: 0, y: 0, width: rect.width, height: rect.height })
+    if (changed) this.dirty({ matrix: true, update: sizeChanged, render: true })
+    return changed
+  }
+
+  measureLayout(_constraints: NovaUiLayoutConstraints): NovaUiLayoutMeasure {
+    return { width: this.props.width, height: this.props.height }
   }
 
   render(): void {

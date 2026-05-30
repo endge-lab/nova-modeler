@@ -2,6 +2,7 @@ import {
   Api,
   Command,
   Event,
+  Nova,
   NovaComponent,
   NovaComponentNode,
   NovaPhase,
@@ -124,6 +125,8 @@ export class Root<E extends EventList = Record<string, any>>
   private readonly layerSurfaces = new Map<ModelerLayerName, NovaSurface<E>>()
   private readonly layerRuntimes = new Map<ModelerLayerName, NovaTemplateRuntime<E>>()
   private readonly layerOwnerRuntimes = new Map<string, NovaTemplateRuntime<E>>()
+  private layerTemplatesReady = false
+  private layerSlotsDirty = true
   private dragState: { type: 'pan'; x: number; y: number } | null = null
   private activePluginGesture: ModelerGesture | null = null
   private spacePressed = false
@@ -146,7 +149,6 @@ export class Root<E extends EventList = Record<string, any>>
     this.setupLayerSurfaces()
     this.controllerInstance.mount(this.controllerHost)
     this.setupEvents()
-    this.syncLayerTemplates()
   }
 
   static normalizeProps(props: RootProps): RootResolvedProps {
@@ -183,7 +185,7 @@ export class Root<E extends EventList = Record<string, any>>
     this.options({ width: this.props.width, height: this.props.height, interactive: true })
     this.syncController(patch)
     this.syncLayerSurfaces()
-    this.syncLayerTemplates()
+    this.layerSlotsDirty = true
     this.dirtyLayerSurfaces()
     return this
   }
@@ -196,9 +198,20 @@ export class Root<E extends EventList = Record<string, any>>
 
   setSlots(slots: NovaElementSlots = {}): this {
     this.layerSlots = { ...slots }
+    this.layerSlotsDirty = true
     this.syncLayerTemplates()
     this.dirtyLayerSurfaces()
     return this
+  }
+
+  override dirty(
+    opts:
+      | { matrix?: boolean; update?: boolean; render?: boolean }
+      | string
+      | Array<string>,
+  ): void {
+    if (this.shouldSyncLayerSlotsForDirty(opts)) this.layerSlotsDirty = true
+    super.dirty(opts)
   }
 
   @Watch('model.version', { phase: 'update', immediate: true })
@@ -212,6 +225,7 @@ export class Root<E extends EventList = Record<string, any>>
   update(): void {
     super.update()
     this.controllerInstance.resize(this.props.width, this.props.height)
+    if (!this.layerTemplatesReady || this.layerSlotsDirty) this.syncLayerTemplates()
   }
 
   render(): void {
@@ -335,12 +349,14 @@ export class Root<E extends EventList = Record<string, any>>
       if (!runtime) continue
       runtime.reconcile(this.resolveLayerSchema(name, slotProps))
     }
+    this.layerTemplatesReady = true
+    this.layerSlotsDirty = false
   }
 
   private resolveLayerSchema(name: ModelerLayerName, slotProps: ModelerLayerSlotProps): Array<NovaTemplateChildSchema> {
     const slot = this.layerSlots[name]
     if (slot) {
-      const schema = slot(slotProps)
+      const schema = Nova.trackNode(this, () => slot(slotProps), { mode: 'append' })
       return Array.isArray(schema) ? schema as Array<NovaTemplateChildSchema> : []
     }
     return this.createDefaultLayerSchema(name)
@@ -425,7 +441,10 @@ export class Root<E extends EventList = Record<string, any>>
       invalidate: phase => this.invalidate(phase),
       onModelCommit: (previous, next) => {
         this.props.model = next
-        if (Controller.shouldSyncLayerTemplates(previous, next)) this.syncLayerTemplates()
+        if (Controller.shouldSyncLayerTemplates(previous, next)) {
+          this.layerSlotsDirty = true
+          this.syncLayerTemplates()
+        }
       },
       layers: {
         get: name => this.getLayerSurface(name),
@@ -573,6 +592,18 @@ export class Root<E extends EventList = Record<string, any>>
       y: point.y - world.y * nextScale,
       scale: nextScale,
     })
+  }
+
+  private shouldSyncLayerSlotsForDirty(
+    opts:
+      | { matrix?: boolean; update?: boolean; render?: boolean }
+      | string
+      | Array<string>,
+  ): boolean {
+    if (Object.keys(this.layerSlots).length === 0) return false
+    if (typeof opts === 'string') return opts === 'update'
+    if (Array.isArray(opts)) return opts.includes('update')
+    return !!opts.update
   }
 }
 

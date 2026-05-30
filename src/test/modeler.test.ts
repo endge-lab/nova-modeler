@@ -176,7 +176,7 @@ describe('nova modeler minimal kernel', () => {
 
     const controls = app.surfaces.find(item => item.name === 'modeler-root:controls')
     const overlay = app.surfaces.find(item => item.name === 'modeler-root:overlay')
-    expect(controls?.interactive).toBe(false)
+    expect(controls?.interactive).toBe(true)
     expect(overlay?.interactive).toBe(false)
 
     root.remove()
@@ -213,6 +213,40 @@ describe('nova modeler minimal kernel', () => {
     const controls = app.surfaces.find(item => item.name === 'slot-root:controls')
     expect(background?.children).toHaveLength(1)
     expect(controls?.children).toHaveLength(0)
+    app.destroy()
+  })
+
+  it('does not resync layer slots on render-only dirties', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    const controlsSlot = vi.fn(() => [{ type: Modeler.ZoomControls, id: 'stable-toolbar' }])
+    const root = app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'render-dirty-root',
+      props: {
+        model: createModelerModel(),
+        width: 640,
+        height: 420,
+      },
+      slots: {
+        controls: controlsSlot,
+      },
+    })
+    app.raph.run()
+    expect(controlsSlot).toHaveBeenCalledTimes(1)
+
+    root.dirty({ render: true })
+    app.raph.run()
+
+    expect(controlsSlot).toHaveBeenCalledTimes(1)
     app.destroy()
   })
 

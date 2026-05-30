@@ -18,7 +18,7 @@ export const MODELER_SURFACE_CONFIG: Record<ModelerLayerName, {
   controls: {
     name: 'controls',
     zIndex: 1000,
-    interactive: false,
+    interactive: true,
   },
   overlay: {
     name: 'overlay',
