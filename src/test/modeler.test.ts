@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { Nova, RaphSchedulerType, RendererType, boundsContainsPoint, type NovaSchema } from '@endge/nova'
+import { NovaUIKit } from '@endge/nova-ui-kit'
 import {
   Modeler,
   MarqueeSelectionPlugin,
@@ -213,6 +214,98 @@ describe('nova modeler minimal kernel', () => {
     const controls = app.surfaces.find(item => item.name === 'slot-root:controls')
     expect(background?.children).toHaveLength(1)
     expect(controls?.children).toHaveLength(0)
+    app.destroy()
+  })
+
+  it('routes pointer events to buttons mounted inside the controls layer slot', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    const settingsPress = vi.fn()
+    const panelPress = vi.fn()
+    app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'controls-click-root',
+      props: {
+        model: createModelerModel(),
+        width: 640,
+        height: 420,
+      },
+      slots: {
+        controls: () => [{
+          type: NovaUIKit.Flex,
+          id: 'toolbar',
+          props: {
+            position: 'fixed',
+            inset: { top: 16, right: 16 },
+            height: 36,
+            zIndex: 3000,
+          },
+          children: [{
+            type: NovaUIKit.Button,
+            id: 'toolbar-settings',
+            props: {
+              width: 36,
+              height: 36,
+              position: 'static',
+              onPress: settingsPress,
+            },
+          }],
+        }, {
+          type: NovaUIKit.Flex,
+          id: 'settings-panel',
+          props: {
+            position: 'fixed',
+            inset: { top: 58, right: 16 },
+            padding: { top: 12, right: 12, bottom: 12, left: 12 },
+            width: 224,
+            height: 284,
+            zIndex: 3100,
+            col: true,
+            gap: 8,
+          },
+          children: [{
+            type: NovaUIKit.TextBlock,
+            id: 'panel-label',
+            props: {
+              width: 200,
+              height: 20,
+              text: 'Toolbar',
+            },
+          }, {
+            type: NovaUIKit.Button,
+            id: 'panel-fps',
+            props: {
+              position: 'static',
+              width: 200,
+              height: 30,
+              onPress: panelPress,
+            },
+          }],
+        }],
+      },
+    })
+    app.raph.run()
+    app.raph.run()
+
+    expect(app.events.hitTest(606, 34)?.componentId).toBe('toolbar-settings')
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 606, clientY: 34, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 606, clientY: 34, button: 0 }))
+    expect(settingsPress).toHaveBeenCalledTimes(1)
+
+    expect(app.events.hitTest(500, 113)?.componentId).toBe('panel-fps')
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 500, clientY: 113, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 500, clientY: 113, button: 0 }))
+    expect(panelPress).toHaveBeenCalledTimes(1)
+
+    expect(['toolbar', 'settings-panel', 'panel-fps']).not.toContain(app.events.hitTest(64, 113)?.componentId)
     app.destroy()
   })
 
