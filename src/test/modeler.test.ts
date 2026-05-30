@@ -309,6 +309,67 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
+  it('keeps controls slot spatial hit-test in sync after canvas resize', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    const settingsPress = vi.fn()
+    const root = app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'controls-resize-root',
+      props: {
+        model: createModelerModel(),
+        width: 640,
+        height: 420,
+      },
+      slots: {
+        controls: () => [{
+          type: NovaUIKit.Flex,
+          id: 'resize-toolbar',
+          props: {
+            position: 'fixed',
+            inset: { top: 16, right: 16 },
+            height: 36,
+            zIndex: 3000,
+          },
+          children: [{
+            type: NovaUIKit.Button,
+            id: 'resize-toolbar-settings',
+            props: {
+              width: 36,
+              height: 36,
+              position: 'static',
+              onPress: settingsPress,
+            },
+          }],
+        }],
+      },
+    }) as Root
+    app.raph.run()
+    app.raph.run()
+    app.setHitTestMode('spatial')
+
+    expect(app.events.hitTest(606, 34)?.componentId).toBe('resize-toolbar-settings')
+
+    app.options({ width: 1898, height: 982 })
+    root.setProps({ width: 1898, height: 982 })
+    app.raph.run()
+    app.raph.run()
+
+    expect(app.events.hitTest(1864, 34)?.componentId).toBe('resize-toolbar-settings')
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 1864, clientY: 34, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 1864, clientY: 34, button: 0 }))
+    expect(settingsPress).toHaveBeenCalledTimes(1)
+    app.destroy()
+  })
+
   it('does not resync layer slots on render-only dirties', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
