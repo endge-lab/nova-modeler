@@ -9,6 +9,7 @@ import { MarqueeSelection } from '@/plugins/marquee-selection/ui/MarqueeSelectio
 import { BasicRectView } from '@/ui/elements/basic/BasicRectView'
 import { PortView } from '@/ui/handles/PortView'
 import { ResizeHandleView } from '@/ui/handles/ResizeHandleView'
+import { RotateHandleView } from '@/ui/handles/RotateHandleView'
 
 export function registerModeler(registry: NovaSchemaRegistry): void {
   registerNovaUIKit(registry)
@@ -18,6 +19,7 @@ export function registerModeler(registry: NovaSchemaRegistry): void {
   registry.registerDecorated(BasicRectView as never, { override: true })
   registry.registerDecorated(PortView as never, { override: true })
   registry.registerDecorated(ResizeHandleView as never, { override: true })
+  registry.registerDecorated(RotateHandleView as never, { override: true })
   registry.registerDecorated(MiniMap as never, { override: true })
   registry.registerDecorated(MarqueeSelection as never, { override: true })
   registry.registerDecorated(ZoomControls as never, { override: true })

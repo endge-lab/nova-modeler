@@ -54,6 +54,12 @@ describe('nova modeler minimal kernel', () => {
       bounds: { width: 10, height: 8 },
     })
     expect(resized.elements[0]).toMatchObject({ width: 24, height: 24 })
+    const rotated = applyModelerCommand(resized, {
+      type: 'element.rotate',
+      id: 'rect-1',
+      rotation: Math.PI / 4,
+    })
+    expect(rotated.elements[0]?.rotation).toBe(Math.PI / 4)
   })
 
   it('computes layout, hit-test and viewport clamp', () => {
@@ -79,6 +85,7 @@ describe('nova modeler minimal kernel', () => {
     controller.mount(createControllerHost(640, 420))
 
     expect(controller.hitTest({ x: 140, y: 130 })).toEqual({ type: 'element', id: 'rect-1' })
+    expect(controller.hitTest({ x: 180, y: 72 })).toEqual({ type: 'rotate-handle', elementId: 'rect-1' })
     expect(controller.hitTest({ x: 100, y: 100 })).toEqual({ type: 'resize-handle', elementId: 'rect-1', handle: 'nw' })
     expect(controller.hitTest({ x: 180, y: 95 })).toEqual({ type: 'port', elementId: 'rect-1', portId: 'top' })
     expect(controller.hitTest({ x: 265, y: 148 })).toEqual({ type: 'port', elementId: 'rect-1', portId: 'right' })
@@ -206,8 +213,54 @@ describe('nova modeler minimal kernel', () => {
     app.raph.run()
     const interaction = app.surfaces.find(item => item.name === 'elements-root:interaction')
     expect(interaction?.children.some(child => (child as { componentId?: string }).componentId === 'rect-1:view')).toBe(true)
+    expect(interaction?.children.some(child => (child as { componentId?: string }).componentId === 'rect-1:rotate')).toBe(true)
     expect(interaction?.children.some(child => (child as { componentId?: string }).componentId === 'rect-1:resize:nw')).toBe(true)
     expect(interaction?.children.some(child => (child as { componentId?: string }).componentId === 'rect-1:port:top')).toBe(true)
+    app.destroy()
+  })
+
+  it('updates modeler cursors for object gestures and clears selection on empty click', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    const root = app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'cursor-root',
+      props: {
+        model: createModelerModel({
+          elements: [createBasicRectElement({ id: 'rect-1', x: 100, y: 100, width: 160, height: 96 })],
+          selection: ['rect-1'],
+        }),
+        width: 640,
+        height: 420,
+      },
+    }) as Root
+    app.raph.run()
+
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 140, clientY: 130, button: 0 }))
+    expect(app.canvas.element.style.cursor).toBe('grabbing')
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 140, clientY: 130, button: 0 }))
+    expect(app.canvas.element.style.cursor).toBe('move')
+
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 100, clientY: 100, button: 0 }))
+    expect(app.canvas.element.style.cursor).toBe('nwse-resize')
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 100, clientY: 100, button: 0 }))
+
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 180, clientY: 72, button: 0 }))
+    expect(app.canvas.element.style.cursor).toBe('grabbing')
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 180, clientY: 72, button: 0 }))
+
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 24, clientY: 24, button: 0 }))
+    expect(root.getApi().getModel().selection).toEqual([])
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 24, clientY: 24, button: 0 }))
+
     app.destroy()
   })
 

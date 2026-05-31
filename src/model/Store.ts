@@ -183,6 +183,10 @@ export class Store implements ModelerStore {
       this.moveElement(command.id, command.dx, command.dy)
       return this.toModel()
     }
+    if (command.type === 'element.rotate') {
+      this.rotateElement(command.id, command.rotation)
+      return this.toModel()
+    }
     this.setSelection(command.ids)
     return this.toModel()
   }
@@ -253,6 +257,16 @@ export class Store implements ModelerStore {
     Nova.batchStore(this, () => {
       this.elements.set(this.elements.items.map(element => element.id === id
         ? this.normalizeElement({ ...element, x: element.x + dx, y: element.y + dy })
+        : element))
+      this.version += 1
+      this.elementsVersion += 1
+    })
+  }
+
+  rotateElement(id: string, rotation: number): void {
+    Nova.batchStore(this, () => {
+      this.elements.set(this.elements.items.map(element => element.id === id
+        ? this.normalizeElement({ ...element, rotation })
         : element))
       this.version += 1
       this.elementsVersion += 1

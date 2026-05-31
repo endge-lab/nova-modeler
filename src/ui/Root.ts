@@ -12,6 +12,7 @@ import {
   createNovaDecoratedComponentDescriptor,
   type NovaApp,
   type NovaComponentDescriptor,
+  type NovaCursorDeclaration,
   type NovaElementSlots,
   type NovaNode,
   type NovaSurface,
@@ -36,6 +37,7 @@ import type {
   ModelerController,
   ModelerCommand,
   ModelerGesture,
+  ModelerHitTarget,
   ModelerLayerName,
   ModelerLayerSlotProps,
   ModelerLayout,
@@ -67,6 +69,21 @@ type RootDescriptor = NovaComponentDescriptor<
   Record<string, never>,
   RootProps
 >
+
+const MODELER_CURSOR_RULES: NovaCursorDeclaration = [
+  { when: { modelerCursor: 'ns-resize' }, use: 'ns-resize' },
+  { when: { modelerCursor: 'ew-resize' }, use: 'ew-resize' },
+  { when: { modelerCursor: 'nesw-resize' }, use: 'nesw-resize' },
+  { when: { modelerCursor: 'nwse-resize' }, use: 'nwse-resize' },
+  { when: { state: ['pressed', 'dragging'], modelerCursor: 'rotate' }, use: 'grabbing' },
+  { when: { modelerCursor: 'rotate' }, use: 'grab' },
+  { when: { state: ['pressed', 'dragging'], modelerCursor: 'element' }, use: 'grabbing' },
+  { when: { modelerCursor: 'element' }, use: 'move' },
+  { when: { modelerCursor: 'port' }, use: 'pointer' },
+  { when: { state: ['pressed', 'dragging'], modelerCursor: 'pan' }, use: 'grabbing' },
+  { when: { modelerCursor: 'pan' }, use: 'grab' },
+  { use: 'default' },
+]
 
 @NovaComponent({
   type: Modeler.Root,
@@ -134,6 +151,8 @@ export class Root<E extends EventList = Record<string, any>>
   private layerSlotsDirty = true
   private dragState: { type: 'pan'; x: number; y: number } | null = null
   private activePluginGesture: ModelerGesture | null = null
+  private activeModelerCursor: string | null = null
+  private currentModelerCursor = 'default'
   private spacePressed = false
 
   constructor(
@@ -149,7 +168,13 @@ export class Root<E extends EventList = Record<string, any>>
     this.provide(MODELER_STORE, this.controllerInstance.store)
     this.provide(MODELER_CONTROLLER, this.controllerInstance)
     this.provide(MODELER_CONTEXT, this.controllerInstance.getPluginContext())
-    this.options({ width: props.width, height: props.height, interactive: true })
+    this.options({
+      width: props.width,
+      height: props.height,
+      interactive: true,
+      cursor: MODELER_CURSOR_RULES,
+      cursorContext: { modelerCursor: this.currentModelerCursor },
+    })
     this.nova.theme.observe(this, { phase: NovaPhase.Render })
     this.setupLayerSurfaces()
     this.controllerInstance.mount(this.controllerHost)
@@ -188,7 +213,13 @@ export class Root<E extends EventList = Record<string, any>>
   override setProps(patch: Partial<RootResolvedProps> | RootProps): this {
     const next = Root.normalizeProps({ ...(this.props as RootProps), ...(patch as RootProps) })
     super.setProps(next)
-    this.options({ width: this.props.width, height: this.props.height, interactive: true })
+    this.options({
+      width: this.props.width,
+      height: this.props.height,
+      interactive: true,
+      cursor: MODELER_CURSOR_RULES,
+      cursorContext: { modelerCursor: this.currentModelerCursor },
+    })
     this.syncController(patch)
     this.syncLayerSurfaces()
     this.layerSlotsDirty = true
@@ -517,20 +548,33 @@ export class Root<E extends EventList = Record<string, any>>
     this.on('mousedown', event => {
       const point = eventPoint(event)
       const target = this.hitTest(point)
+      this.setModelerCursorFromTarget(target)
       const context = this.controllerInstance.getPluginContext()
       for (const gesture of this.controllerInstance.getGestures()) {
         if (!gesture.hitTest?.(context, event, target)) continue
         this.activePluginGesture = gesture
+        this.activeModelerCursor = this.resolveModelerCursor(target)
+        this.setModelerCursor(this.activeModelerCursor)
         const result = gesture.onPointerDown?.(context, event)
         if (result === false) return false
       }
+      if (event.button === 0 && (target.type === 'canvas' || target.type === 'empty')) {
+        this.clearSelection()
+      }
       if (this.shouldStartPan(event)) {
         this.dragState = { type: 'pan', x: point.x, y: point.y }
+        this.activeModelerCursor = 'pan'
+        this.setModelerCursor('pan')
         return false
       }
       return false
     })
     this.on('mousemove', event => {
+      if (this.activeModelerCursor) {
+        this.setModelerCursor(this.activeModelerCursor)
+      } else {
+        this.setModelerCursorFromTarget(this.hitTest(eventPoint(event)))
+      }
       if (this.activePluginGesture) {
         const result = this.activePluginGesture.onPointerMove?.(this.controllerInstance.getPluginContext(), event)
         if (result === false) return false
@@ -538,6 +582,8 @@ export class Root<E extends EventList = Record<string, any>>
       if (!this.dragState) return false
       if (event.buttons === 0) {
         this.dragState = null
+        this.activeModelerCursor = null
+        this.setModelerCursorFromTarget(this.hitTest(eventPoint(event)))
         return false
       }
       const point = eventPoint(event)
@@ -552,10 +598,14 @@ export class Root<E extends EventList = Record<string, any>>
       if (this.activePluginGesture) {
         const gesture = this.activePluginGesture
         this.activePluginGesture = null
+        this.activeModelerCursor = null
         const result = gesture.onPointerUp?.(this.controllerInstance.getPluginContext(), event)
+        this.setModelerCursorFromTarget(this.hitTest(eventPoint(event)))
         if (result === false) return false
       }
       this.dragState = null
+      this.activeModelerCursor = null
+      this.setModelerCursorFromTarget(this.hitTest(eventPoint(event)))
       return false
     })
     this.on('wheel', event => {
@@ -577,17 +627,63 @@ export class Root<E extends EventList = Record<string, any>>
     this.on('keydown', event => {
       if (event.key === ' ') {
         this.spacePressed = true
+        if (!this.activeModelerCursor) this.setModelerCursor('pan')
         return false
       }
       if (event.key === 'Escape' && this.activePluginGesture) {
         this.activePluginGesture.onCancel?.(this.controllerInstance.getPluginContext())
         this.activePluginGesture = null
+        this.activeModelerCursor = null
+        this.setModelerCursor('default')
         return false
       }
     })
     this.on('keyup', event => {
-      if (event.key === ' ') this.spacePressed = false
+      if (event.key === ' ') {
+        this.spacePressed = false
+        if (!this.activeModelerCursor) this.setModelerCursor('default')
+      }
     })
+  }
+
+  private clearSelection(): void {
+    if (this.controllerInstance.getModel().selection.length === 0) return
+    this.controllerInstance.applyCommand({ type: 'select', ids: [] })
+  }
+
+  private setModelerCursorFromTarget(target: ModelerHitTarget): void {
+    this.setModelerCursor(this.resolveModelerCursor(target))
+  }
+
+  private setModelerCursor(cursor: string): void {
+    if (this.currentModelerCursor === cursor) return
+    this.currentModelerCursor = cursor
+    this.options({ cursorContext: { modelerCursor: cursor } })
+  }
+
+  private resolveModelerCursor(target: ModelerHitTarget): string {
+    if (this.spacePressed || this.dragState) return 'pan'
+    if (target.type === 'rotate-handle') return 'rotate'
+    if (target.type === 'resize-handle') return this.resolveResizeCursor(target.handle)
+    if (target.type === 'port') return 'port'
+    if (target.type === 'element') return this.resolveElementCursor(target.id)
+    return 'default'
+  }
+
+  private resolveElementCursor(elementId: string): string {
+    const model = this.controllerInstance.getModel()
+    const element = model.elements.find(item => item.id === elementId)
+    const definition = element ? this.controllerInstance.getElementRegistry().get(element.type) : undefined
+    if (definition?.capabilities?.cursor?.hover) return 'element'
+    if (definition?.capabilities?.draggable === false) return 'default'
+    return 'element'
+  }
+
+  private resolveResizeCursor(handle: string): string {
+    if (handle === 'n' || handle === 's') return 'ns-resize'
+    if (handle === 'e' || handle === 'w') return 'ew-resize'
+    if (handle === 'ne' || handle === 'sw') return 'nesw-resize'
+    return 'nwse-resize'
   }
 
   private shouldStartPan(event: MouseEvent): boolean {

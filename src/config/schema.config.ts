@@ -8,6 +8,7 @@ export const Modeler = {
   BasicRectView: 'Modeler.BasicRectView',
   PortView: 'Modeler.PortView',
   ResizeHandleView: 'Modeler.ResizeHandleView',
+  RotateHandleView: 'Modeler.RotateHandleView',
   MiniMap: 'Modeler.MiniMap',
   MarqueeSelection: 'Modeler.MarqueeSelection',
   ZoomControls: 'Modeler.ZoomControls',

@@ -17,7 +17,6 @@ import type {
   ModelerPluginLayer,
   ModelerPluginRuntime,
   ModelerPoint,
-  ModelerRect,
   ModelerStore,
   ModelerStoreKey,
   ModelerViewport,
@@ -31,9 +30,13 @@ import { createPluginRuntime } from '@/model/plugin-runtime/PluginRuntime'
 import {
   ElementsPlugin,
   MODELER_PORT_RADIUS,
+  MODELER_ROTATE_HANDLE_SIZE,
   MODELER_RESIZE_HANDLE_SIZE,
   MODELER_ELEMENTS_PLUGIN_ID,
+  createElementPorts,
+  createRotateHandle,
   createResizeHandles,
+  unrotateElementPoint,
 } from '@/plugins/elements/elements-plugin'
 
 export class Controller implements ModelerController {
@@ -355,6 +358,20 @@ export class Controller implements ModelerController {
       if (!element) continue
       const definition = this.elementRegistry.get(element.type)
       if (!definition || !selected.has(element.id)) continue
+      const handle = createRotateHandle(element, definition)
+      if (!handle) continue
+      const screen = this.worldToScreen(handle)
+      const size = MODELER_ROTATE_HANDLE_SIZE
+      if (point.x >= screen.x - size / 2 && point.x <= screen.x + size / 2
+        && point.y >= screen.y - size / 2 && point.y <= screen.y + size / 2) {
+        return { type: 'rotate-handle', elementId: element.id }
+      }
+    }
+    for (let index = model.elements.length - 1; index >= 0; index -= 1) {
+      const element = model.elements[index]
+      if (!element) continue
+      const definition = this.elementRegistry.get(element.type)
+      if (!definition || !selected.has(element.id)) continue
       for (const handle of createResizeHandles(element, definition)) {
         const screen = this.worldToScreen(handle)
         const size = MODELER_RESIZE_HANDLE_SIZE
@@ -369,7 +386,7 @@ export class Controller implements ModelerController {
       if (!element) continue
       const definition = this.elementRegistry.get(element.type)
       if (!definition || !selected.has(element.id)) continue
-      for (const port of definition.getPorts?.(this.pluginContext, element) ?? []) {
+      for (const port of createElementPorts(element, definition.getPorts?.(this.pluginContext, element) ?? [])) {
         const screen = this.worldToScreen(port)
         const radius = port.radius ?? MODELER_PORT_RADIUS
         const dx = point.x - screen.x
@@ -383,23 +400,14 @@ export class Controller implements ModelerController {
     for (let index = ordered.length - 1; index >= 0; index -= 1) {
       const element = ordered[index]
       if (!element) continue
-      const rect = this.elementScreenRect(element)
-      if (point.x >= rect.x && point.x <= rect.x + rect.width
-        && point.y >= rect.y && point.y <= rect.y + rect.height) {
+      const world = this.screenToWorld(point)
+      const local = unrotateElementPoint(element, world)
+      if (local.x >= element.x && local.x <= element.x + element.width
+        && local.y >= element.y && local.y <= element.y + element.height) {
         return { type: 'element', id: element.id }
       }
     }
     return { type: 'empty' }
-  }
-
-  private elementScreenRect(element: ModelerElement): ModelerRect {
-    const point = this.worldToScreen(element)
-    return {
-      x: point.x,
-      y: point.y,
-      width: element.width * this.layout.viewport.scale,
-      height: element.height * this.layout.viewport.scale,
-    }
   }
 }
 
