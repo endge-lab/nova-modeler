@@ -6,3 +6,4 @@ export type ModelerHitTarget =
   | { type: 'port'; elementId: string; portId: string }
   | { type: 'resize-handle'; elementId: string; handle: ModelerResizeHandle }
   | { type: 'rotate-handle'; elementId: string }
+  | { type: 'edge-waypoint-handle'; elementId: string; waypointIndex: number }

@@ -21,6 +21,7 @@ import type {
   ModelerStoreKey,
   ModelerViewport,
 } from '@/domain/types/index'
+import { isModelerEdgeElement } from '@/domain/types/index'
 import { Nova } from '@endge/nova'
 import { normalizeModelerOptions } from '@/config/options.config'
 import { clamp } from '@/tools/number'
@@ -488,10 +489,39 @@ export class Controller implements ModelerController {
         }
       }
     }
+    for (let index = model.elements.length - 1; index >= 0; index -= 1) {
+      const element = model.elements[index]
+      if (!element || !isModelerEdgeElement(element) || !selected.has(element.id)) continue
+      for (const handle of MODEL_ELEMENTS_RUNTIME.edges.createWaypointHandles(element)) {
+        const screen = this.worldToScreen(handle)
+        const size = handle.size
+        if (
+          point.x >= screen.x - size / 2 &&
+          point.x <= screen.x + size / 2 &&
+          point.y >= screen.y - size / 2 &&
+          point.y <= screen.y + size / 2
+        ) {
+          return { type: 'edge-waypoint-handle', elementId: element.id, waypointIndex: handle.waypointIndex }
+        }
+      }
+    }
     const ordered = [...model.elements].sort(compareElementsByZIndex)
     for (let index = ordered.length - 1; index >= 0; index -= 1) {
       const element = ordered[index]
-      if (!element) continue
+      if (!element || !isModelerEdgeElement(element)) continue
+      const definition = this.elementRegistry.get(element.type)
+      if (!definition) continue
+      const world = this.screenToWorld(point)
+      const contains = definition.hitTest
+        ? definition.hitTest(this.pluginContext, element, world)
+        : false
+      if (contains) {
+        return { type: 'element', id: element.id }
+      }
+    }
+    for (let index = ordered.length - 1; index >= 0; index -= 1) {
+      const element = ordered[index]
+      if (!element || isModelerEdgeElement(element)) continue
       const definition = this.elementRegistry.get(element.type)
       if (!definition) continue
       const world = this.screenToWorld(point)

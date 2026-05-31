@@ -1,21 +1,25 @@
 import type { NovaTemplateChildSchema } from '@endge/nova'
 import { Modeler } from '@/config/schema.config'
 import type {
+  ModelerEdgeElement,
   ModelerElement,
   ModelerPluginContext,
 } from '@/domain/types/index'
+import { isModelerEdgeElement } from '@/domain/types/index'
 import { MODELER_PORT_RADIUS } from '@/plugins/elements/elements.constants'
 import type { ElementsRuntime } from '@/plugins/elements/model/ElementsRuntime'
 
 export class ElementsLayer {
   private disposeLayer: (() => void) | undefined
   private readonly disposeShadow: () => void
+  private readonly disposePreview: () => void
 
   constructor(
     private readonly context: ModelerPluginContext,
     private readonly runtime: ElementsRuntime,
   ) {
     this.disposeShadow = this.runtime.dragShadow.subscribe(() => this.sync())
+    this.disposePreview = this.runtime.edgePreview.subscribe(() => this.sync())
   }
 
   sync(): void {
@@ -30,11 +34,47 @@ export class ElementsLayer {
         selected: false,
       }, this.createShadowElement(element))))
     }
-    for (const element of model.elements) {
+    const edges = model.elements.filter(element => this.runtime.edges.isEdge(element))
+    const nodes = model.elements.filter(element => !this.runtime.edges.isEdge(element))
+    for (const element of edges) {
+      this.appendElementSchema(schemas, element, selected)
+    }
+    for (const element of nodes) {
+      this.appendElementSchema(schemas, element, selected)
+    }
+    const preview = this.runtime.edgePreview.get()
+    if (preview) {
+      const definition = this.context.getElementRegistry().get(preview.type)
+      if (definition) {
+        schemas.push(definition.render({ ...this.context, selected: false }, preview))
+        const schema = schemas[schemas.length - 1] as NovaTemplateChildSchema & { props?: Record<string, unknown> }
+        schema.id = `${preview.id}:preview`
+        schema.props = { ...(schema.props ?? {}), preview: true }
+      }
+    }
+    this.disposeLayer = this.context.layers.reconcile('interaction', 'modeler-elements', schemas)
+    this.context.invalidate('render')
+  }
+
+  private appendElementSchema(
+    schemas: Array<NovaTemplateChildSchema>,
+    element: ModelerElement,
+    selected: Set<string>,
+  ): void {
       const definition = this.context.getElementRegistry().get(element.type)
-      if (!definition) continue
+      if (!definition) return
       schemas.push(definition.render({ ...this.context, selected: selected.has(element.id) }, element))
-      if (!selected.has(element.id)) continue
+      if (!selected.has(element.id)) return
+      if (isModelerEdgeElement(element)) {
+        for (const handle of this.runtime.edges.createWaypointHandles(element as ModelerEdgeElement)) {
+          schemas.push({
+            type: Modeler.EdgeWaypointHandleView,
+            id: `${element.id}:waypoint:${handle.waypointIndex}`,
+            props: { handle, viewport: this.context.getViewport() },
+          })
+        }
+        return
+      }
       const rotateHandle = this.runtime.handles.createRotateHandle(element, definition)
       if (rotateHandle) {
         schemas.push({
@@ -57,13 +97,11 @@ export class ElementsLayer {
           props: { port, viewport: this.context.getViewport(), radius: MODELER_PORT_RADIUS },
         })
       }
-    }
-    this.disposeLayer = this.context.layers.reconcile('interaction', 'modeler-elements', schemas)
-    this.context.invalidate('render')
   }
 
   dispose(): void {
     this.disposeShadow()
+    this.disposePreview()
     this.disposeLayer?.()
     this.disposeLayer = undefined
   }

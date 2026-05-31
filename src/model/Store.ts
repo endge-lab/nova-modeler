@@ -4,15 +4,18 @@ import {
   Store as NovaStore,
 } from '@endge/nova'
 import type {
+  ModelerEdgeElement,
   ModelerElement,
   ModelerCanvas,
   ModelerCommand,
+  ModelerElementPatch,
   ModelerRect,
   ModelerStore,
   ModelerModel,
   ModelerModelInput,
   ModelerViewport,
 } from '@/domain/types'
+import { isModelerEdgeElement } from '@/domain/types'
 import {
   DEFAULT_MODELER_CANVAS,
   DEFAULT_MODELER_VIEWPORT,
@@ -233,6 +236,9 @@ export class Store implements ModelerStore {
     const deleteIds = new Set(ids)
     if (deleteIds.size === 0) return
     Nova.batchStore(this, () => {
+      this.elements.items
+        .filter(element => this.shouldDeleteWithConnectedNode(element, deleteIds))
+        .forEach(element => deleteIds.add(element.id))
       this.elements.set(this.elements.items.filter(element => !deleteIds.has(element.id)))
       this.selection.set(this.selection.ids.filter(selectionId => !deleteIds.has(selectionId)))
       this.version += 1
@@ -241,7 +247,13 @@ export class Store implements ModelerStore {
     })
   }
 
-  patchElement(id: string, patch: Partial<ModelerElement>): void {
+  private shouldDeleteWithConnectedNode(element: ModelerElement, deleteIds: Set<string>): boolean {
+    if (!isModelerEdgeElement(element)) return false
+    return Boolean(element.source.elementId && deleteIds.has(element.source.elementId))
+      || Boolean(element.target.elementId && deleteIds.has(element.target.elementId))
+  }
+
+  patchElement(id: string, patch: ModelerElementPatch): void {
     Nova.batchStore(this, () => {
       this.elements.set(this.elements.items.map(element => {
         if (element.id !== id) return element
@@ -360,8 +372,26 @@ export const normalizeModelerModel = Store.normalize
 export const applyModelerCommand = Store.applyCommand
 
 function cloneElement(element: ModelerElement): ModelerElement {
+  if (isModelerEdgeElement(element)) return cloneEdgeElement(element)
   return {
     ...element,
+    data: element.data ? { ...element.data } : {},
+    style: element.style ? { ...element.style } : {},
+  }
+}
+
+function cloneEdgeElement(element: ModelerEdgeElement): ModelerEdgeElement {
+  return {
+    ...element,
+    source: {
+      ...element.source,
+      point: element.source.point ? { ...element.source.point } : undefined,
+    },
+    target: {
+      ...element.target,
+      point: element.target.point ? { ...element.target.point } : undefined,
+    },
+    waypoints: element.waypoints.map(point => ({ ...point })),
     data: element.data ? { ...element.data } : {},
     style: element.style ? { ...element.style } : {},
   }

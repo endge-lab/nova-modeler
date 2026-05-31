@@ -33,7 +33,7 @@ export interface ModelerElementCreateToolDefinition<TElement extends ModelerElem
 
 export interface ModelerElementDefinition<TElement extends ModelerElement = ModelerElement> {
   type: string
-  kind: 'node'
+  kind: 'node' | 'edge'
   title?: string
   defaults?: Partial<TElement>
   capabilities?: ModelerElementCapabilities

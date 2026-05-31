@@ -71,6 +71,13 @@ export class ElementsGeometry {
   }
 
   /**
+   * Возвращает расстояние между двумя world-точками.
+   */
+  distance(a: ModelerPoint, b: ModelerPoint): number {
+    return Math.hypot(a.x - b.x, a.y - b.y)
+  }
+
+  /**
    * Округляет угол до шага в градусах.
    */
   snapRadians(rotation: number, snapDegrees?: number): number {

@@ -13,8 +13,10 @@ import { MiniMap } from '@/plugins/mini-map/ui/MiniMap'
 import { MarqueeSelection } from '@/plugins/marquee-selection/ui/MarqueeSelection'
 import { BasicRectView } from '@/ui/elements/basic/BasicRectView'
 import { BpmnEventView } from '@/ui/elements/bpmn/event/BpmnEventView'
+import { BpmnFlowView } from '@/ui/elements/bpmn/flow/BpmnFlowView'
 import { BpmnGatewayView } from '@/ui/elements/bpmn/gateway/BpmnGatewayView'
 import { BpmnTaskView } from '@/ui/elements/bpmn/task/BpmnTaskView'
+import { EdgeWaypointHandleView } from '@/ui/handles/EdgeWaypointHandleView'
 import { PortView } from '@/ui/handles/PortView'
 import { ResizeHandleView } from '@/ui/handles/ResizeHandleView'
 import { RotateHandleView } from '@/ui/handles/RotateHandleView'
@@ -29,9 +31,11 @@ export function registerModeler(registry: NovaSchemaRegistry): void {
   registry.registerDecorated(Background as never, { override: true })
   registry.registerDecorated(Grid as never, { override: true })
   registry.registerDecorated(BasicRectView as never, { override: true })
+  registry.registerDecorated(BpmnFlowView as never, { override: true })
   registry.registerDecorated(BpmnEventView as never, { override: true })
   registry.registerDecorated(BpmnGatewayView as never, { override: true })
   registry.registerDecorated(BpmnTaskView as never, { override: true })
+  registry.registerDecorated(EdgeWaypointHandleView as never, { override: true })
   registry.registerDecorated(PortView as never, { override: true })
   registry.registerDecorated(ResizeHandleView as never, { override: true })
   registry.registerDecorated(RotateHandleView as never, { override: true })
