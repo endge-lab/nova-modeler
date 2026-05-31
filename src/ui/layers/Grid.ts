@@ -98,7 +98,7 @@ export class Grid<E extends EventList = Record<string, any>>
   }
 
   static createRenderPlan(input: GridRenderPlanInput): GridRenderPlan {
-    const minScreenSpacing = input.minScreenSpacing ?? MODELER_GRID_RENDER_CONFIG.minScreenSpacing
+    const minScreenSpacing = input.minScreenSpacing ?? Grid.resolveMinScreenSpacing(input.scale)
     const maxDots = input.maxDots ?? MODELER_GRID_RENDER_CONFIG.maxDots
     let spacing = Math.max(1, input.gridSize * input.scale)
     while (spacing < minScreenSpacing) spacing *= 2
@@ -151,6 +151,11 @@ export class Grid<E extends EventList = Record<string, any>>
 
   private static countAxis(size: number, spacing: number): number {
     return Math.max(1, Math.ceil(size / spacing) + 1)
+  }
+
+  private static resolveMinScreenSpacing(scale: number): number {
+    const lod = MODELER_GRID_RENDER_CONFIG.minScreenSpacingLod.find(level => scale <= level.maxScale)
+    return lod?.minScreenSpacing ?? MODELER_GRID_RENDER_CONFIG.minScreenSpacing
   }
 
   private static positiveModulo(value: number, divisor: number): number {

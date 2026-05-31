@@ -35,6 +35,9 @@ export const DEFAULT_MODELER_OPTIONS: ModelerOptions = {
       activeToolId: null,
     },
   },
+  branding: {
+    visible: true,
+  },
   palette: {
     placement: 'left',
     draggable: true,
@@ -79,11 +82,16 @@ export function createDefaultModelerOptions(): ModelerOptions {
       placement: DEFAULT_MODELER_OPTIONS.palette?.placement,
       draggable: DEFAULT_MODELER_OPTIONS.palette?.draggable,
       offset: DEFAULT_MODELER_OPTIONS.palette?.offset,
+      offsetX: DEFAULT_MODELER_OPTIONS.palette?.offsetX,
+      offsetY: DEFAULT_MODELER_OPTIONS.palette?.offsetY,
       itemSize: DEFAULT_MODELER_OPTIONS.palette?.itemSize,
       gap: DEFAULT_MODELER_OPTIONS.palette?.gap,
       padding: DEFAULT_MODELER_OPTIONS.palette?.padding,
       gripSize: DEFAULT_MODELER_OPTIONS.palette?.gripSize,
       groups: { ...(DEFAULT_MODELER_OPTIONS.palette?.groups ?? {}) },
+    },
+    branding: {
+      ...DEFAULT_MODELER_OPTIONS.branding,
     },
     shortcuts: {
       ...DEFAULT_MODELER_OPTIONS.shortcuts,
@@ -151,6 +159,10 @@ function mergeModelerOptions(options?: ModelerOptions): ModelerOptions {
         ...(defaults.palette?.groups ?? {}),
         ...(options?.palette?.groups ?? {}),
       },
+    },
+    branding: {
+      ...(defaults.branding ?? {}),
+      ...(options?.branding ?? {}),
     },
     shortcuts: {
       ...(defaults.shortcuts ?? {}),

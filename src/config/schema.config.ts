@@ -19,6 +19,7 @@ export const Modeler = {
   ContextPad: 'Modeler.ContextPad',
   ElementColorMenu: 'Modeler.ElementColorMenu',
   ElementVariantMenu: 'Modeler.ElementVariantMenu',
+  BrandLogo: 'Modeler.BrandLogo',
   Palette: 'Modeler.Palette',
   ZoomControls: 'Modeler.ZoomControls',
   SettingsDialog: 'Modeler.SettingsDialog',

@@ -22,6 +22,8 @@ import {
   createModelerModel,
   createPluginRuntime,
   MODELER_LAYER_NAMES,
+  MODELER_ASSETS,
+  MODELER_SURFACE_CONFIG,
   PluginBase,
   normalizeModelerModel,
   normalizeModelerOptions,
@@ -118,21 +120,40 @@ describe('nova modeler minimal kernel', () => {
       placement: 'left',
       draggable: true,
       offset: 16,
+      offsetX: undefined,
+      offsetY: undefined,
       itemSize: 40,
       gap: 8,
       padding: 8,
       gripSize: 32,
     })
+    expect(normalizeModelerOptions().current.branding).toMatchObject({
+      visible: true,
+    })
     expect(normalizeModelerOptions({
+      branding: {
+        visible: false,
+      },
       palette: {
         placement: 'bottom',
         draggable: false,
         offset: 24,
+        offsetX: 32,
+        offsetY: 48,
       },
     }).current.palette).toMatchObject({
       placement: 'bottom',
       draggable: false,
       offset: 24,
+      offsetX: 32,
+      offsetY: 48,
+    })
+    expect(normalizeModelerOptions({
+      branding: {
+        visible: false,
+      },
+    }).current.branding).toMatchObject({
+      visible: false,
     })
   })
 
@@ -157,11 +178,22 @@ describe('nova modeler minimal kernel', () => {
 
     expect(context.actions.get('selection.delete')).toBeTruthy()
     expect(context.actions.get('element.create.basic.rect')).toBeTruthy()
+    expect(context.actions.get('element.connect')).toBeTruthy()
     expect(context.tools.get('marqueeSelection')).toMatchObject({ kind: 'mode' })
     expect(context.tools.get('create:basic.rect')).toMatchObject({ kind: 'create-element' })
+    expect(context.tools.get('connect')).toMatchObject({ kind: 'mode' })
+    expect(context.palette.get('element.connect.tool')).toMatchObject({
+      id: 'element.connect.tool',
+      kind: 'tool',
+      group: 'tools',
+      order: 20,
+      icon: 'connect-arrow',
+      toolId: 'connect',
+    })
     expect(context.palette.getItems().map(item => item.id)).toEqual(['basic.rect.create', 'marqueeSelection.tool'])
     expect(context.shortcuts.resolve(new KeyboardEvent('keydown', { key: 'r' }))).toBeUndefined()
     expect(context.shortcuts.resolve(new KeyboardEvent('keydown', { key: 'b' }))?.definition.toolId).toBe('create:basic.rect')
+    expect(context.shortcuts.resolve(new KeyboardEvent('keydown', { key: 'c' }))?.definition.actionId).toBe('element.connect')
     controller.unmount()
   })
 
@@ -617,11 +649,22 @@ describe('nova modeler minimal kernel', () => {
       viewportX: -13,
       viewportY: 21,
     })
-    expect(tiny.spacing).toBe(12.8)
+    expect(tiny.spacing).toBe(51.2)
     expect(tiny.dotCount).toBeLessThanOrEqual(32_000)
     expect(tiny.radius).toBeLessThan(normal.radius)
     expect(tiny.offsetX).toBeGreaterThanOrEqual(0)
     expect(tiny.offsetY).toBeGreaterThanOrEqual(0)
+
+    const lowZoom = createGridRenderPlan({
+      width: 2048,
+      height: 1152,
+      gridSize: 32,
+      scale: 0.25,
+      viewportX: 0,
+      viewportY: 0,
+    })
+    expect(lowZoom.spacing).toBe(32)
+    expect(lowZoom.dotCount).toBeLessThan(3_000)
 
     const capped = createGridRenderPlan({
       width: 6000,
@@ -712,8 +755,10 @@ describe('nova modeler minimal kernel', () => {
     })
     app.raph.run()
     const interaction = app.surfaces.find(item => item.name === 'elements-root:interaction')
+    const links = app.surfaces.find(item => item.name === 'elements-root:links')
     expect(interaction?.children.some(child => (child as { componentId?: string }).componentId === 'rect-1:view')).toBe(true)
-    expect(interaction?.children.some(child => (child as { componentId?: string }).componentId === 'flow-1:view')).toBe(true)
+    expect(links?.children.some(child => (child as { componentId?: string }).componentId === 'flow-1:view')).toBe(true)
+    expect(interaction?.children.some(child => (child as { componentId?: string }).componentId === 'flow-1:view')).toBe(false)
     expect(interaction?.children.some(child => (child as { componentId?: string }).componentId === 'start-1:view')).toBe(true)
     expect(interaction?.children.some(child => (child as { componentId?: string }).componentId === 'gateway-1:view')).toBe(true)
     expect(interaction?.children.some(child => (child as { componentId?: string }).componentId === 'rect-1:rotate')).toBe(true)
@@ -722,7 +767,10 @@ describe('nova modeler minimal kernel', () => {
     expect(interaction?.children.some(child => (child as { componentId?: string }).componentId === 'start-1:port:top')).toBe(true)
     expect(interaction?.children.some(child => (child as { componentId?: string }).componentId === 'gateway-1:port:top')).toBe(true)
     expect(interaction?.children.some(child => (child as { componentId?: string }).componentId === 'flow-1:waypoint:0')).toBe(true)
-    const schemaItems = interaction?.compileRenderFrame().items.map(item => item.schemaItem).filter(Boolean) ?? []
+    const schemaItems = [
+      ...(links?.compileRenderFrame().items.map(item => item.schemaItem).filter(Boolean) ?? []),
+      ...(interaction?.compileRenderFrame().items.map(item => item.schemaItem).filter(Boolean) ?? []),
+    ]
     expect(schemaItems.some(item => item.type === 'polygon')).toBe(true)
     app.destroy()
   })
@@ -765,8 +813,8 @@ describe('nova modeler minimal kernel', () => {
     expect(root.getApi().getModel().elements.find(element => element.id === 'task-fixed')).toMatchObject({ width: 120, height: 80 })
     expect(root.hitTest({ x: 260, y: 280 })).toEqual({ type: 'element', id: 'task-fixed' })
     expect(root.hitTest({ x: 220, y: 240 })).toEqual({ type: 'element', id: 'task-fixed' })
-    expect(root.resolveNovaTooltipTarget({ x: 260, y: 100 })?.tooltip).toMatchObject({ value: 'User task' })
-    expect(root.resolveNovaTooltipTarget({ x: 620, y: 100 })?.tooltip).toMatchObject({ value: 'Receive task' })
+    expect(root.resolveNovaTooltipTarget({ x: 260, y: 100 })).toBeNull()
+    expect(root.resolveNovaTooltipTarget({ x: 620, y: 100 })).toBeNull()
 
     const schemaItems = interaction?.compileRenderFrame().items.map(item => item.schemaItem).filter(Boolean) ?? []
     const userTaskItems = schemaItems.filter(item => item.type === 'icon' || item.text === 'User approval')
@@ -819,11 +867,35 @@ describe('nova modeler minimal kernel', () => {
     app.raph.run()
     const inputId = 'task-name-edit-root:task-name-editor:input'
     const input = app.components.requireApi<InputApi>(inputId)
+    const interaction = app.surfaces.find(item => item.name === 'task-name-edit-root:interaction')
+    const getInteractionTexts = (): Array<unknown> => interaction
+      ?.compileRenderFrame().items
+      .map(item => item.schemaItem)
+      .filter(item => item?.type === 'text')
+      .map(item => item?.text) ?? []
+    expect(getInteractionTexts()).not.toContain('Review task')
+    expect(input.getProps()).toMatchObject({
+      variant: 'ghost',
+      align: 'center',
+      color: 'var(--modeler-bpmn-task-text-color, #111827)',
+      fontFamily: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      fontSize: 12.8,
+      fontWeight: '500',
+      lineHeight: 16,
+      background: 'rgba(255,255,255,0)',
+      border: { width: 0 },
+      hoverBackground: 'rgba(255,255,255,0)',
+      pressedBackground: 'rgba(255,255,255,0)',
+      activeBackground: 'rgba(255,255,255,0)',
+      focusBorderColor: 'rgba(255,255,255,0)',
+      selectOnFocus: false,
+    })
 
     input.setValue('Approve invoice')
     input.commit()
     app.raph.run()
     expect(root.getApi().getModel().elements[0]?.data?.name).toBe('Approve invoice')
+    expect(getInteractionTexts()).toContain('Approve invoice')
     expect(app.components.get(inputId)).toBeFalsy()
 
     openEditor()
@@ -861,6 +933,11 @@ describe('nova modeler minimal kernel', () => {
         model: createModelerModel(),
         width: 640,
         height: 420,
+        options: {
+          branding: {
+            visible: false,
+          },
+        },
       },
     })
     app.raph.run()
@@ -869,12 +946,17 @@ describe('nova modeler minimal kernel', () => {
     const palette = app.components.require('palette-tooltip-root:palette') as unknown as {
       resolveNovaTooltipTarget(input: { x: number; y: number }): { tooltip?: unknown; rect?: { x: number; y: number; width: number; height: number } } | null
     }
-    const rectTooltip = palette.resolveNovaTooltipTarget({ x: 44, y: 44 })
-    const eventTooltip = palette.resolveNovaTooltipTarget({ x: 44, y: 92 })
-    expect(rectTooltip?.tooltip).toMatchObject({ value: 'Create Rectangle' })
-    expect(rectTooltip?.rect).toMatchObject({ x: 24, y: 24, width: 40, height: 40 })
-    expect(eventTooltip?.tooltip).toMatchObject({ value: 'Create Start event' })
-    expect(eventTooltip?.rect).toMatchObject({ x: 24, y: 72, width: 40, height: 40 })
+    const connectTooltip = palette.resolveNovaTooltipTarget({ x: 44, y: 44 })
+    const rectTooltip = palette.resolveNovaTooltipTarget({ x: 44, y: 101 })
+    const rectTooltipFromEdge = palette.resolveNovaTooltipTarget({ x: 60, y: 117 })
+    const eventTooltip = palette.resolveNovaTooltipTarget({ x: 44, y: 149 })
+    expect(connectTooltip?.tooltip).toMatchObject({ value: 'Connect elements', placement: 'cursor' })
+    expect(connectTooltip?.rect).toMatchObject({ x: 24, y: 24, width: 40, height: 40 })
+    expect(rectTooltip?.tooltip).toMatchObject({ value: 'Create Rectangle', placement: 'cursor' })
+    expect(rectTooltip?.rect).toMatchObject({ x: 24, y: 81, width: 40, height: 40 })
+    expect(rectTooltipFromEdge?.rect).toMatchObject({ x: 24, y: 81, width: 40, height: 40 })
+    expect(eventTooltip?.tooltip).toMatchObject({ value: 'Create Start event', placement: 'cursor' })
+    expect(eventTooltip?.rect).toMatchObject({ x: 24, y: 129, width: 40, height: 40 })
     app.destroy()
   })
 
@@ -946,9 +1028,13 @@ describe('nova modeler minimal kernel', () => {
 
     const layerSurfaceNames = MODELER_LAYER_NAMES.map(name => `modeler-root:${name}`)
     expect(app.surfaces.map(item => item.name)).toEqual(expect.arrayContaining(layerSurfaceNames))
+    expect(MODELER_LAYER_NAMES).toEqual(['background', 'links', 'interaction', 'controls', 'overlay'])
+    expect(MODELER_SURFACE_CONFIG.links.zIndex).toBeLessThan(MODELER_SURFACE_CONFIG.interaction.zIndex)
 
+    const links = app.surfaces.find(item => item.name === 'modeler-root:links')
     const controls = app.surfaces.find(item => item.name === 'modeler-root:controls')
     const overlay = app.surfaces.find(item => item.name === 'modeler-root:overlay')
+    expect(links?.interactive).toBe(false)
     expect(controls?.interactive).toBe(false)
     expect(overlay?.interactive).toBe(false)
 
@@ -1021,12 +1107,73 @@ describe('nova modeler minimal kernel', () => {
 
     const controls = app.surfaces.find(item => item.name === 'partial-slots-root:controls')
     expect(controls?.children.map(child => (child as { componentId?: string }).componentId)).toContain('partial-slots-root:default-controls')
+    expect(controls?.children.map(child => (child as { componentId?: string }).componentId)).toContain('partial-slots-root:brand-logo')
     expect(controls?.children.map(child => (child as { componentId?: string }).componentId)).toContain('partial-slots-root:palette')
     expect(controls?.children.map(child => (child as { componentId?: string }).componentId)).toContain('partial-slots-root:context-pad')
+    const brandItems = controls?.compileRenderFrame().items.map(item => item.schemaItem).filter(Boolean) ?? []
+    expect(brandItems.find(item => item.type === 'text' && item.text === 'Nova')).toMatchObject({
+      y: 3,
+      height: 22,
+      styles: {
+        font: {
+          family: 'ui-rounded, "SF Pro Rounded", ui-sans-serif, system-ui, sans-serif',
+          size: 22,
+          weight: '900',
+        },
+        lineHeight: 22,
+      },
+    })
+    expect(brandItems.find(item => item.type === 'text' && item.text === 'Modeler')).toMatchObject({
+      y: 29,
+      height: 12,
+      styles: {
+        font: {
+          family: 'ui-rounded, "SF Pro Rounded", ui-sans-serif, system-ui, sans-serif',
+          size: 10,
+          weight: '700',
+        },
+        lineHeight: 12,
+      },
+    })
+    expect(app.events.hitTest(44, 116)?.componentId).toBe('partial-slots-root:palette')
     expect(app.events.hitTest(606, 34)?.componentId).toContain('partial-slots-root:zoom-controls')
 
     app.setHitTestMode('spatial')
     expect(app.events.hitTest(606, 34)?.componentId).toContain('partial-slots-root:zoom-controls')
+    app.destroy()
+  })
+
+  it('hides the default brand logo and keeps the palette at the base offset when branding is disabled', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'no-brand-root',
+      props: {
+        model: createModelerModel(),
+        width: 640,
+        height: 420,
+        options: {
+          branding: {
+            visible: false,
+          },
+        },
+      },
+    })
+    app.raph.run()
+    app.raph.run()
+
+    const controls = app.surfaces.find(item => item.name === 'no-brand-root:controls')
+    expect(controls?.children.map(child => (child as { componentId?: string }).componentId)).not.toContain('no-brand-root:brand-logo')
+    expect(app.events.hitTest(44, 44)?.componentId).toBe('no-brand-root:palette')
     app.destroy()
   })
 
@@ -1551,6 +1698,12 @@ describe('nova modeler minimal kernel', () => {
         }),
         pluginRuntime: runtime,
         options: {
+          viewport: {
+            panMode: 'space-drag',
+          },
+          branding: {
+            visible: false,
+          },
           interaction: {
             selection: {
               marqueeModifier: 'ctrl',
@@ -1564,14 +1717,25 @@ describe('nova modeler minimal kernel', () => {
     app.raph.run()
     app.raph.run()
 
-    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 40, clientY: 40, button: 0, shiftKey: true }))
-    app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 280, clientY: 220, button: 0, shiftKey: true }))
-    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 280, clientY: 220, button: 0, shiftKey: true }))
+    const controller = (root as unknown as { controllerInstance: ReturnType<typeof createModelerController> }).controllerInstance
+    const context = controller.getPluginContext()
+    expect(controller.getGestures().some(gesture => gesture.hitTest?.(
+      context,
+      offsetMouseEvent('mousedown', 180, 80, { shiftKey: true }),
+      controller.hitTest({ x: 180, y: 80 }),
+    ))).toBe(false)
     expect(root.getApi().getModel().selection).toEqual([])
 
-    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 40, clientY: 40, button: 0, ctrlKey: true }))
-    app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 280, clientY: 220, button: 0, ctrlKey: true }))
-    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 280, clientY: 220, button: 0, ctrlKey: true }))
+    const startEvent = offsetMouseEvent('mousedown', 80, 80, { ctrlKey: true })
+    const marqueeGesture = controller.getGestures().find(gesture => gesture.hitTest?.(
+      context,
+      startEvent,
+      controller.hitTest({ x: 80, y: 80 }),
+    ))
+    expect(marqueeGesture).toBeDefined()
+    marqueeGesture?.onPointerDown?.(context, startEvent)
+    marqueeGesture?.onPointerMove?.(context, offsetMouseEvent('mousemove', 280, 220, { ctrlKey: true }))
+    marqueeGesture?.onPointerUp?.(context, offsetMouseEvent('mouseup', 280, 220, { ctrlKey: true }))
     expect(root.getApi().getModel().selection).toEqual(['rect-1'])
     app.destroy()
   })
@@ -1666,6 +1830,11 @@ describe('nova modeler minimal kernel', () => {
         pluginRuntime: runtime,
         width: 640,
         height: 420,
+        options: {
+          branding: {
+            visible: false,
+          },
+        },
       },
     }) as Root
     app.raph.run()
@@ -1680,12 +1849,20 @@ describe('nova modeler minimal kernel', () => {
     expect((root as unknown as { controllerInstance: ReturnType<typeof createModelerController> }).controllerInstance
       .getPluginContext().tools.getActiveId()).toBe('marqueeSelection')
 
-    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 40, clientY: 40, button: 0, ctrlKey: true }))
-    app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 280, clientY: 220, button: 0, ctrlKey: true }))
-    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 280, clientY: 220, button: 0, ctrlKey: true }))
+    const controller = (root as unknown as { controllerInstance: ReturnType<typeof createModelerController> }).controllerInstance
+    const context = controller.getPluginContext()
+    const startEvent = offsetMouseEvent('mousedown', 80, 80)
+    const marqueeGesture = controller.getGestures().find(gesture => gesture.hitTest?.(
+      context,
+      startEvent,
+      controller.hitTest({ x: 80, y: 80 }),
+    ))
+    expect(marqueeGesture).toBeDefined()
+    marqueeGesture?.onPointerDown?.(context, startEvent)
+    marqueeGesture?.onPointerMove?.(context, offsetMouseEvent('mousemove', 280, 220))
+    marqueeGesture?.onPointerUp?.(context, offsetMouseEvent('mouseup', 280, 220))
     expect(root.getApi().getModel().selection).toEqual(['rect-1'])
-    expect((root as unknown as { controllerInstance: ReturnType<typeof createModelerController> }).controllerInstance
-      .getPluginContext().tools.getActiveId()).toBeNull()
+    expect(controller.getPluginContext().tools.getActiveId()).toBeNull()
     app.destroy()
   })
 
@@ -1764,10 +1941,10 @@ describe('nova modeler minimal kernel', () => {
     app.raph.run()
     app.raph.run()
 
-    const target = app.events.hitTest(44, 44)
+    const target = app.events.hitTest(44, 116)
     expect(target?.componentId).toBe('palette-cursor-root:palette')
-    target?.eventHandlers.mousemove?.(new MouseEvent('mousemove', { clientX: 44, clientY: 44, button: 0 }))
-    app.cursors.syncPointer({ x: 44, y: 44, target })
+    target?.eventHandlers.mousemove?.(new MouseEvent('mousemove', { clientX: 44, clientY: 116, button: 0 }))
+    app.cursors.syncPointer({ x: 44, y: 116, target })
     expect(app.canvas.element.style.cursor).toBe('pointer')
 
     app.destroy()
@@ -1868,18 +2045,24 @@ describe('nova modeler minimal kernel', () => {
     app.raph.run()
     app.raph.run()
 
-    expect(app.events.hitTest(44, 44)?.componentId).toBe('palette-root:palette')
-    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 44, clientY: 44, button: 0 }))
-    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 44, clientY: 44, button: 0 }))
-    expect(root.getApi().getModel().elements).toHaveLength(0)
+    const controller = (root as unknown as { controllerInstance: ReturnType<typeof createModelerController> }).controllerInstance
+    const controls = app.surfaces.find(item => item.name === 'palette-root:controls')
+    const paletteItems = controls?.compileRenderFrame().items.map(item => item.schemaItem).filter(Boolean) ?? []
+    expect(paletteItems.some(item => item.type === 'icon' && item.icon === MODELER_ASSETS.icons.connectArrow)).toBe(true)
 
-    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 44, clientY: 44, button: 0 }))
+    expect(app.events.hitTest(44, 116)?.componentId).toBe('palette-root:palette')
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 44, clientY: 116, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 44, clientY: 116, button: 0 }))
+    expect(root.getApi().getModel().elements).toHaveLength(0)
+    expect(controller.getPluginContext().tools.getActiveId()).toBe('connect')
+
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 44, clientY: 157, button: 0 }))
     app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 240, clientY: 220, button: 0 }))
     app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 240, clientY: 220, button: 0 }))
-    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 44, clientY: 92, button: 0 }))
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 44, clientY: 205, button: 0 }))
     app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 360, clientY: 260, button: 0 }))
     app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 360, clientY: 260, button: 0 }))
-    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 44, clientY: 236, button: 0 }))
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 44, clientY: 349, button: 0 }))
     app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 420, clientY: 300, button: 0 }))
     app.raph.run()
     const previewItems = app.surfaces
@@ -1943,7 +2126,10 @@ describe('nova modeler minimal kernel', () => {
     app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 220, clientY: 124, button: 0 }))
     app.raph.run()
     const interaction = app.surfaces.find(item => item.name === 'flow-create-root:interaction')
-    expect(interaction?.children.some(child => (child as { componentId?: string }).componentId === 'bpmn-flow-preview:preview')).toBe(true)
+    const links = app.surfaces.find(item => item.name === 'flow-create-root:links')
+    expect(links?.children.some(child => (child as { componentId?: string }).componentId === 'bpmn-flow-preview:preview')).toBe(true)
+    expect(interaction?.children.some(child => (child as { componentId?: string }).componentId === 'bpmn-flow-preview:preview')).toBe(false)
+    expect(interaction?.children.some(child => (child as { componentId?: string }).componentId === 'task-1:connection-port:left')).toBe(true)
     app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 220, clientY: 124, button: 0 }))
     app.raph.run()
 
@@ -1974,6 +2160,136 @@ describe('nova modeler minimal kernel', () => {
     expect(model.elements.find(element => element.id === flow.id)).toMatchObject({
       waypoints: [{ x: 184, y: 160 }],
     })
+    app.destroy()
+    requestAnimationFrameSpy.mockRestore()
+  })
+
+  it('creates BPMN flow with the connect tool by click-click and drag gestures', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const requestAnimationFrameSpy = vi
+      .spyOn(globalThis, 'requestAnimationFrame')
+      .mockImplementation(callback => {
+        callback(0)
+        return 1
+      })
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    const root = app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'flow-tool-root',
+      props: {
+        model: createModelerModel({
+          elements: [
+            createBpmnEventElement({ id: 'start-1', x: 100, y: 100 }),
+            createBpmnTaskElement({ id: 'task-1', x: 220, y: 84 }),
+            createBpmnGatewayElement({ id: 'gateway-1', x: 420, y: 96 }),
+          ],
+        }),
+        width: 640,
+        height: 420,
+      },
+    }) as Root
+    app.raph.run()
+    app.raph.run()
+
+    app.handleEvent('keydown', new KeyboardEvent('keydown', { key: 'c' }))
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 144, clientY: 124, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 144, clientY: 124, button: 0 }))
+    app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 224, clientY: 124, button: 0 }))
+    app.raph.run()
+    const interaction = app.surfaces.find(item => item.name === 'flow-tool-root:interaction')
+    const links = app.surfaces.find(item => item.name === 'flow-tool-root:links')
+    expect(links?.children.some(child => (child as { componentId?: string }).componentId === 'bpmn-flow-preview:preview')).toBe(true)
+    expect(interaction?.children.some(child => (child as { componentId?: string }).componentId === 'bpmn-flow-preview:preview')).toBe(false)
+    expect(interaction?.children.some(child => (child as { componentId?: string }).componentId === 'task-1:connection-port:left')).toBe(true)
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 224, clientY: 124, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 224, clientY: 124, button: 0 }))
+
+    app.handleEvent('keydown', new KeyboardEvent('keydown', { key: 'c' }))
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 336, clientY: 124, button: 0 }))
+    app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 420, clientY: 124, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 420, clientY: 124, button: 0 }))
+
+    const flows = root.getApi().getModel().elements.filter(element => element.type === 'bpmn.flow')
+    expect(flows).toHaveLength(2)
+    expect(flows[0]).toMatchObject({
+      source: { elementId: 'start-1', portId: 'right' },
+      target: { elementId: 'task-1', portId: 'left' },
+    })
+    expect(flows[1]).toMatchObject({
+      source: { elementId: 'task-1', portId: 'right' },
+      target: { elementId: 'gateway-1', portId: 'left' },
+    })
+    app.destroy()
+    requestAnimationFrameSpy.mockRestore()
+  })
+
+  it('starts BPMN flow from the context pad connect action and cancels with Escape', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const requestAnimationFrameSpy = vi
+      .spyOn(globalThis, 'requestAnimationFrame')
+      .mockImplementation(callback => {
+        callback(0)
+        return 1
+      })
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    const root = app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'flow-context-pad-root',
+      props: {
+        model: createModelerModel({
+          elements: [
+            createBpmnEventElement({ id: 'start-1', x: 100, y: 100 }),
+            createBpmnTaskElement({ id: 'task-1', x: 220, y: 84 }),
+          ],
+          selection: ['start-1'],
+        }),
+        width: 640,
+        height: 420,
+      },
+    }) as Root
+    app.raph.run()
+    app.raph.run()
+
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 316, clientY: 124, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 316, clientY: 124, button: 0 }))
+    app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 224, clientY: 124, button: 0 }))
+    app.raph.run()
+    let interaction = app.surfaces.find(item => item.name === 'flow-context-pad-root:interaction')
+    let links = app.surfaces.find(item => item.name === 'flow-context-pad-root:links')
+    expect(links?.children.some(child => (child as { componentId?: string }).componentId === 'bpmn-flow-preview:preview')).toBe(true)
+    expect(interaction?.children.some(child => (child as { componentId?: string }).componentId === 'bpmn-flow-preview:preview')).toBe(false)
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    app.raph.run()
+    interaction = app.surfaces.find(item => item.name === 'flow-context-pad-root:interaction')
+    links = app.surfaces.find(item => item.name === 'flow-context-pad-root:links')
+    expect((root as unknown as { controllerInstance: ReturnType<typeof createModelerController> }).controllerInstance.getPluginContext().tools.getActiveId()).toBeNull()
+    expect(links?.children.some(child => (child as { componentId?: string }).componentId === 'bpmn-flow-preview:preview')).toBe(false)
+    expect(root.getApi().getModel().elements.filter(element => element.type === 'bpmn.flow')).toHaveLength(0)
+
+    root.applyCommand({ type: 'select', ids: ['start-1'] })
+    app.raph.run()
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 316, clientY: 124, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 316, clientY: 124, button: 0 }))
+    app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 224, clientY: 124, button: 0 }))
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 224, clientY: 124, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 224, clientY: 124, button: 0 }))
+    expect(root.getApi().getModel().elements.filter(element => element.type === 'bpmn.flow')).toHaveLength(1)
     app.destroy()
     requestAnimationFrameSpy.mockRestore()
   })
@@ -2061,28 +2377,33 @@ describe('nova modeler minimal kernel', () => {
         model: createModelerModel(),
         width: 640,
         height: 420,
+        options: {
+          branding: {
+            visible: false,
+          },
+        },
       },
     })
     app.raph.run()
     app.raph.run()
 
-    expect(app.events.hitTest(44, 316)?.componentId).toBe('palette-drag-root:palette')
-    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 44, clientY: 316, button: 0 }))
+    expect(app.events.hitTest(44, 369)?.componentId).toBe('palette-drag-root:palette')
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 44, clientY: 369, button: 0 }))
     expect(app.canvas.element.style.cursor).toBe('grabbing')
-    app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 140, clientY: 352, button: 0 }))
-    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 140, clientY: 352, button: 0 }))
+    app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 140, clientY: 392, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 140, clientY: 392, button: 0 }))
     app.raph.run()
 
-    expect(app.events.hitTest(140, 352)?.componentId).toBe('palette-drag-root:palette')
-    expect(app.events.hitTest(44, 316)?.componentId).not.toBe('palette-drag-root:palette')
+    expect(app.events.hitTest(140, 392)?.componentId).toBe('palette-drag-root:palette')
+    expect(app.events.hitTest(44, 369)?.componentId).not.toBe('palette-drag-root:palette')
 
-    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 140, clientY: 352, button: 0 }))
-    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 140, clientY: 352, button: 0 }))
-    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 140, clientY: 352, button: 0 }))
-    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 140, clientY: 352, button: 0 }))
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 140, clientY: 392, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 140, clientY: 392, button: 0 }))
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 140, clientY: 392, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 140, clientY: 392, button: 0 }))
     app.raph.run()
 
-    expect(app.events.hitTest(44, 316)?.componentId).toBe('palette-drag-root:palette')
+    expect(app.events.hitTest(44, 369)?.componentId).toBe('palette-drag-root:palette')
     app.destroy()
   })
 
@@ -2105,6 +2426,9 @@ describe('nova modeler minimal kernel', () => {
         width: 640,
         height: 420,
         options: {
+          branding: {
+            visible: false,
+          },
           palette: {
             draggable: false,
           },
@@ -2115,10 +2439,10 @@ describe('nova modeler minimal kernel', () => {
     app.raph.run()
 
     expect(app.events.hitTest(44, 44)?.componentId).toBe('palette-no-drag-root:palette')
-    expect(app.events.hitTest(44, 348)?.componentId).not.toBe('palette-no-drag-root:palette')
-    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 44, clientY: 348, button: 0 }))
-    app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 140, clientY: 384, button: 0 }))
-    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 140, clientY: 384, button: 0 }))
+    expect(app.events.hitTest(44, 380)?.componentId).not.toBe('palette-no-drag-root:palette')
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 44, clientY: 380, button: 0 }))
+    app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 140, clientY: 408, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 140, clientY: 408, button: 0 }))
     app.raph.run()
 
     expect(app.events.hitTest(140, 180)?.componentId).not.toBe('palette-no-drag-root:palette')
@@ -2615,8 +2939,8 @@ function createControllerHost(width: number, height: number) {
   }
 }
 
-function offsetMouseEvent(type: string, x: number, y: number): MouseEvent {
-  const event = new MouseEvent(type, { button: 0, clientX: x, clientY: y })
+function offsetMouseEvent(type: string, x: number, y: number, init: MouseEventInit = {}): MouseEvent {
+  const event = new MouseEvent(type, { button: 0, clientX: x, clientY: y, ...init })
   Object.defineProperties(event, {
     offsetX: { value: x },
     offsetY: { value: y },

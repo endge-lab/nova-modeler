@@ -24,12 +24,14 @@ export interface PortViewProps {
   port: ModelerPort
   viewport: ModelerViewport
   radius?: number
+  highlighted?: boolean
 }
 
 export interface PortViewResolvedProps {
   port: ModelerPort
   viewport: ModelerViewport
   radius: number
+  highlighted: boolean
 }
 
 export type PortViewDescriptor = NovaComponentDescriptor<
@@ -44,7 +46,7 @@ export type PortViewDescriptor = NovaComponentDescriptor<
   name: 'PortView',
   version: '0.23.0',
   dirtyPolicy: {
-    render: ['port', 'viewport', 'radius'],
+    render: ['port', 'viewport', 'radius', 'highlighted'],
   },
 })
 export class PortView<E extends EventList = Record<string, any>>
@@ -74,6 +76,7 @@ export class PortView<E extends EventList = Record<string, any>>
       port: props.port,
       viewport: props.viewport,
       radius: props.radius ?? props.port.radius ?? 5,
+      highlighted: props.highlighted ?? false,
     }
   }
 
@@ -90,10 +93,16 @@ export class PortView<E extends EventList = Record<string, any>>
       y: this.props.port.y * this.props.viewport.scale + this.props.viewport.y,
       radius: this.props.radius,
       styles: {
-        background: this.resolveThemeColor('elementPortFill'),
+        background: this.props.highlighted
+          ? this.resolveThemeColor('bpmnFlowMarkerFill')
+          : this.resolveThemeColor('elementPortFill'),
         border: {
-          color: this.resolveThemeColor('elementPortStroke'),
-          width: this.resolveThemeNumber('elementPortStrokeWidth'),
+          color: this.props.highlighted
+            ? this.resolveThemeColor('bpmnFlowPreviewStroke')
+            : this.resolveThemeColor('elementPortStroke'),
+          width: this.props.highlighted
+            ? Math.max(2, this.resolveThemeNumber('elementPortStrokeWidth') + 1)
+            : this.resolveThemeNumber('elementPortStrokeWidth'),
         },
       },
     }] as NovaSchema)

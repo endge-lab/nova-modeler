@@ -10,9 +10,11 @@ import { MODELER_PORT_RADIUS } from '@/plugins/elements/elements.constants'
 import type { ElementsRuntime } from '@/plugins/elements/model/ElementsRuntime'
 
 export class ElementsLayer {
-  private disposeLayer: (() => void) | undefined
+  private disposeLinksLayer: (() => void) | undefined
+  private disposeInteractionLayer: (() => void) | undefined
   private readonly disposeShadow: () => void
   private readonly disposePreview: () => void
+  private readonly disposeConnection: () => void
 
   constructor(
     private readonly context: ModelerPluginContext,
@@ -20,16 +22,18 @@ export class ElementsLayer {
   ) {
     this.disposeShadow = this.runtime.dragShadow.subscribe(() => this.sync())
     this.disposePreview = this.runtime.edgePreview.subscribe(() => this.sync())
+    this.disposeConnection = this.runtime.connection.subscribe(() => this.sync())
   }
 
   sync(): void {
-    const schemas: Array<NovaTemplateChildSchema> = []
+    const linkSchemas: Array<NovaTemplateChildSchema> = []
+    const interactionSchemas: Array<NovaTemplateChildSchema> = []
     const model = this.context.getModel()
     const selected = new Set(model.selection)
     for (const element of this.runtime.dragShadow.getElements()) {
       const definition = this.context.getElementRegistry().get(element.type)
       if (!definition) continue
-      schemas.push(this.createShadowSchema(definition.render({
+      interactionSchemas.push(this.createShadowSchema(definition.render({
         ...this.context,
         selected: false,
       }, this.createShadowElement(element))))
@@ -37,73 +41,109 @@ export class ElementsLayer {
     const edges = model.elements.filter(element => this.runtime.edges.isEdge(element))
     const nodes = model.elements.filter(element => !this.runtime.edges.isEdge(element))
     for (const element of edges) {
-      this.appendElementSchema(schemas, element, selected)
+      this.appendEdgeSchema(linkSchemas, element, selected)
+      this.appendEdgeInteractionSchema(interactionSchemas, element, selected)
     }
     for (const element of nodes) {
-      this.appendElementSchema(schemas, element, selected)
+      this.appendNodeSchema(interactionSchemas, element, selected)
     }
+    this.appendConnectionTargetPorts(interactionSchemas)
     const preview = this.runtime.edgePreview.get()
     if (preview) {
       const definition = this.context.getElementRegistry().get(preview.type)
       if (definition) {
-        schemas.push(definition.render({ ...this.context, selected: false }, preview))
-        const schema = schemas[schemas.length - 1] as NovaTemplateChildSchema & { props?: Record<string, unknown> }
+        linkSchemas.push(definition.render({ ...this.context, selected: false }, preview))
+        const schema = linkSchemas[linkSchemas.length - 1] as NovaTemplateChildSchema & { props?: Record<string, unknown> }
         schema.id = `${preview.id}:preview`
         schema.props = { ...(schema.props ?? {}), preview: true }
       }
     }
-    this.disposeLayer = this.context.layers.reconcile('interaction', 'modeler-elements', schemas)
+    this.disposeLinksLayer = this.context.layers.reconcile('links', 'modeler-elements-links', linkSchemas)
+    this.disposeInteractionLayer = this.context.layers.reconcile('interaction', 'modeler-elements', interactionSchemas)
     this.context.invalidate('render')
   }
 
-  private appendElementSchema(
+  private appendEdgeSchema(
     schemas: Array<NovaTemplateChildSchema>,
     element: ModelerElement,
     selected: Set<string>,
   ): void {
-      const definition = this.context.getElementRegistry().get(element.type)
-      if (!definition) return
-      schemas.push(definition.render({ ...this.context, selected: selected.has(element.id) }, element))
-      if (!selected.has(element.id)) return
-      if (isModelerEdgeElement(element)) {
-        for (const handle of this.runtime.edges.createWaypointHandles(element as ModelerEdgeElement)) {
-          schemas.push({
-            type: Modeler.EdgeWaypointHandleView,
-            id: `${element.id}:waypoint:${handle.waypointIndex}`,
-            props: { handle, viewport: this.context.getViewport() },
-          })
-        }
-        return
-      }
-      const rotateHandle = this.runtime.handles.createRotateHandle(element, definition)
-      if (rotateHandle) {
-        schemas.push({
-          type: Modeler.RotateHandleView,
-          id: `${element.id}:rotate`,
-          props: { handle: rotateHandle, viewport: this.context.getViewport() },
-        })
-      }
-      for (const handle of this.runtime.handles.createResizeHandles(element, definition)) {
-        schemas.push({
-          type: Modeler.ResizeHandleView,
-          id: `${element.id}:resize:${handle.handle}`,
-          props: { handle, viewport: this.context.getViewport() },
-        })
-      }
-      for (const port of this.runtime.ports.createElementPorts(element, definition.getPorts?.(this.context, element) ?? [])) {
-        schemas.push({
-          type: Modeler.PortView,
-          id: `${element.id}:port:${port.id}`,
-          props: { port, viewport: this.context.getViewport(), radius: MODELER_PORT_RADIUS },
-        })
-      }
+    const definition = this.context.getElementRegistry().get(element.type)
+    if (!definition) return
+    schemas.push(definition.render({ ...this.context, selected: selected.has(element.id) }, element))
+  }
+
+  private appendEdgeInteractionSchema(
+    schemas: Array<NovaTemplateChildSchema>,
+    element: ModelerElement,
+    selected: Set<string>,
+  ): void {
+    if (!selected.has(element.id) || !isModelerEdgeElement(element)) return
+    for (const handle of this.runtime.edges.createWaypointHandles(element as ModelerEdgeElement)) {
+      schemas.push({
+        type: Modeler.EdgeWaypointHandleView,
+        id: `${element.id}:waypoint:${handle.waypointIndex}`,
+        props: { handle, viewport: this.context.getViewport() },
+      })
+    }
+  }
+
+  private appendNodeSchema(
+    schemas: Array<NovaTemplateChildSchema>,
+    element: ModelerElement,
+    selected: Set<string>,
+  ): void {
+    const definition = this.context.getElementRegistry().get(element.type)
+    if (!definition) return
+    schemas.push(definition.render({ ...this.context, selected: selected.has(element.id) }, element))
+    if (!selected.has(element.id)) return
+    const rotateHandle = this.runtime.handles.createRotateHandle(element, definition)
+    if (rotateHandle) {
+      schemas.push({
+        type: Modeler.RotateHandleView,
+        id: `${element.id}:rotate`,
+        props: { handle: rotateHandle, viewport: this.context.getViewport() },
+      })
+    }
+    for (const handle of this.runtime.handles.createResizeHandles(element, definition)) {
+      schemas.push({
+        type: Modeler.ResizeHandleView,
+        id: `${element.id}:resize:${handle.handle}`,
+        props: { handle, viewport: this.context.getViewport() },
+      })
+    }
+    for (const port of this.runtime.ports.createElementPorts(element, definition.getPorts?.(this.context, element) ?? [])) {
+      schemas.push({
+        type: Modeler.PortView,
+        id: `${element.id}:port:${port.id}`,
+        props: { port, viewport: this.context.getViewport(), radius: MODELER_PORT_RADIUS },
+      })
+    }
+  }
+
+  private appendConnectionTargetPorts(schemas: Array<NovaTemplateChildSchema>): void {
+    for (const port of this.runtime.connection.getAvailableTargetPorts(this.context)) {
+      schemas.push({
+        type: Modeler.PortView,
+        id: `${port.elementId}:connection-port:${port.id}`,
+        props: {
+          port,
+          viewport: this.context.getViewport(),
+          radius: port.highlighted ? MODELER_PORT_RADIUS + 3 : MODELER_PORT_RADIUS + 1,
+          highlighted: true,
+        },
+      })
+    }
   }
 
   dispose(): void {
     this.disposeShadow()
     this.disposePreview()
-    this.disposeLayer?.()
-    this.disposeLayer = undefined
+    this.disposeConnection()
+    this.disposeLinksLayer?.()
+    this.disposeInteractionLayer?.()
+    this.disposeLinksLayer = undefined
+    this.disposeInteractionLayer = undefined
   }
 
   private createShadowElement(element: ModelerElement): ModelerElement {

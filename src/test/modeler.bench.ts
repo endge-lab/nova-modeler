@@ -65,7 +65,7 @@ describe('nova modeler minimal benchmarks', () => {
       totalDots += schema.length
       expect(plan.dotCount).toBeLessThanOrEqual(32_000)
     }
-    expect(totalDots).toBeLessThanOrEqual(32_000_000)
+    expect(totalDots).toBeLessThanOrEqual(2_000_000)
     expect(performance.now() - started).toBeLessThan(700)
   })
 })

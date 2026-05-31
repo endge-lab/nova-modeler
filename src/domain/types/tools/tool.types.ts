@@ -12,6 +12,8 @@ export interface ModelerToolDefinition {
   tooltip?: TooltipInput
   activate?(context: ModelerPluginContext): void
   deactivate?(context: ModelerPluginContext): void
+  onPointerMove?(context: ModelerPluginContext, event: MouseEvent): false | void
+  onCancel?(context: ModelerPluginContext): void
   createAt?(context: ModelerPluginContext, point: ModelerPoint): ModelerElement | undefined
   oneShot?: boolean
 }

@@ -3,6 +3,7 @@ import toolIconSource from '@/assets/icons/tool.svg?raw'
 import brushIconSource from '@/assets/icons/brush.svg?raw'
 import trashIconSource from '@/assets/icons/trash.svg?raw'
 import settingsIconSource from '@/assets/icons/settings.svg?raw'
+import connectArrowIconSource from '@/assets/icons/arrow-right-circle.svg?raw'
 import messageIconSource from '@/assets/icons/message.svg?raw'
 import timerIconSource from '@/assets/icons/timer.svg?raw'
 import errorIconSource from '@/assets/icons/error.svg?raw'
@@ -27,6 +28,7 @@ import gatewayInclusiveIconSource from '@/assets/icons/gateway-inclusive.svg?raw
 import gatewayComplexIconSource from '@/assets/icons/gateway-complex.svg?raw'
 import gatewayEventBasedIconSource from '@/assets/icons/gateway-event-based.svg?raw'
 import gatewayParallelEventBasedIconSource from '@/assets/icons/gateway-parallel-event-based.svg?raw'
+import novaLogoSource from '@/assets/icons/nova-logo.svg?raw'
 
 export const MODELER_ASSETS = NovaAssets.define('nova-modeler', {
   icons: {
@@ -34,6 +36,8 @@ export const MODELER_ASSETS = NovaAssets.define('nova-modeler', {
     brush: NovaAssets.svg(brushIconSource, { width: 24, height: 24, color: '#3f3f46' }),
     trash: NovaAssets.svg(trashIconSource, { width: 24, height: 24, color: '#dc2626' }),
     settings: NovaAssets.svg(settingsIconSource, { width: 24, height: 24, color: '#111827' }),
+    connectArrow: NovaAssets.svg(connectArrowIconSource, { width: 24, height: 24, color: '#3f3f46' }),
+    send: NovaAssets.svg(sendIconSource, { width: 24, height: 24, color: '#3f3f46' }),
     message: NovaAssets.svg(messageIconSource, { width: 24, height: 24, color: '#3f3f46' }),
     timer: NovaAssets.svg(timerIconSource, { width: 24, height: 24, color: '#3f3f46' }),
     error: NovaAssets.svg(errorIconSource, { width: 24, height: 24, color: '#3f3f46' }),
@@ -59,6 +63,7 @@ export const MODELER_ASSETS = NovaAssets.define('nova-modeler', {
     gatewayComplex: NovaAssets.svg(gatewayComplexIconSource, { width: 24, height: 24, color: '#3f3f46' }),
     gatewayEventBased: NovaAssets.svg(gatewayEventBasedIconSource, { width: 24, height: 24, color: '#3f3f46' }),
     gatewayParallelEventBased: NovaAssets.svg(gatewayParallelEventBasedIconSource, { width: 24, height: 24, color: '#3f3f46' }),
+    novaLogo: NovaAssets.svg(novaLogoSource, { width: 1024, height: 1024 }),
   },
 })
 

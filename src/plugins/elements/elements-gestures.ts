@@ -1,7 +1,7 @@
 import type {
   ModelerElement,
   ModelerEdgeElement,
-  ModelerEdgeEndpoint,
+  ModelerHitTarget,
   ModelerPoint,
   ModelerPluginContext,
   ModelerResizeHandle,
@@ -11,8 +11,6 @@ import { SnapRuntime } from '@/model/snap/SnapRuntime'
 import { SelectionRuntime } from '@/model/selection/SelectionRuntime'
 import { eventPoint } from '@/tools/event-point'
 import type { ElementsRuntime } from '@/plugins/elements/model/ElementsRuntime'
-import { createBpmnFlowElement } from '@/elements/bpmn/flow/bpmn-flow.factory'
-import { createBpmnFlowEndpoint } from '@/elements/bpmn/flow/bpmn-flow.definition'
 
 export class ElementsGestures {
   private activeResize: {
@@ -35,13 +33,6 @@ export class ElementsGestures {
     snapDegrees?: number
   } | null = null
 
-  private activeFlowCreate: {
-    source: ModelerEdgeEndpoint
-    sourceElementId: string
-    sourcePortId: string
-    sourcePoint: ModelerPoint
-  } | null = null
-
   private activeWaypoint: {
     element: ModelerEdgeElement
     waypointIndex: number
@@ -60,62 +51,51 @@ export class ElementsGestures {
     addDisposer(this.context.gestures.add({
       id: 'modeler-elements:create-flow',
       priority: 120,
-      hitTest: (_context, event, target) => event.button === 0 && target.type === 'port',
+      hitTest: (context, event, target) => event.button === 0
+        && (target.type === 'port' || (context.tools.getActiveId() === 'connect' && target.type === 'element')),
       onPointerDown: (context, event) => {
-        const target = context.hitTest(eventPoint(event))
-        if (target.type !== 'port') return false
-        const sourcePoint = this.resolvePortPoint(context, target.elementId, target.portId)
-        if (!sourcePoint || !this.canStartFlow(context, target.elementId)) return false
-        this.activeFlowCreate = {
-          source: createBpmnFlowEndpoint(target.elementId, target.portId, sourcePoint),
-          sourceElementId: target.elementId,
-          sourcePortId: target.portId,
-          sourcePoint,
-        }
-        this.runtime.edgePreview.set(createBpmnFlowElement({
-          id: 'bpmn-flow-preview',
-          source: this.activeFlowCreate.source,
-          target: { point: sourcePoint },
-        }))
-        return false
-      },
-      onPointerMove: (context, event) => {
-        if (!this.activeFlowCreate) return false
         const point = eventPoint(event)
         const target = context.hitTest(point)
         const world = context.screenToWorld(point)
-        const targetEndpoint = this.resolveFlowTargetEndpoint(context, target, world)
-        const targetPoint = targetEndpoint.point ?? world
-        this.runtime.edgePreview.set(createBpmnFlowElement({
-          id: 'bpmn-flow-preview',
-          source: this.activeFlowCreate.source,
-          target: targetEndpoint,
-          waypoints: [this.midpoint(this.activeFlowCreate.sourcePoint, targetPoint)],
-        }))
+        if (context.tools.getActiveId() === 'connect' && this.runtime.connection.get()) {
+          this.completeConnection(context, target, world)
+          return false
+        }
+        if (target.type === 'port') {
+          this.runtime.connectionFlow.beginFromPort(
+            context,
+            target.elementId,
+            target.portId,
+            context.tools.getActiveId() === 'connect' ? 'tool' : 'port-drag',
+          )
+          return false
+        }
+        if (context.tools.getActiveId() === 'connect' && target.type === 'element') {
+          this.runtime.connectionFlow.beginFromElement(context, target.id, 'tool', world)
+          return false
+        }
+        return false
+      },
+      onPointerMove: (context, event) => {
+        const point = eventPoint(event)
+        if (!this.runtime.connection.get()) return false
+        this.runtime.connectionFlow.updatePreviewToPoint(
+          context,
+          context.screenToWorld(point),
+          context.hitTest(point),
+        )
         return false
       },
       onPointerUp: (context, event) => {
-        if (!this.activeFlowCreate) return false
-        const target = context.hitTest(eventPoint(event))
-        const targetEndpoint = this.resolveFlowTargetEndpoint(context, target, context.screenToWorld(eventPoint(event)))
-        if (target.type === 'port' && this.canCompleteFlow(context, target.elementId, target.portId)) {
-          const targetPoint = targetEndpoint.point ?? context.screenToWorld(eventPoint(event))
-          const element = createBpmnFlowElement({
-            id: `bpmn-flow-${Date.now().toString(36)}`,
-            source: this.activeFlowCreate.source,
-            target: targetEndpoint,
-            waypoints: [this.midpoint(this.activeFlowCreate.sourcePoint, targetPoint)],
-          })
-          context.applyCommand({ type: 'element.add', element })
-          context.applyCommand({ type: 'select', ids: [element.id] })
-        }
-        this.activeFlowCreate = null
-        this.runtime.edgePreview.clear()
+        const state = this.runtime.connection.get()
+        if (!state) return false
+        const point = eventPoint(event)
+        const completed = this.completeConnection(context, context.hitTest(point), context.screenToWorld(point))
+        if (!completed && state.origin === 'port-drag') this.runtime.connectionFlow.clear()
         return false
       },
       onCancel: () => {
-        this.activeFlowCreate = null
-        this.runtime.edgePreview.clear()
+        this.runtime.connectionFlow.clear()
       },
     }))
     addDisposer(this.context.gestures.add({
@@ -379,52 +359,17 @@ export class ElementsGestures {
     this.activeResize = null
     this.activeMove = null
     this.activeRotate = null
-    this.activeFlowCreate = null
     this.activeWaypoint = null
     this.runtime.dragShadow.clear()
-    this.runtime.edgePreview.clear()
+    this.runtime.connectionFlow.clear()
   }
 
-  private resolveFlowTargetEndpoint(context: ModelerPluginContext, target: ReturnType<ModelerPluginContext['hitTest']>, fallbackPoint: ModelerPoint): ModelerEdgeEndpoint {
-    if (target.type === 'port' && this.canCompleteFlow(context, target.elementId, target.portId)) {
-      const portPoint = this.resolvePortPoint(context, target.elementId, target.portId) ?? fallbackPoint
-      return createBpmnFlowEndpoint(target.elementId, target.portId, portPoint)
-    }
-    return { point: fallbackPoint }
-  }
-
-  private resolvePortPoint(context: ModelerPluginContext, elementId: string, portId: string): ModelerPoint | null {
-    const element = context.getModel().elements.find(item => item.id === elementId)
-    const definition = element ? context.getElementRegistry().get(element.type) : undefined
-    if (!element || !definition) return null
-    const ports = this.runtime.ports.createElementPorts(element, definition.getPorts?.(context, element) ?? [])
-    const port = ports.find(item => item.id === portId)
-    return port ? { x: port.x, y: port.y } : null
-  }
-
-  private canStartFlow(context: ModelerPluginContext, elementId: string): boolean {
-    const element = context.getModel().elements.find(item => item.id === elementId)
-    const definition = element ? context.getElementRegistry().get(element.type) : undefined
-    return Boolean(definition)
-      && definition?.capabilities?.connectable !== false
-      && definition?.capabilities?.connectable?.outgoing !== false
-  }
-
-  private canCompleteFlow(context: ModelerPluginContext, elementId: string, portId: string): boolean {
-    if (!this.activeFlowCreate) return false
-    if (this.activeFlowCreate.sourceElementId === elementId && this.activeFlowCreate.sourcePortId === portId) return false
-    const element = context.getModel().elements.find(item => item.id === elementId)
-    const definition = element ? context.getElementRegistry().get(element.type) : undefined
-    return Boolean(definition)
-      && definition?.capabilities?.connectable !== false
-      && definition?.capabilities?.connectable?.incoming !== false
-  }
-
-  private midpoint(a: ModelerPoint, b: ModelerPoint): ModelerPoint {
-    return {
-      x: (a.x + b.x) / 2,
-      y: (a.y + b.y) / 2,
-    }
+  private completeConnection(context: ModelerPluginContext, target: ModelerHitTarget, fallbackPoint: ModelerPoint): boolean {
+    const state = this.runtime.connection.get()
+    const element = this.runtime.connectionFlow.completeAtTarget(context, target, fallbackPoint)
+    if (!element) return false
+    if (state?.origin === 'context-pad') context.tools.deactivate('connect')
+    return true
   }
 
   private shouldKeepCurrentSelection(selection: Array<string>, elementId: string, event: MouseEvent): boolean {

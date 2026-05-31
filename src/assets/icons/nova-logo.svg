@@ -1,0 +1,47 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <clipPath id="nova-heart-clip">
+      <path d="M216 92C203 92 190 97 181 107L66 222C56 232 51 245 51 259V461C51 477 57 492 69 503L512 939L955 503C967 492 973 477 973 461V259C973 245 968 232 958 222L843 107C834 97 821 92 808 92H668C655 92 642 97 633 107L512 235L391 107C382 97 369 92 356 92H216Z"/>
+    </clipPath>
+
+    <linearGradient id="leftTop" x1="98" y1="135" x2="425" y2="479" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8F50FF"/>
+      <stop offset="0.48" stop-color="#8548FF"/>
+      <stop offset="1" stop-color="#7337F5"/>
+    </linearGradient>
+
+    <linearGradient id="rightTop" x1="667" y1="92" x2="913" y2="482" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#823EFF"/>
+      <stop offset="0.48" stop-color="#7131F0"/>
+      <stop offset="1" stop-color="#4617BD"/>
+    </linearGradient>
+
+    <linearGradient id="leftBottom" x1="74" y1="300" x2="507" y2="920" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7837F7"/>
+      <stop offset="0.5" stop-color="#8645FF"/>
+      <stop offset="1" stop-color="#9444FF"/>
+    </linearGradient>
+
+    <linearGradient id="rightBottom" x1="928" y1="298" x2="520" y2="936" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4617BF"/>
+      <stop offset="0.55" stop-color="#32109D"/>
+      <stop offset="1" stop-color="#8E42FF"/>
+    </linearGradient>
+
+    <linearGradient id="centerFold" x1="512" y1="236" x2="512" y2="702" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#612BDF"/>
+      <stop offset="0.5" stop-color="#6428EA"/>
+      <stop offset="1" stop-color="#8842FF"/>
+    </linearGradient>
+  </defs>
+
+  <g clip-path="url(#nova-heart-clip)">
+    <path d="M51 236L282 470L512 702V939L69 503C57 491 51 477 51 461V236Z" fill="url(#leftBottom)"/>
+    <path d="M973 236L742 470L512 702V939L955 503C967 491 973 477 973 461V236Z" fill="url(#rightBottom)"/>
+
+    <path d="M51 236L181 107C190 97 203 92 216 92H356C369 92 382 97 391 107L512 236L282 470L51 236Z" fill="url(#leftTop)"/>
+    <path d="M512 236L633 107C642 97 655 92 668 92H808C821 92 834 97 843 107L973 236L742 470L512 236Z" fill="url(#rightTop)"/>
+
+    <path d="M512 236L742 470L512 702L282 470L512 236Z" fill="url(#centerFold)"/>
+  </g>
+</svg>

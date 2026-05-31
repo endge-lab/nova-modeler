@@ -22,7 +22,6 @@ import {
   NovaUIKit,
   type InputApi,
   type NovaTooltipTargetResolver,
-  type TooltipInput,
   type TooltipTargetResolution,
 } from '@endge/nova-ui-kit'
 import type { EventList } from '@endge/utils'
@@ -170,6 +169,7 @@ export class Root<E extends EventList = Record<string, any>>
   private spacePressed = false
   private temporaryToolId: string | null = null
   private taskNameEditor: { elementId: string } | null = null
+  private hiddenTaskNameElementId: string | null = null
   private disposeTaskNameEditorLayer?: () => void
   private lastTaskNamePointerDown: { elementId: string; x: number; y: number; time: number } | null = null
 
@@ -351,34 +351,8 @@ export class Root<E extends EventList = Record<string, any>>
     this.dirtyLayerSurfaces(phase)
   }
 
-  resolveNovaTooltipTarget(input: { x: number; y: number; event?: MouseEvent }): TooltipTargetResolution | null {
-    const target = this.controllerInstance.hitTest({ x: input.x, y: input.y })
-    if (target.type !== 'element') return null
-    const element = this.controllerInstance.getModel().elements.find(item => item.id === target.id)
-    if (!element) return null
-    const definition = this.controllerInstance.getElementRegistry().get(element.type)
-    const tooltip = definition?.getTooltip?.(this.controllerInstance.getPluginContext(), element)
-      ?? definition?.title
-    if (!tooltip) return null
-    const topLeft = this.controllerInstance.worldToScreen({ x: element.x, y: element.y })
-    const bottomRight = this.controllerInstance.worldToScreen({
-      x: element.x + element.width,
-      y: element.y + element.height,
-    })
-    return {
-      tooltip: typeof tooltip === 'string'
-        ? { value: tooltip, placement: 'top', delay: 350 } as TooltipInput
-        : tooltip,
-      rect: {
-        x: Math.min(topLeft.x, bottomRight.x),
-        y: Math.min(topLeft.y, bottomRight.y),
-        width: Math.abs(bottomRight.x - topLeft.x),
-        height: Math.abs(bottomRight.y - topLeft.y),
-      },
-      targetId: element.id,
-      targetType: element.type,
-      targetProps: { element },
-    }
+  resolveNovaTooltipTarget(_input: { x: number; y: number; event?: MouseEvent }): TooltipTargetResolution | null {
+    return null
   }
 
   private setupLayerSurfaces(): void {
@@ -456,12 +430,28 @@ export class Root<E extends EventList = Record<string, any>>
         { type: Modeler.Grid, id: `${this.componentId}:grid` },
       ]
     }
+    if (name === 'links') {
+      return []
+    }
     if (name === 'interaction') {
       return []
     }
     if (name === 'controls') {
-      const paletteOptions = this.controllerInstance.getOptions().palette ?? {}
+      const options = this.controllerInstance.getOptions()
+      const paletteOptions = options.palette ?? {}
+      const brandVisible = options.branding?.visible !== false
+      const palettePlacement = paletteOptions.placement ?? 'left'
+      const paletteOffsetY = paletteOptions.offsetY ?? (brandVisible && palettePlacement === 'left' ? 88 : undefined)
       return [
+        ...(brandVisible
+          ? [{
+              type: Modeler.BrandLogo,
+              id: `${this.componentId}:brand-logo`,
+              props: {
+                zIndex: 3000,
+              },
+            } as NovaTemplateChildSchema]
+          : []),
         {
           type: Modeler.Palette,
           id: `${this.componentId}:palette`,
@@ -472,6 +462,8 @@ export class Root<E extends EventList = Record<string, any>>
             placement: paletteOptions.placement,
             draggable: paletteOptions.draggable,
             offset: paletteOptions.offset,
+            offsetX: paletteOptions.offsetX,
+            offsetY: paletteOffsetY,
             itemSize: paletteOptions.itemSize,
             gap: paletteOptions.gap,
             padding: paletteOptions.padding,
@@ -664,6 +656,11 @@ export class Root<E extends EventList = Record<string, any>>
         const result = this.activePluginGesture.onPointerMove?.(this.controllerInstance.getPluginContext(), event)
         if (result === false) return false
       }
+      if (!this.activePluginGesture) {
+        const activeTool = this.controllerInstance.getPluginContext().tools.getActive()
+        const result = activeTool?.onPointerMove?.(this.controllerInstance.getPluginContext(), event)
+        if (result === false) return false
+      }
       if (!this.dragState) return false
       if (event.buttons === 0) {
         this.dragState = null
@@ -744,6 +741,13 @@ export class Root<E extends EventList = Record<string, any>>
         this.activePluginGesture = null
         this.activeModelerCursor = null
         this.setModelerCursor('default')
+        return false
+      }
+      if (event.key === 'Escape') {
+        const context = this.controllerInstance.getPluginContext()
+        const activeTool = context.tools.getActive()
+        activeTool?.onCancel?.(context)
+        context.tools.deactivate()
         return false
       }
     })
@@ -834,6 +838,7 @@ export class Root<E extends EventList = Record<string, any>>
     }
     const task = element as BpmnTaskElement
     const rect = this.resolveTaskNameEditorRect(task)
+    this.setTaskNameViewLabelHidden(task.id)
     this.clearTaskNameEditorLayer()
     this.disposeTaskNameEditorLayer = this.reconcileLayerOwner('controls', `${this.componentId}:task-name-editor`, [{
       type: NovaUIKit.TextInput,
@@ -846,10 +851,21 @@ export class Root<E extends EventList = Record<string, any>>
         value: task.data?.name ?? 'Task',
         inputEngine: 'canvas',
         size: 'sm',
-        variant: 'filled',
+        variant: 'ghost',
         align: 'center',
+        color: 'var(--modeler-bpmn-task-text-color, #111827)',
+        fontFamily: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+        fontSize: this.resolveTaskNameEditorFontSize(task),
+        fontWeight: '500',
+        lineHeight: this.resolveTaskNameEditorLineHeight(task),
+        background: 'rgba(255,255,255,0)',
+        border: { width: 0 },
+        hoverBackground: 'rgba(255,255,255,0)',
+        pressedBackground: 'rgba(255,255,255,0)',
+        activeBackground: 'rgba(255,255,255,0)',
+        focusBorderColor: 'rgba(255,255,255,0)',
         autofocus: true,
-        selectOnFocus: true,
+        selectOnFocus: false,
         zIndex: 3100,
         onCommit: (value: string) => {
           this.applyTaskNameEditorValue(String(value ?? ''))
@@ -870,11 +886,25 @@ export class Root<E extends EventList = Record<string, any>>
     }
     this.taskNameEditor = null
     this.clearTaskNameEditorLayer()
+    this.setTaskNameViewLabelHidden(null)
   }
 
   private clearTaskNameEditorLayer(): void {
     this.disposeTaskNameEditorLayer?.()
     this.disposeTaskNameEditorLayer = undefined
+  }
+
+  private setTaskNameViewLabelHidden(elementId: string | null): void {
+    if (this.hiddenTaskNameElementId && this.hiddenTaskNameElementId !== elementId) {
+      this.patchTaskNameViewLabel(this.hiddenTaskNameElementId, false)
+    }
+    this.hiddenTaskNameElementId = elementId
+    if (elementId) this.patchTaskNameViewLabel(elementId, true)
+  }
+
+  private patchTaskNameViewLabel(elementId: string, hideName: boolean): void {
+    const view = this.nova.components.get(`${elementId}:view`) as { setProps?: (props: Record<string, unknown>) => void } | undefined
+    view?.setProps?.({ hideName })
   }
 
   private applyTaskNameEditorValue(value: string): void {
@@ -927,6 +957,14 @@ export class Root<E extends EventList = Record<string, any>>
       width: Math.max(40, Math.abs(bottomRight.x - topLeft.x)),
       height: Math.max(28, Math.abs(bottomRight.y - topLeft.y)),
     }
+  }
+
+  private resolveTaskNameEditorFontSize(element: BpmnTaskElement): number {
+    return Math.max(11, Math.min(14, element.height * this.controllerInstance.getViewport().scale * 0.16))
+  }
+
+  private resolveTaskNameEditorLineHeight(element: BpmnTaskElement): number {
+    return Math.max(14, Math.min(20, element.height * this.controllerInstance.getViewport().scale * 0.2))
   }
 
   private taskNameEditorInputId(): string {

@@ -2,6 +2,7 @@ import { PluginBase } from '@/model/plugin-runtime/PluginBase'
 import type {
   ModelerElementDefinition,
   ModelerPoint,
+  ModelerPluginContext,
 } from '@/domain/types/index'
 import { MODELER_ELEMENTS_PLUGIN_ID } from '@/plugins/elements/elements.constants'
 import { ElementsGestures } from '@/plugins/elements/elements-gestures'
@@ -10,6 +11,7 @@ import {
   ElementsRuntime,
   MODEL_ELEMENTS_RUNTIME,
 } from '@/plugins/elements/model/ElementsRuntime'
+import { eventPoint } from '@/tools/event-point'
 
 /**
  * Подключает graph layer элементов и общие gestures.
@@ -20,6 +22,13 @@ export class ElementsPlugin extends PluginBase {
   private layer: ElementsLayer | null = null
   private gestures: ElementsGestures | null = null
   private createCounter = 0
+  private readonly handleWindowKeyDown = (event: KeyboardEvent): void => {
+    if (event.key !== 'Escape') return
+    if (this.context.tools.getActiveId() !== 'connect' || !this.runtime.connection.get()) return
+    event.preventDefault()
+    this.runtime.connectionFlow.clear()
+    this.context.tools.deactivate('connect')
+  }
 
   constructor(runtime: ElementsRuntime = MODEL_ELEMENTS_RUNTIME) {
     super()
@@ -38,6 +47,8 @@ export class ElementsPlugin extends PluginBase {
    */
   protected onSetup(): void {
     this.publishElementCreateTools()
+    this.publishConnectTool()
+    this.setupWindowEvents()
     this.layer = new ElementsLayer(this.context, this.runtime)
     this.gestures = new ElementsGestures(this.context, this.runtime)
     this.layer.sync()
@@ -102,6 +113,66 @@ export class ElementsPlugin extends PluginBase {
     }))
   }
 
+  private publishConnectTool(): void {
+    this.addDisposer(this.context.actions.register({
+      id: 'element.connect',
+      title: 'Connect elements',
+      run: context => {
+        context.tools.activate('connect')
+      },
+    }))
+    this.addDisposer(this.context.actions.register({
+      id: 'element.connect.from-selection',
+      title: 'Connect from selected element',
+      run: context => {
+        const sourceId = context.getModel().selection[0]
+        if (!sourceId) return
+        context.tools.activate('connect')
+        this.beginConnectionFromElement(context, sourceId, 'context-pad')
+      },
+    }))
+    this.addDisposer(this.context.tools.register({
+      id: 'connect',
+      kind: 'mode',
+      title: 'Connect',
+      tooltip: 'Connect elements',
+      oneShot: false,
+      deactivate: () => {
+        this.runtime.connectionFlow.clear()
+      },
+      onCancel: () => {
+        this.runtime.connectionFlow.clear()
+      },
+      onPointerMove: (context, event) => {
+        const state = this.runtime.connection.get()
+        if (!state) return
+        const screen = eventPoint(event)
+        this.runtime.connectionFlow.updatePreviewToPoint(
+          context,
+          context.screenToWorld(screen),
+          context.hitTest(screen),
+        )
+      },
+    }))
+    this.addDisposer(this.context.palette.register({
+      id: 'element.connect.tool',
+      kind: 'tool',
+      group: 'tools',
+      order: 20,
+      title: 'Connect',
+      tooltip: 'Connect elements',
+      icon: 'connect-arrow',
+      toolId: 'connect',
+    }))
+    this.addDisposer(this.context.shortcuts.register({
+      id: 'element.connect',
+      title: 'Connect elements',
+      actionId: 'element.connect',
+      defaults: [{ key: 'c' }],
+      scope: 'canvas',
+    }))
+  }
+
   private createElementAt(
     definition: ModelerElementDefinition,
     createTool: NonNullable<ModelerElementDefinition['createTool']>,
@@ -120,14 +191,35 @@ export class ElementsPlugin extends PluginBase {
     return element
   }
 
+  private beginConnectionFromElement(
+    context: ModelerPluginContext,
+    elementId: string,
+    origin: 'tool' | 'context-pad',
+    referencePoint?: ModelerPoint,
+  ): boolean {
+    return this.runtime.connectionFlow.beginFromElement(context, elementId, origin, referencePoint)
+  }
+
   /**
    * Очищает локальные runtime-ссылки.
    */
   protected override onDispose(): void {
+    this.teardownWindowEvents()
     this.layer?.dispose()
     this.gestures?.dispose()
     this.layer = null
     this.gestures = null
+  }
+
+  private setupWindowEvents(): void {
+    if (typeof window === 'undefined') return
+    window.addEventListener('keydown', this.handleWindowKeyDown, true)
+    this.addDisposer(() => this.teardownWindowEvents())
+  }
+
+  private teardownWindowEvents(): void {
+    if (typeof window === 'undefined') return
+    window.removeEventListener('keydown', this.handleWindowKeyDown, true)
   }
 }
 

@@ -26,12 +26,14 @@ export interface BpmnTaskViewProps {
   element: BpmnTaskElement
   viewport: ModelerViewport
   selected?: boolean
+  hideName?: boolean
 }
 
 export interface BpmnTaskViewResolvedProps {
   element: BpmnTaskElement
   viewport: ModelerViewport
   selected: boolean
+  hideName: boolean
 }
 
 export type BpmnTaskViewDescriptor = NovaComponentDescriptor<
@@ -54,7 +56,7 @@ const DEFAULT_TASK_DATA: BpmnTaskElementData = {
   version: '0.1.0',
   dirtyPolicy: {
     update: ['element', 'viewport'],
-    render: ['element', 'selected'],
+    render: ['element', 'selected', 'hideName'],
   },
 })
 export class BpmnTaskView<E extends EventList = Record<string, any>>
@@ -81,6 +83,7 @@ export class BpmnTaskView<E extends EventList = Record<string, any>>
       element: props.element,
       viewport: props.viewport,
       selected: props.selected ?? false,
+      hideName: props.hideName ?? false,
     }
   }
 
@@ -129,7 +132,7 @@ export class BpmnTaskView<E extends EventList = Record<string, any>>
     }]
 
     this.appendTaskTypeMarker(schema)
-    this.appendTaskName(schema, data.name)
+    if (!this.props.hideName) this.appendTaskName(schema, data.name)
     this.appendBottomMarkers(schema)
     return schema
   }

@@ -10,6 +10,11 @@ export const MODELER_SURFACE_CONFIG: Record<ModelerLayerName, {
     zIndex: -1000,
     interactive: false,
   },
+  links: {
+    name: 'links',
+    zIndex: 0,
+    interactive: false,
+  },
   interaction: {
     name: 'interaction',
     zIndex: 100,
@@ -29,6 +34,7 @@ export const MODELER_SURFACE_CONFIG: Record<ModelerLayerName, {
 
 export const MODELER_LAYER_NAMES: Array<ModelerLayerName> = [
   'background',
+  'links',
   'interaction',
   'controls',
   'overlay',

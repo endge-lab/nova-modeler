@@ -24,6 +24,8 @@ export interface ModelerPaletteOptions {
   placement?: ModelerPalettePlacement
   draggable?: boolean
   offset?: number
+  offsetX?: number
+  offsetY?: number
   itemSize?: number
   gap?: number
   padding?: number

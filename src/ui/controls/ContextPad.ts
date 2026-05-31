@@ -205,6 +205,8 @@ export class ContextPad<E extends EventList = Record<string, any>>
     if (model.selection.length !== 1) return null
     const element = model.elements.find(item => item.id === model.selection[0])
     if (!element) return null
+    const definition = context.getElementRegistry().get(element.type)
+    if (definition?.kind !== 'node') return null
     if (this.closedForSelectionKey === `${model.id}:${model.selectionVersion}:${element.id}`) return null
     const topLeft = context.worldToScreen({ x: element.x, y: element.y })
     const bottomRight = context.worldToScreen({
@@ -255,6 +257,13 @@ export class ContextPad<E extends EventList = Record<string, any>>
       entries.push({
         id: 'color',
         title: 'Fill color',
+        tone: 'default',
+      })
+    }
+    if (this.isConnectable(context, target.element)) {
+      entries.push({
+        id: 'connect',
+        title: 'Connect',
         tone: 'default',
       })
     }
@@ -419,6 +428,7 @@ export class ContextPad<E extends EventList = Record<string, any>>
 
   private resolveEntryIcon(entry: ContextPadEntry) {
     if (entry.id === 'variants') return MODELER_ASSETS.icons.tool
+    if (entry.id === 'connect') return MODELER_ASSETS.icons.connectArrow
     if (entry.id === 'color') return MODELER_ASSETS.icons.brush
     return MODELER_ASSETS.icons.trash
   }
@@ -430,6 +440,13 @@ export class ContextPad<E extends EventList = Record<string, any>>
   private isColorable(context: ModelerController | ModelerPluginContext, element: ModelerElement): boolean {
     const definition = resolvePluginContext(context).getElementRegistry().get(element.type)
     return definition?.capabilities?.colorable !== false
+  }
+
+  private isConnectable(context: ModelerController | ModelerPluginContext, element: ModelerElement): boolean {
+    const definition = resolvePluginContext(context).getElementRegistry().get(element.type)
+    return Boolean(definition)
+      && definition?.capabilities?.connectable !== false
+      && definition?.capabilities?.connectable?.outgoing !== false
   }
 
   private runEntry(
@@ -457,6 +474,12 @@ export class ContextPad<E extends EventList = Record<string, any>>
       else this.clearDefaultColorMenu()
       this.syncChild()
       this.dirty({ render: true })
+      return
+    }
+    if (entry.id === 'connect') {
+      this.closeOpenMenus()
+      resolvePluginContext(context).actions.run('element.connect.from-selection')
+      this.close()
       return
     }
     if (entry.id !== 'delete') return

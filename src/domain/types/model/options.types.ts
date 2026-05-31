@@ -25,8 +25,13 @@ export interface ModelerOptions {
   version?: number
   viewport?: ModelerViewportOptions
   interaction?: ModelerInteractionOptions
+  branding?: ModelerBrandingOptions
   palette?: ModelerPaletteOptions
   shortcuts?: ModelerShortcutOptions
+}
+
+export interface ModelerBrandingOptions {
+  visible?: boolean
 }
 
 export interface ModelerOptionsRef {

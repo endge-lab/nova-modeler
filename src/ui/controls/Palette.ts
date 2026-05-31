@@ -18,6 +18,7 @@ import {
   type NovaUiLayoutMeasure,
   type NovaUiLayoutRect,
 } from '@endge/nova-ui-kit'
+import { MODELER_ASSETS } from '@/assets/modeler-assets'
 import { Modeler } from '@/config/schema.config'
 import {
   MODELER_CONTEXT,
@@ -53,6 +54,8 @@ interface PaletteResolvedLayoutOptions {
   orientation: PaletteOrientation
   draggable: boolean
   offset: number
+  offsetX: number
+  offsetY: number
   itemSize: number
   gap: number
   padding: number
@@ -78,8 +81,8 @@ const PALETTE_CURSOR_RULES: NovaCursorDeclaration = [
   version: '0.1.0',
   dirtyPolicy: {
     matrix: ['x', 'y', 'zIndex'],
-    update: ['width', 'height', 'position', 'inset', 'visible', 'placement', 'draggable', 'offset', 'itemSize', 'gap', 'padding', 'gripSize'],
-    render: ['visible', 'controller', 'placement', 'draggable', 'offset', 'itemSize', 'gap', 'padding', 'gripSize'],
+    update: ['width', 'height', 'position', 'inset', 'visible', 'placement', 'draggable', 'offset', 'offsetX', 'offsetY', 'itemSize', 'gap', 'padding', 'gripSize'],
+    render: ['visible', 'controller', 'placement', 'draggable', 'offset', 'offsetX', 'offsetY', 'itemSize', 'gap', 'padding', 'gripSize'],
   },
 })
 export class Palette<E extends EventList = Record<string, any>>
@@ -134,6 +137,8 @@ export class Palette<E extends EventList = Record<string, any>>
       placement: props.placement,
       draggable: props.draggable,
       offset: props.offset,
+      offsetX: props.offsetX,
+      offsetY: props.offsetY,
       itemSize: props.itemSize,
       gap: props.gap,
       padding: props.padding,
@@ -197,41 +202,22 @@ export class Palette<E extends EventList = Record<string, any>>
         tooltip: typeof tooltip === 'string'
           ? {
               value: tooltip,
-              placement: this.resolveTooltipPlacement(),
+              placement: 'cursor',
               delay: 350,
             } as TooltipInput
           : tooltip,
-        rect: this.localRectToWorldRect(entry.x, entry.y, entry.size, entry.size),
+        rect: {
+          x: input.x - point[0] + entry.x,
+          y: input.y - point[1] + entry.y,
+          width: entry.size,
+          height: entry.size,
+        },
         targetId: entry.item.id,
         targetType: 'modeler.palette.item',
         targetProps: { ...entry.item },
       }
     }
     return null
-  }
-
-  private localRectToWorldRect(x: number, y: number, width: number, height: number): { x: number; y: number; width: number; height: number } {
-    const matrix = this.matrix
-    const corners: Array<[number, number]> = [
-      [x, y],
-      [x + width, y],
-      [x, y + height],
-      [x + width, y + height],
-    ]
-    const points = corners.map(([px, py]) => ({
-      x: matrix[0] * px + matrix[3] * py + matrix[6],
-      y: matrix[1] * px + matrix[4] * py + matrix[7],
-    }))
-    const minX = Math.min(...points.map(item => item.x))
-    const maxX = Math.max(...points.map(item => item.x))
-    const minY = Math.min(...points.map(item => item.y))
-    const maxY = Math.max(...points.map(item => item.y))
-    return {
-      x: minX,
-      y: minY,
-      width: maxX - minX,
-      height: maxY - minY,
-    }
   }
 
   measureLayout(_constraints: NovaUiLayoutConstraints): NovaUiLayoutMeasure {
@@ -641,11 +627,14 @@ export class Palette<E extends EventList = Record<string, any>>
   private resolvePaletteLayoutOptions(): PaletteResolvedLayoutOptions {
     const options = this.resolveContext()?.getOptions().palette
     const placement = this.props.placement ?? options?.placement ?? 'left'
+    const offset = this.resolvePaletteNumberOption(this.props.offset, options?.offset, 16)
     return {
       placement,
       orientation: placement === 'left' || placement === 'right' ? 'vertical' : 'horizontal',
       draggable: this.props.draggable ?? options?.draggable ?? true,
-      offset: this.resolvePaletteNumberOption(this.props.offset, options?.offset, 16),
+      offset,
+      offsetX: this.resolvePaletteNumberOption(this.props.offsetX, options?.offsetX, offset),
+      offsetY: this.resolvePaletteNumberOption(this.props.offsetY, options?.offsetY, offset),
       itemSize: this.resolvePaletteNumberOption(this.props.itemSize, options?.itemSize, 40),
       gap: this.resolvePaletteNumberOption(this.props.gap, options?.gap, 8),
       padding: this.resolvePaletteNumberOption(this.props.padding, options?.padding, 8),
@@ -657,14 +646,6 @@ export class Palette<E extends EventList = Record<string, any>>
     if (!item.title) return null
     if (item.kind === 'tool' && item.toolId && this.isCreateToolItem(item.id)) return `Create ${item.title}`
     return item.title
-  }
-
-  private resolveTooltipPlacement(): 'top' | 'right' | 'bottom' | 'left' {
-    const placement = this.resolvePaletteLayoutOptions().placement
-    if (placement === 'right') return 'left'
-    if (placement === 'top') return 'bottom'
-    if (placement === 'bottom') return 'top'
-    return 'right'
   }
 
   private resolvePaletteNumberOption(prop: number | undefined, option: number | undefined, fallback: number): number {
@@ -680,20 +661,20 @@ export class Palette<E extends EventList = Record<string, any>>
     const surfaceHeight = this.surface.height
     if (options.placement === 'right') {
       return {
-        x: Math.max(0, surfaceWidth - width - options.offset),
-        y: options.offset,
+        x: Math.max(0, surfaceWidth - width - options.offsetX),
+        y: options.offsetY,
       }
     }
     if (options.placement === 'top') {
-      return { x: options.offset, y: options.offset }
+      return { x: options.offsetX, y: options.offsetY }
     }
     if (options.placement === 'bottom') {
       return {
-        x: options.offset,
-        y: Math.max(0, surfaceHeight - height - options.offset),
+        x: options.offsetX,
+        y: Math.max(0, surfaceHeight - height - options.offsetY),
       }
     }
-    return { x: options.offset, y: options.offset }
+    return { x: options.offsetX, y: options.offsetY }
   }
 
   private movePaletteByEvent(event: MouseEvent): void {
@@ -886,6 +867,10 @@ export class Palette<E extends EventList = Record<string, any>>
   }
 
   private appendItemIcon(schema: NovaSchema, item: ModelerPaletteItemDefinition, x: number, y: number, size: number): void {
+    if (item.icon === 'connect-arrow') {
+      this.appendAssetIcon(schema, MODELER_ASSETS.icons.connectArrow, x, y, size)
+      return
+    }
     if (item.icon === 'marquee-rect') {
       this.appendMarqueeIcon(schema, x, y, size)
       return
@@ -903,6 +888,19 @@ export class Palette<E extends EventList = Record<string, any>>
       return
     }
     this.appendRectIcon(schema, x, y, size)
+  }
+
+  private appendAssetIcon(schema: NovaSchema, icon: unknown, x: number, y: number, size: number): void {
+    const iconSize = Math.min(24, size * 0.68)
+    schema.push({
+      type: 'icon',
+      icon: icon as never,
+      x: x + (size - iconSize) / 2,
+      y: y + (size - iconSize) / 2,
+      width: iconSize,
+      height: iconSize,
+      styles: { opacity: 1 },
+    })
   }
 
   private appendRectIcon(schema: NovaSchema, x: number, y: number, size: number): void {

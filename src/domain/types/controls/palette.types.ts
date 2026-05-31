@@ -40,6 +40,8 @@ export interface PaletteProps {
   placement?: ModelerPalettePlacement
   draggable?: boolean
   offset?: number
+  offsetX?: number
+  offsetY?: number
   itemSize?: number
   gap?: number
   padding?: number
@@ -59,6 +61,8 @@ export interface PaletteResolvedProps {
   placement?: ModelerPalettePlacement
   draggable?: boolean
   offset?: number
+  offsetX?: number
+  offsetY?: number
   itemSize?: number
   gap?: number
   padding?: number
