@@ -10,6 +10,7 @@ import {
   createBpmnEventElement,
 } from '@/elements/bpmn/event/bpmn-event.factory'
 import { createBpmnEventPorts } from '@/elements/bpmn/event/bpmn-event.ports'
+import { BpmnEventVariantProvider } from '@/elements/bpmn/event/bpmn-event.variants'
 import type {
   BpmnEventElement,
   BpmnEventElementInput,
@@ -40,16 +41,65 @@ export const BpmnEventDefinition: ModelerElementDefinition<BpmnEventElement> = {
     },
   },
   createTool: {
-    title: 'BPMN event',
+    id: 'create:bpmn.event',
+    actionId: 'element.create.bpmn.event',
+    shortcutId: 'bpmn.event.create',
+    title: 'Start event',
     palette: {
       id: 'bpmn.event.create',
       group: 'elements',
       order: 110,
-      icon: 'bpmn-event',
+      icon: 'bpmn-event-start',
     },
     shortcuts: [{ key: 'e' }],
-    create: input => createBpmnEventElement(input as BpmnEventElementInput),
+    create: input => createBpmnEventElement({
+      ...(input as BpmnEventElementInput),
+      eventPosition: 'start',
+      trigger: 'none',
+      direction: 'catch',
+    }),
   },
+  createTools: [
+    {
+      id: 'create:bpmn.event.intermediate',
+      actionId: 'element.create.bpmn.event.intermediate',
+      shortcutId: 'bpmn.event.intermediate.create',
+      title: 'Intermediate event',
+      palette: {
+        id: 'bpmn.event.intermediate.create',
+        group: 'elements',
+        order: 111,
+        icon: 'bpmn-event-intermediate',
+      },
+      shortcuts: [{ key: 'i', shift: true }],
+      create: input => createBpmnEventElement({
+        ...(input as BpmnEventElementInput),
+        eventPosition: 'intermediate',
+        trigger: 'none',
+        direction: 'catch',
+      }),
+    },
+    {
+      id: 'create:bpmn.event.end',
+      actionId: 'element.create.bpmn.event.end',
+      shortcutId: 'bpmn.event.end.create',
+      title: 'End event',
+      palette: {
+        id: 'bpmn.event.end.create',
+        group: 'elements',
+        order: 112,
+        icon: 'bpmn-event-end',
+      },
+      shortcuts: [{ key: 'e', shift: true }],
+      create: input => createBpmnEventElement({
+        ...(input as BpmnEventElementInput),
+        eventPosition: 'end',
+        trigger: 'none',
+        direction: 'throw',
+      }),
+    },
+  ],
+  variantProvider: BpmnEventVariantProvider,
   normalize: element => createBpmnEventElement(element as BpmnEventElementInput),
   render: (context: ModelerElementRenderContext, element) => ({
     type: Modeler.BpmnEventView,

@@ -162,6 +162,59 @@ describe('nova modeler minimal kernel', () => {
     controller.unmount()
   })
 
+  it('publishes BPMN event variants and applies them without replacing the element', () => {
+    const event = createBpmnEventElement({
+      id: 'event-1',
+      x: 120,
+      y: 140,
+      eventPosition: 'start',
+      trigger: 'none',
+    })
+    const controller = createModelerController({
+      model: createModelerModel({
+        elements: [event],
+        selection: [event.id],
+      }),
+    })
+    controller.mount(createControllerHost(640, 420))
+    const context = controller.getPluginContext()
+    const provider = context.elementVariants.getProvider(event)
+    expect(provider?.id).toBe('bpmn.event.variants')
+    expect(context.palette.get('bpmn.event.create')).toMatchObject({ icon: 'bpmn-event-start' })
+    expect(context.palette.get('bpmn.event.intermediate.create')).toMatchObject({ icon: 'bpmn-event-intermediate' })
+    expect(context.palette.get('bpmn.event.end.create')).toMatchObject({ icon: 'bpmn-event-end' })
+
+    const draft = provider?.createDraft?.(context, event) ?? {}
+    const descriptor = provider?.getDescriptor(context, event, draft)
+    const positionControl = descriptor?.controls.find(control => control.id === 'eventPosition')
+    const triggerControl = descriptor?.controls.find(control => control.id === 'trigger')
+    expect(positionControl?.options.map(option => option.id)).toEqual(['start', 'intermediate', 'end'])
+    expect(triggerControl?.options.some(option => option.id === 'start:timer:catch')).toBe(true)
+    const timer = triggerControl?.options.find(option => option.id === 'start:timer:catch')
+    expect(timer).toBeTruthy()
+
+    provider?.apply({
+      context,
+      element: event,
+      draft,
+      control: triggerControl!,
+      option: timer!,
+    })
+    const next = controller.getModel()
+    expect(next.elements[0]).toMatchObject({
+      id: 'event-1',
+      x: 120,
+      y: 140,
+      data: {
+        eventPosition: 'start',
+        trigger: 'timer',
+        direction: 'catch',
+      },
+    })
+    expect(next.selection).toEqual(['event-1'])
+    controller.unmount()
+  })
+
   it('computes layout, hit-test and viewport clamp', () => {
     const model = createModelerModel({ canvas: { x: -100, y: -100, width: 200, height: 200 }, viewport: { x: 0, y: 0, scale: 1 } })
     const controller = createModelerController({ model })
@@ -599,6 +652,102 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
+  it('routes pointer events to the element variant menu from context pad', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    const root = app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'variant-menu-root',
+      props: {
+        model: createModelerModel({
+          elements: [createBpmnEventElement({ id: 'event-1', x: 220, y: 100 })],
+          selection: ['event-1'],
+        }),
+        width: 640,
+        height: 420,
+      },
+    }) as Root
+    app.raph.run()
+    app.raph.run()
+
+    expect(app.events.hitTest(292, 120)?.componentId).toBe('variant-menu-root:context-pad')
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 292, clientY: 120, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 292, clientY: 120, button: 0 }))
+    app.raph.run()
+
+    expect(app.events.hitTest(448, 112)?.componentId).toBe('variant-menu-root:context-pad:variant-menu')
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 448, clientY: 112, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 448, clientY: 112, button: 0 }))
+    app.raph.run()
+
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 448, clientY: 202, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 448, clientY: 202, button: 0 }))
+    app.raph.run()
+
+    expect(root.getApi().getModel().elements[0]?.data).toMatchObject({
+      eventPosition: 'intermediate',
+      trigger: 'none',
+    })
+    app.destroy()
+  })
+
+  it('applies event type changes immediately while preserving a compatible trigger', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    const root = app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'variant-menu-immediate-root',
+      props: {
+        model: createModelerModel({
+          elements: [createBpmnEventElement({
+            id: 'event-1',
+            x: 220,
+            y: 100,
+            eventPosition: 'start',
+            trigger: 'message',
+            direction: 'catch',
+          })],
+          selection: ['event-1'],
+        }),
+        width: 640,
+        height: 420,
+      },
+    }) as Root
+    app.raph.run()
+    app.raph.run()
+
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 292, clientY: 120, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 292, clientY: 120, button: 0 }))
+    app.raph.run()
+
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 448, clientY: 112, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 448, clientY: 112, button: 0 }))
+    app.raph.run()
+
+    expect(root.getApi().getModel().elements[0]?.data).toMatchObject({
+      eventPosition: 'intermediate',
+      trigger: 'message',
+      direction: 'catch',
+    })
+    app.destroy()
+  })
+
   it('deletes selected elements with configurable keyboard shortcuts', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
@@ -721,6 +870,39 @@ describe('nova modeler minimal kernel', () => {
       { id: 'rect-1', x: 140, y: 130 },
       { id: 'rect-2', x: 360, y: 130 },
     ])
+    controller.unmount()
+  })
+
+  it('renders drag shadow and restores moved elements when move is cancelled', () => {
+    const controller = createModelerController({
+      model: createModelerModel({
+        elements: [
+          createBasicRectElement({ id: 'rect-1', x: 100, y: 100, width: 160, height: 96 }),
+        ],
+        selection: ['rect-1'],
+      }),
+      options: {
+        interaction: {
+          snap: false,
+        },
+      },
+    })
+    const host = createControllerHost(640, 420)
+    controller.mount(host)
+    const context = controller.getPluginContext()
+    const moveGesture = controller.getGestures().find(gesture => gesture.id === 'modeler-elements:move')
+
+    moveGesture?.onPointerDown?.(context, offsetMouseEvent('mousedown', 140, 130))
+    const shadowSchemas = host.layers.reconcile.mock.calls.at(-1)?.[2] ?? []
+    expect(shadowSchemas.some((schema: { id?: string }) => schema.id === 'rect-1:view:shadow')).toBe(true)
+
+    moveGesture?.onPointerMove?.(context, offsetMouseEvent('mousemove', 180, 160))
+    expect(controller.getModel().elements[0]).toMatchObject({ id: 'rect-1', x: 140, y: 130 })
+
+    moveGesture?.onCancel?.(context)
+    expect(controller.getModel().elements[0]).toMatchObject({ id: 'rect-1', x: 100, y: 100 })
+    const finalSchemas = host.layers.reconcile.mock.calls.at(-1)?.[2] ?? []
+    expect(finalSchemas.some((schema: { id?: string }) => schema.id === 'rect-1:view:shadow')).toBe(false)
     controller.unmount()
   })
 
@@ -1024,23 +1206,23 @@ describe('nova modeler minimal kernel', () => {
     app.raph.run()
     app.raph.run()
 
-    expect(app.events.hitTest(44, 144)?.componentId).toBe('palette-drag-root:palette')
-    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 44, clientY: 144, button: 0 }))
+    expect(app.events.hitTest(44, 216)?.componentId).toBe('palette-drag-root:palette')
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 44, clientY: 216, button: 0 }))
     expect(app.canvas.element.style.cursor).toBe('grabbing')
-    app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 140, clientY: 180, button: 0 }))
-    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 140, clientY: 180, button: 0 }))
+    app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 140, clientY: 252, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 140, clientY: 252, button: 0 }))
     app.raph.run()
 
-    expect(app.events.hitTest(140, 180)?.componentId).toBe('palette-drag-root:palette')
-    expect(app.events.hitTest(44, 144)?.componentId).not.toBe('palette-drag-root:palette')
+    expect(app.events.hitTest(140, 252)?.componentId).toBe('palette-drag-root:palette')
+    expect(app.events.hitTest(44, 216)?.componentId).not.toBe('palette-drag-root:palette')
 
-    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 140, clientY: 180, button: 0 }))
-    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 140, clientY: 180, button: 0 }))
-    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 140, clientY: 180, button: 0 }))
-    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 140, clientY: 180, button: 0 }))
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 140, clientY: 252, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 140, clientY: 252, button: 0 }))
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 140, clientY: 252, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 140, clientY: 252, button: 0 }))
     app.raph.run()
 
-    expect(app.events.hitTest(44, 144)?.componentId).toBe('palette-drag-root:palette')
+    expect(app.events.hitTest(44, 216)?.componentId).toBe('palette-drag-root:palette')
     app.destroy()
   })
 
@@ -1073,10 +1255,10 @@ describe('nova modeler minimal kernel', () => {
     app.raph.run()
 
     expect(app.events.hitTest(44, 44)?.componentId).toBe('palette-no-drag-root:palette')
-    expect(app.events.hitTest(44, 144)?.componentId).not.toBe('palette-no-drag-root:palette')
-    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 44, clientY: 144, button: 0 }))
-    app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 140, clientY: 180, button: 0 }))
-    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 140, clientY: 180, button: 0 }))
+    expect(app.events.hitTest(44, 260)?.componentId).not.toBe('palette-no-drag-root:palette')
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 44, clientY: 260, button: 0 }))
+    app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 140, clientY: 296, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 140, clientY: 296, button: 0 }))
     app.raph.run()
 
     expect(app.events.hitTest(140, 180)?.componentId).not.toBe('palette-no-drag-root:palette')

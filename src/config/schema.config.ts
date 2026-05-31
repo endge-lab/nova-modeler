@@ -13,9 +13,11 @@ export const Modeler = {
   MiniMap: 'Modeler.MiniMap',
   MarqueeSelection: 'Modeler.MarqueeSelection',
   ContextPad: 'Modeler.ContextPad',
+  ElementVariantMenu: 'Modeler.ElementVariantMenu',
   Palette: 'Modeler.Palette',
   ZoomControls: 'Modeler.ZoomControls',
   SettingsDialog: 'Modeler.SettingsDialog',
+  SettingsButton: 'Modeler.SettingsButton',
   SettingsCategory: 'Modeler.SettingsCategory',
   SettingsSection: 'Modeler.SettingsSection',
 } as const

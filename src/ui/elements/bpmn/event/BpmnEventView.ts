@@ -10,6 +10,7 @@ import {
 } from '@endge/nova'
 import type { EventList } from '@endge/utils'
 import { Modeler } from '@/config/schema.config'
+import { resolveBpmnEventTriggerIcon } from '@/elements/bpmn/event/bpmn-event.variants'
 import {
   MODELER_THEME_FALLBACKS,
   MODELER_THEME_TOKENS,
@@ -109,6 +110,7 @@ export class BpmnEventView<E extends EventList = Record<string, any>>
     if (data.eventPosition === 'intermediate') {
       schema.push(this.createCircle(radius, fill, stroke, strokeWidth))
       schema.push(this.createCircle(Math.max(0, radius - this.resolveIntermediateGap()), 'rgba(0,0,0,0)', stroke, strokeWidth))
+      this.appendTriggerMarker(schema)
       return schema
     }
 
@@ -118,7 +120,24 @@ export class BpmnEventView<E extends EventList = Record<string, any>>
       stroke,
       data.eventPosition === 'end' ? Math.max(endStrokeWidth, strokeWidth) : strokeWidth,
     ))
+    this.appendTriggerMarker(schema)
     return schema
+  }
+
+  private appendTriggerMarker(schema: NovaSchema): void {
+    const data = this.props.element.data ?? { trigger: 'none' as const }
+    const icon = resolveBpmnEventTriggerIcon(data.trigger)
+    if (!icon) return
+    const size = Math.max(10, Math.min(this.width, this.height) * 0.48)
+    schema.push({
+      type: 'icon',
+      icon,
+      x: -size / 2,
+      y: -size / 2,
+      width: size,
+      height: size,
+      styles: { opacity: 1 },
+    })
   }
 
   private createCircle(radius: number, fill: string, stroke: string, strokeWidth: number): NovaSchema[number] {

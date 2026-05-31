@@ -816,8 +816,8 @@ export class Palette<E extends EventList = Record<string, any>>
       this.appendMarqueeIcon(schema, x, y, size)
       return
     }
-    if (item.icon === 'bpmn-event') {
-      this.appendBpmnEventIcon(schema, x, y, size)
+    if (item.icon?.startsWith('bpmn-event')) {
+      this.appendBpmnEventIcon(schema, x, y, size, item.icon)
       return
     }
     this.appendRectIcon(schema, x, y, size)
@@ -843,14 +843,30 @@ export class Palette<E extends EventList = Record<string, any>>
     })
   }
 
-  private appendBpmnEventIcon(schema: NovaSchema, x: number, y: number, size: number): void {
+  private appendBpmnEventIcon(schema: NovaSchema, x: number, y: number, size: number, icon: string): void {
+    const strokeWidth = icon === 'bpmn-event-end' ? 3 : 2
+    const radius = Math.max(0, size * 0.24)
     schema.push({
       type: 'circle',
       x: x + size / 2,
       y: y + size / 2,
-      radius: Math.max(0, size * 0.28),
+      radius,
       styles: {
         background: this.resolvePaletteColor('paletteIconFill'),
+        border: {
+          color: this.resolvePaletteColor('paletteIconStroke'),
+          width: strokeWidth,
+        },
+      },
+    })
+    if (icon !== 'bpmn-event-intermediate') return
+    schema.push({
+      type: 'circle',
+      x: x + size / 2,
+      y: y + size / 2,
+      radius: Math.max(0, radius - 3),
+      styles: {
+        background: 'rgba(0,0,0,0)',
         border: {
           color: this.resolvePaletteColor('paletteIconStroke'),
           width: 2,

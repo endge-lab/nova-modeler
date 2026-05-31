@@ -47,14 +47,23 @@ export class ElementsPlugin extends PluginBase {
 
   private publishElementCreateTools(): void {
     for (const definition of this.context.getElementRegistry().getAll()) {
-      if (!definition.createTool) continue
-      this.publishElementCreateTool(definition)
+      if (definition.variantProvider) {
+        this.addDisposer(this.context.elementVariants.register(definition.variantProvider))
+      }
+      const createTools = [
+        ...(definition.createTool ? [definition.createTool] : []),
+        ...(definition.createTools ?? []),
+      ]
+      for (const createTool of createTools) {
+        this.publishElementCreateTool(definition, createTool)
+      }
     }
   }
 
-  private publishElementCreateTool(definition: ModelerElementDefinition): void {
-    const createTool = definition.createTool
-    if (!createTool) return
+  private publishElementCreateTool(
+    definition: ModelerElementDefinition,
+    createTool: NonNullable<ModelerElementDefinition['createTool']>,
+  ): void {
     const toolId = createTool.id ?? `create:${definition.type}`
     const actionId = createTool.actionId ?? `element.create.${definition.type}`
     const paletteId = createTool.palette?.id ?? `${definition.type}.create`
@@ -71,7 +80,7 @@ export class ElementsPlugin extends PluginBase {
       kind: 'create-element',
       title: createTool.title,
       oneShot: true,
-      createAt: (_context, point) => this.createElementAt(definition, point),
+      createAt: (_context, point) => this.createElementAt(definition, createTool, point),
     }))
     this.addDisposer(this.context.palette.register({
       id: paletteId,
@@ -91,9 +100,11 @@ export class ElementsPlugin extends PluginBase {
     }))
   }
 
-  private createElementAt(definition: ModelerElementDefinition, point: ModelerPoint) {
-    const createTool = definition.createTool
-    if (!createTool) return undefined
+  private createElementAt(
+    definition: ModelerElementDefinition,
+    createTool: NonNullable<ModelerElementDefinition['createTool']>,
+    point: ModelerPoint,
+  ) {
     const width = finiteNumber(definition.defaults?.width, 48)
     const height = finiteNumber(definition.defaults?.height, 48)
     const id = `${definition.type.replace(/[^a-z0-9]+/gi, '-')}-${Date.now().toString(36)}-${this.createCounter += 1}`

@@ -13,6 +13,7 @@ import {
 } from '@endge/nova'
 import type { EventList } from '@endge/utils'
 import { NovaUIKit } from '@endge/nova-ui-kit'
+import { MODELER_ASSETS } from '@/assets/modeler-assets'
 import { Modeler } from '@/config/schema.config'
 import { MODELER_CONTEXT } from '@/config/context.config'
 import {
@@ -52,7 +53,10 @@ export class ContextPad<E extends EventList = Record<string, any>>
   private slots: NovaElementSlots = {}
   private closedForSelectionKey: string | null = null
   private hovered = false
-  private pressed = false
+  private hoveredEntryId: string | null = null
+  private pressedEntryId: string | null = null
+  private variantMenuOpen = false
+  private disposeVariantMenuLayer?: () => void
 
   @Prop.object<ModelerController>()
   declare controller?: ModelerController
@@ -133,7 +137,6 @@ export class ContextPad<E extends EventList = Record<string, any>>
       return
     }
 
-    this.childRuntime.reconcile([])
     this.renderer.schema(this.createDefaultSchema())
   }
 
@@ -142,11 +145,13 @@ export class ContextPad<E extends EventList = Record<string, any>>
     const context = this.props.controller ?? this.injectOptional(MODELER_CONTEXT)
     const target = context ? this.resolveTarget(context) : null
     if (!this.props.visible || !target) return false
-    const rect = this.resolveButtonRect(target)
+    if (!context) return false
+    const rect = this.resolvePadRect(context, target)
     return x >= rect.x && x <= rect.x + rect.width && y >= rect.y && y <= rect.y + rect.height
   }
 
   protected override onUnmount(): void {
+    this.clearDefaultVariantMenu()
     this.childRuntime.dispose()
     super.onUnmount()
   }
@@ -165,7 +170,7 @@ export class ContextPad<E extends EventList = Record<string, any>>
     }
 
     const position = this.resolvePosition(target)
-    const entries = this.createEntries()
+    const entries = this.createEntries(context, target)
     const slotProps: ContextPadSlotProps = {
       target,
       element: target.element,
@@ -204,7 +209,7 @@ export class ContextPad<E extends EventList = Record<string, any>>
   }
 
   private resolvePosition(target: ContextPadTarget): ContextPadPosition {
-    const width = 40
+    const width = 92
     const height = 40
     const preferredX = target.screenBounds.x + target.screenBounds.width + this.props.offset
     const preferredY = target.screenBounds.y
@@ -214,12 +219,24 @@ export class ContextPad<E extends EventList = Record<string, any>>
     }
   }
 
-  private createEntries(): Array<ContextPadEntry> {
-    return [{
+  private createEntries(
+    context: ModelerController | ModelerPluginContext,
+    target: ContextPadTarget,
+  ): Array<ContextPadEntry> {
+    const entries: Array<ContextPadEntry> = []
+    if (resolvePluginContext(context).elementVariants.hasProvider(target.element)) {
+      entries.push({
+        id: 'variants',
+        title: 'Change element',
+        tone: 'default',
+      })
+    }
+    entries.push({
       id: 'delete',
       title: 'Delete',
       tone: 'danger',
-    }]
+    })
+    return entries
   }
 
   private resolveContent(slotProps: ContextPadSlotProps): Array<NovaTemplateChildSchema> {
@@ -256,7 +273,7 @@ export class ContextPad<E extends EventList = Record<string, any>>
         row: true,
         gap: 4,
         padding: 4,
-        width: 48,
+        width: this.resolvePadWidth(slotProps.entries),
         height: 48,
         zIndex: this.props.zIndex,
         background: this.resolveColor('contextPadBackground'),
@@ -271,37 +288,37 @@ export class ContextPad<E extends EventList = Record<string, any>>
   }
 
   private createDefaultContent(slotProps: ContextPadSlotProps): Array<NovaTemplateChildSchema> {
-    const [entry] = slotProps.entries
-    if (!entry) return []
-    return [{
+    return slotProps.entries.map(entry => ({
       type: NovaUIKit.Button,
-      id: `${this.componentId}:delete`,
+      id: `${this.componentId}:${entry.id}`,
       props: {
         position: 'static',
         width: 40,
         height: 40,
         variant: 'ghost',
-        text: entry.title,
+        icon: entry.id === 'variants' ? MODELER_ASSETS.icons.tool : MODELER_ASSETS.icons.trash,
+        iconPlacement: 'only',
         background: 'rgba(0,0,0,0)',
-        hoverBackground: this.resolveColor('contextPadDangerHoverBackground'),
-        pressedBackground: this.resolveColor('contextPadDangerPressedBackground'),
+        hoverBackground: entry.tone === 'danger'
+          ? this.resolveColor('contextPadDangerHoverBackground')
+          : 'rgba(15, 23, 42, 0.08)',
+        pressedBackground: entry.tone === 'danger'
+          ? this.resolveColor('contextPadDangerPressedBackground')
+          : 'rgba(15, 23, 42, 0.12)',
+        selected: entry.id === 'variants' && this.variantMenuOpen,
         tooltip: { text: entry.title },
         onPress: () => slotProps.run(entry),
       },
-    }]
+    }))
   }
 
   private createDefaultSchema(): NovaSchema {
     const context = this.props.controller ?? this.injectOptional(MODELER_CONTEXT)
     const target = context ? this.resolveTarget(context) : null
-    if (!this.props.visible || !target) return []
+    if (!this.props.visible || !context || !target) return []
 
-    const layout = this.resolveButtonRect(target)
-    const activeBackground = this.pressed
-      ? this.resolveColor('contextPadDangerPressedBackground')
-      : this.hovered
-        ? this.resolveColor('contextPadDangerHoverBackground')
-        : 'rgba(0,0,0,0)'
+    const entries = this.createEntries(context, target)
+    const layout = this.resolvePadRect(context, target)
     const schema: NovaSchema = [
       {
         type: 'rect',
@@ -318,29 +335,63 @@ export class ContextPad<E extends EventList = Record<string, any>>
           },
         },
       },
-      {
-        type: 'rect',
-        x: layout.x + 4,
-        y: layout.y + 4,
-        width: 40,
-        height: 40,
-        styles: {
-          background: activeBackground,
-          border: { color: 'rgba(0,0,0,0)', width: 0, radius: 6 },
-        },
-      },
     ]
-    this.appendTrashIcon(schema, layout.x + 12, layout.y + 12, 24)
+    entries.forEach((entry, index) => {
+      const rect = this.resolveEntryRect(layout, index)
+      const selected = entry.id === 'variants' && this.variantMenuOpen
+      const pressed = this.pressedEntryId === entry.id
+      const hovered = this.hoveredEntryId === entry.id || (this.hovered && entries.length === 1)
+      schema.push({
+        type: 'rect',
+        x: rect.x,
+        y: rect.y,
+        width: rect.width,
+        height: rect.height,
+        styles: {
+          background: pressed
+            ? this.resolveEntryPressedBackground(entry)
+            : selected
+              ? 'rgba(22, 131, 255, 0.16)'
+              : hovered
+                ? this.resolveEntryHoverBackground(entry)
+                : 'rgba(0,0,0,0)',
+          border: { color: selected ? '#1683ff' : 'rgba(0,0,0,0)', width: selected ? 1 : 0, radius: 6 },
+        },
+      })
+      schema.push({
+        type: 'icon',
+        icon: entry.id === 'variants' ? MODELER_ASSETS.icons.tool : MODELER_ASSETS.icons.trash,
+        x: rect.x + 8,
+        y: rect.y + 8,
+        width: 24,
+        height: 24,
+        styles: { opacity: 1 },
+      })
+    })
     return schema
   }
 
-  private resolveButtonRect(target: ContextPadTarget): ModelerRect {
+  private resolvePadRect(context: ModelerController | ModelerPluginContext, target: ContextPadTarget): ModelerRect {
+    const entries = this.createEntries(context, target)
     const position = this.resolvePosition(target)
     return {
       x: position.x,
       y: position.y,
-      width: 48,
+      width: this.resolvePadWidth(entries),
       height: 48,
+    }
+  }
+
+  private resolvePadWidth(entries: Array<ContextPadEntry>): number {
+    return entries.length * 40 + Math.max(0, entries.length - 1) * 4 + 8
+  }
+
+  private resolveEntryRect(layout: ModelerRect, index: number): ModelerRect {
+    return {
+      x: layout.x + 4 + index * 44,
+      y: layout.y + 4,
+      width: 40,
+      height: 40,
     }
   }
 
@@ -349,6 +400,14 @@ export class ContextPad<E extends EventList = Record<string, any>>
     target: ContextPadTarget,
     entry: ContextPadEntry,
   ): void {
+    if (entry.id === 'variants') {
+      this.variantMenuOpen = !this.variantMenuOpen
+      if (this.variantMenuOpen) this.syncDefaultVariantMenu()
+      else this.clearDefaultVariantMenu()
+      this.syncChild()
+      this.dirty({ render: true })
+      return
+    }
     if (entry.id !== 'delete') return
     context.applyCommand({ type: 'element.delete', id: target.element.id })
     this.close()
@@ -360,8 +419,43 @@ export class ContextPad<E extends EventList = Record<string, any>>
     this.closedForSelectionKey = model?.selection.length === 1
       ? `${model.id}:${model.selectionVersion}:${model.selection[0]}`
       : null
+    this.variantMenuOpen = false
+    this.clearDefaultVariantMenu()
     this.childRuntime.reconcile([])
     this.dirty({ render: true })
+  }
+
+  private syncDefaultVariantMenu(): void {
+    if (this.hasCustomSlots()) return
+    const context = this.props.controller ?? this.injectOptional(MODELER_CONTEXT)
+    const target = context ? this.resolveTarget(context) : null
+    if (!this.variantMenuOpen || !context || !target) {
+      this.clearDefaultVariantMenu()
+      return
+    }
+    const position = this.resolvePosition(target)
+    this.clearDefaultVariantMenu()
+    this.disposeVariantMenuLayer = resolvePluginContext(context).layers.reconcile('controls', `${this.componentId}:variant-menu`, [{
+      type: Modeler.ElementVariantMenu,
+      id: `${this.componentId}:variant-menu`,
+      props: {
+        controller: context,
+        elementId: target.element.id,
+        anchor: position,
+        visible: true,
+        zIndex: this.props.zIndex + 1,
+        onClose: () => {
+          this.variantMenuOpen = false
+          this.clearDefaultVariantMenu()
+          this.dirty({ render: true })
+        },
+      },
+    }])
+  }
+
+  private clearDefaultVariantMenu(): void {
+    this.disposeVariantMenuLayer?.()
+    this.disposeVariantMenuLayer = undefined
   }
 
   private setupEvents(): void {
@@ -369,47 +463,63 @@ export class ContextPad<E extends EventList = Record<string, any>>
       this.hovered = true
       this.dirty({ render: true })
     })
-    this.on('mouseleave', () => {
-      this.hovered = false
-      this.pressed = false
-      this.dirty({ render: true })
-    })
-    this.on('mousedown', () => {
+    this.on('mousemove', event => {
       const context = this.props.controller ?? this.injectOptional(MODELER_CONTEXT)
       const target = context ? this.resolveTarget(context) : null
-      const entry = this.createEntries()[0]
-      if (!context || !target || !entry || this.hasCustomSlots()) return false
-      this.pressed = true
+      if (!context || !target) return
+      const hit = this.resolveEntryFromEvent(context, target, event)
+      if (hit?.id === this.hoveredEntryId) return
+      this.hoveredEntryId = hit?.id ?? null
+      this.dirty({ render: true })
+    })
+    this.on('mouseleave', () => {
+      this.hovered = false
+      this.hoveredEntryId = null
+      this.pressedEntryId = null
+      this.dirty({ render: true })
+    })
+    this.on('mousedown', event => {
+      const context = this.props.controller ?? this.injectOptional(MODELER_CONTEXT)
+      const target = context ? this.resolveTarget(context) : null
+      const entry = context && target ? this.resolveEntryFromEvent(context, target, event) : null
+      if (!context || !target || !entry || this.hasCustomSlots()) return
+      this.pressedEntryId = entry.id
       this.dirty({ render: true })
       this.runEntry(context, target, entry)
       return false
     })
     this.on('mouseup', () => {
-      if (!this.pressed) return false
-      this.pressed = false
+      if (!this.pressedEntryId) return false
+      this.pressedEntryId = null
       this.dirty({ render: true })
       return false
     })
   }
 
-  private appendTrashIcon(schema: NovaSchema, x: number, y: number, size: number): void {
-    const color = '#dc2626'
-    const scale = size / 24
-    const tx = (value: number) => x + value * scale
-    const ty = (value: number) => y + value * scale
-    schema.push(
-      { type: 'line', x1: tx(4), y1: ty(7), x2: tx(20), y2: ty(7), styles: { color, width: 2 } },
-      { type: 'line', x1: tx(10), y1: ty(11), x2: tx(10), y2: ty(17), styles: { color, width: 2 } },
-      { type: 'line', x1: tx(14), y1: ty(11), x2: tx(14), y2: ty(17), styles: { color, width: 2 } },
-      { type: 'line', x1: tx(9), y1: ty(7), x2: tx(9), y2: ty(4), styles: { color, width: 2 } },
-      { type: 'line', x1: tx(9), y1: ty(4), x2: tx(15), y2: ty(4), styles: { color, width: 2 } },
-      { type: 'line', x1: tx(15), y1: ty(4), x2: tx(15), y2: ty(7), styles: { color, width: 2 } },
-      { type: 'line', x1: tx(5), y1: ty(7), x2: tx(6), y2: ty(19), styles: { color, width: 2 } },
-      { type: 'line', x1: tx(6), y1: ty(19), x2: tx(8), y2: ty(21), styles: { color, width: 2 } },
-      { type: 'line', x1: tx(8), y1: ty(21), x2: tx(16), y2: ty(21), styles: { color, width: 2 } },
-      { type: 'line', x1: tx(16), y1: ty(21), x2: tx(18), y2: ty(19), styles: { color, width: 2 } },
-      { type: 'line', x1: tx(18), y1: ty(19), x2: tx(19), y2: ty(7), styles: { color, width: 2 } },
-    )
+  private resolveEntryFromEvent(
+    context: ModelerController | ModelerPluginContext,
+    target: ContextPadTarget,
+    event: MouseEvent,
+  ): ContextPadEntry | undefined {
+    const { x, y } = this.events.getCanvasMousePosition(event)
+    const layout = this.resolvePadRect(context, target)
+    const entries = this.createEntries(context, target)
+    return entries.find((_entry, index) => {
+      const rect = this.resolveEntryRect(layout, index)
+      return x >= rect.x && x <= rect.x + rect.width && y >= rect.y && y <= rect.y + rect.height
+    })
+  }
+
+  private resolveEntryHoverBackground(entry: ContextPadEntry): string {
+    return entry.tone === 'danger'
+      ? this.resolveColor('contextPadDangerHoverBackground')
+      : 'rgba(15, 23, 42, 0.08)'
+  }
+
+  private resolveEntryPressedBackground(entry: ContextPadEntry): string {
+    return entry.tone === 'danger'
+      ? this.resolveColor('contextPadDangerPressedBackground')
+      : 'rgba(15, 23, 42, 0.12)'
   }
 
   private resolveColor(token: keyof typeof MODELER_THEME_FALLBACKS): string {
@@ -442,4 +552,8 @@ function finiteNumber(value: unknown, fallback: number): number {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value))
+}
+
+function resolvePluginContext(context: ModelerController | ModelerPluginContext): ModelerPluginContext {
+  return 'getPluginContext' in context ? context.getPluginContext() : context
 }

@@ -19,6 +19,7 @@ export function createBpmnEventElement(input: BpmnEventElementInput): BpmnEventE
       ...data,
       eventPosition: input.eventPosition ?? data.eventPosition ?? 'start',
       trigger: input.trigger ?? data.trigger ?? 'none',
+      direction: input.direction ?? data.direction,
     },
     style: input.style ? { ...input.style } : {},
   }

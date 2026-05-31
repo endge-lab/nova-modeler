@@ -1,4 +1,5 @@
 import { ElementsBounds } from '@/plugins/elements/model/ElementsBounds'
+import { ElementsDragShadow } from '@/plugins/elements/model/ElementsDragShadow'
 import { ElementsGeometry } from '@/plugins/elements/model/ElementsGeometry'
 import { ElementsHandles } from '@/plugins/elements/model/ElementsHandles'
 import { ElementsPorts } from '@/plugins/elements/model/ElementsPorts'
@@ -11,6 +12,7 @@ export class ElementsRuntime {
   readonly bounds = new ElementsBounds()
   readonly handles = new ElementsHandles(this.geometry)
   readonly ports = new ElementsPorts(this.geometry)
+  readonly dragShadow = new ElementsDragShadow()
 }
 
 export const MODEL_ELEMENTS_RUNTIME = new ElementsRuntime()

@@ -18,6 +18,7 @@ import type {
 import type { ModelerHitTarget } from '@/domain/types/interaction/hit-target.types'
 import type { ModelerLayerName } from '@/domain/types/plugins/layer.types'
 import type { ModelerActionRegistryApi } from '@/domain/types/actions/action.types'
+import type { ModelerElementVariantRegistryApi } from '@/domain/types/elements/element-variant.types'
 import type { ModelerPaletteRegistryApi } from '@/domain/types/palette/palette.types'
 import type { ModelerShortcutRegistryApi } from '@/domain/types/keyboard/shortcut.types'
 import type { ModelerToolRegistryApi } from '@/domain/types/tools/tool.types'
@@ -77,6 +78,7 @@ export interface ModelerPluginContext {
   layers: ModelerLayerApi
   gestures: { add(gesture: ModelerGesture): () => void }
   actions: ModelerActionRegistryApi
+  elementVariants: ModelerElementVariantRegistryApi
   tools: ModelerToolRegistryApi
   palette: ModelerPaletteRegistryApi
   shortcuts: ModelerShortcutRegistryApi

@@ -92,6 +92,7 @@ export class ElementsGestures {
           elements,
           startWorld: context.screenToWorld(eventPoint(event)),
         }
+        this.runtime.dragShadow.begin(elements)
         return false
       },
       onPointerMove: (context, event) => {
@@ -121,10 +122,24 @@ export class ElementsGestures {
       },
       onPointerUp: () => {
         this.activeMove = null
+        this.runtime.dragShadow.clear()
         return false
       },
-      onCancel: () => {
+      onCancel: context => {
+        if (this.activeMove) {
+          for (const element of this.activeMove.elements) {
+            context.applyCommand({
+              type: 'element.patch',
+              id: element.id,
+              patch: {
+                x: element.x,
+                y: element.y,
+              },
+            })
+          }
+        }
         this.activeMove = null
+        this.runtime.dragShadow.clear()
       },
     }))
     addDisposer(this.context.gestures.add({
@@ -234,6 +249,7 @@ export class ElementsGestures {
     this.activeResize = null
     this.activeMove = null
     this.activeRotate = null
+    this.runtime.dragShadow.clear()
   }
 
   private shouldKeepCurrentSelection(selection: Array<string>, elementId: string, event: MouseEvent): boolean {

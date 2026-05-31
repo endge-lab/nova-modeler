@@ -67,7 +67,7 @@ export const MODELER_THEME_FALLBACKS = {
   bpmnEventSelectedStroke: '#2563eb',
   bpmnEventStrokeWidth: 1.5,
   bpmnEventEndStrokeWidth: 3,
-  bpmnEventIntermediateGap: 4,
+  bpmnEventIntermediateGap: 3,
   bpmnEventMarkerFill: '#111827',
   bpmnEventMarkerStroke: '#111827',
   bpmnEventMarkerStrokeWidth: 1.5,

@@ -4,6 +4,7 @@ import type {
   ModelerElement,
   ModelerElementInput,
 } from '@/domain/types/elements/element.types'
+import type { ModelerElementVariantProvider } from '@/domain/types/elements/element-variant.types'
 import type { ModelerKeyboardShortcut } from '@/domain/types/keyboard/shortcut.types'
 import type { ModelerPoint } from '@/domain/types/model/geometry.types'
 import type { ModelerPaletteItemDefinition } from '@/domain/types/palette/palette.types'
@@ -34,6 +35,8 @@ export interface ModelerElementDefinition<TElement extends ModelerElement = Mode
   defaults?: Partial<TElement>
   capabilities?: ModelerElementCapabilities
   createTool?: ModelerElementCreateToolDefinition<TElement>
+  createTools?: Array<ModelerElementCreateToolDefinition<TElement>>
+  variantProvider?: ModelerElementVariantProvider<TElement>
   normalize?(element: TElement): TElement
   render(context: ModelerElementRenderContext, element: TElement): NovaTemplateChildSchema
   getPorts?(context: ModelerElementPortContext, element: TElement): Array<ModelerPort>

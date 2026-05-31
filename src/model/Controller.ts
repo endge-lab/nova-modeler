@@ -28,6 +28,7 @@ import { Store } from '@/model/Store'
 import { createModelerElementRegistry } from '@/model/ElementRegistry'
 import { createPluginRuntime } from '@/model/plugin-runtime/PluginRuntime'
 import { ActionRegistry } from '@/model/registry/ActionRegistry'
+import { ElementVariantRegistry } from '@/model/registry/ElementVariantRegistry'
 import { PaletteRegistry } from '@/model/registry/PaletteRegistry'
 import { ShortcutRegistry } from '@/model/registry/ShortcutRegistry'
 import { ToolRegistry } from '@/model/registry/ToolRegistry'
@@ -59,6 +60,7 @@ export class Controller implements ModelerController {
 
   //
   private readonly actions: ActionRegistry
+  private readonly elementVariants: ElementVariantRegistry
   private readonly tools: ToolRegistry
   private readonly palette: PaletteRegistry
   private readonly shortcuts: ShortcutRegistry
@@ -76,6 +78,7 @@ export class Controller implements ModelerController {
     this.options = normalizeModelerOptions(options.options)
     this.pluginRuntime = options.pluginRuntime ?? createPluginRuntime()
     this.actions = new ActionRegistry(() => this.pluginContext)
+    this.elementVariants = new ElementVariantRegistry(() => this.pluginContext)
     this.tools = new ToolRegistry(
       () => this.pluginContext,
       () => this.invalidate('render'),
@@ -359,6 +362,13 @@ export class Controller implements ModelerController {
         get: (id) => this.actions.get(id),
         getAll: () => this.actions.getAll(),
         run: (id) => this.actions.run(id),
+      },
+      elementVariants: {
+        register: (provider) => this.elementVariants.register(provider),
+        getAll: () => this.elementVariants.getAll(),
+        getProviders: (element) => this.elementVariants.getProviders(element),
+        getProvider: (element) => this.elementVariants.getProvider(element),
+        hasProvider: (element) => this.elementVariants.hasProvider(element),
       },
       tools: {
         register: (definition) => this.tools.register(definition),

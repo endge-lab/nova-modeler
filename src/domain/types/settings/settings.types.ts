@@ -1,11 +1,16 @@
 import type {
+  NovaComponentDescriptor,
   NovaComponentSchema,
   NovaElementSchema,
   NovaElementSlotFactory,
+  NovaTemplateChildSchema,
 } from '@endge/nova'
 import type {
   DialogProps,
   DialogSlotContext,
+  NovaUiComponentSize,
+  NovaUiInset,
+  NovaUiPosition,
 } from '@endge/nova-ui-kit'
 
 export const MODELER_SETTINGS_DIALOG_TYPE = 'modeler-settings'
@@ -98,3 +103,58 @@ export interface ModelerSettingsControllerOptions {
   type?: string
   id?: string
 }
+
+export interface ModelerSettingsButtonSlotProps {
+  selected: boolean
+  toggle(event?: Event): void
+  open(event?: Event): void
+  close(event?: Event): void
+}
+
+export interface ModelerSettingsButtonProps {
+  payload?: ModelerSettingsDialogPayload
+  payloadFactory?: () => ModelerSettingsDialogPayload
+  rootId?: string
+  type?: string
+  dialogId?: string
+  position?: NovaUiPosition
+  inset?: NovaUiInset
+  width?: number
+  height?: number
+  size?: NovaUiComponentSize
+  zIndex?: number
+  visible?: boolean
+}
+
+export interface ModelerSettingsButtonResolvedProps extends Required<Omit<ModelerSettingsButtonProps, 'payload' | 'payloadFactory' | 'rootId' | 'type' | 'dialogId' | 'inset' | 'zIndex'>> {
+  payload?: ModelerSettingsDialogPayload
+  payloadFactory?: () => ModelerSettingsDialogPayload
+  rootId?: string
+  type?: string
+  dialogId?: string
+  inset?: NovaUiInset
+  zIndex?: number
+}
+
+export interface ModelerSettingsButtonApi {
+  open(event?: Event): void
+  close(event?: Event): void
+  toggle(event?: Event): void
+  isOpen(): boolean
+  setProps(patch: ModelerSettingsButtonProps): void
+  getProps(): Readonly<ModelerSettingsButtonResolvedProps>
+}
+
+export interface ModelerSettingsButtonSchema {
+  children?: Array<NovaTemplateChildSchema>
+  slots?: {
+    default?: NovaElementSlotFactory<ModelerSettingsButtonSlotProps>
+  }
+}
+
+export type ModelerSettingsButtonDescriptor = NovaComponentDescriptor<
+  ModelerSettingsButtonResolvedProps,
+  ModelerSettingsButtonApi,
+  Record<string, never>,
+  ModelerSettingsButtonProps
+>

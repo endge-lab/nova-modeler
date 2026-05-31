@@ -25,7 +25,7 @@ export interface ContextPadTarget {
 export interface ContextPadEntry {
   id: string
   title: string
-  tone: 'danger'
+  tone: 'default' | 'danger'
 }
 
 export interface ContextPadSlotProps {
