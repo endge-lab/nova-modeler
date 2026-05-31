@@ -2142,6 +2142,9 @@ describe('nova modeler minimal kernel', () => {
       data: { flowType: 'sequence' },
     })
     expect(model.selection).toEqual([flow.id])
+    const contextPad = app.components.get('flow-create-root:context-pad') as { containsPoint?: (x: number, y: number) => boolean } | undefined
+    expect(contextPad?.containsPoint?.(4, 4)).toBe(false)
+    expect(contextPad?.containsPoint?.(156, 100)).toBe(false)
 
     root.applyCommand({ type: 'select', ids: ['start-1', 'task-1'] })
     app.raph.run()
