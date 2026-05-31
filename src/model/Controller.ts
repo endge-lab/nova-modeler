@@ -27,6 +27,10 @@ import { clamp } from '@/tools/number'
 import { Store } from '@/model/Store'
 import { createModelerElementRegistry } from '@/model/ElementRegistry'
 import { createPluginRuntime } from '@/model/plugin-runtime/PluginRuntime'
+import { ActionRegistry } from '@/model/registry/ActionRegistry'
+import { PaletteRegistry } from '@/model/registry/PaletteRegistry'
+import { ShortcutRegistry } from '@/model/registry/ShortcutRegistry'
+import { ToolRegistry } from '@/model/registry/ToolRegistry'
 import {
   MODELER_PORT_RADIUS,
   MODELER_ROTATE_HANDLE_SIZE,
@@ -34,6 +38,7 @@ import {
   MODELER_ELEMENTS_PLUGIN_ID,
 } from '@/plugins/elements/elements.constants'
 import { ElementsPlugin } from '@/plugins/elements/elements-plugin'
+import { CoreActionsPlugin } from '@/plugins/core/core-actions-plugin'
 import { MODEL_ELEMENTS_RUNTIME } from '@/plugins/elements/model/ElementsRuntime'
 
 export class Controller implements ModelerController {
@@ -47,6 +52,10 @@ export class Controller implements ModelerController {
   private readonly modelListeners = new Set<(model: ModelerModel) => void>()
   private pluginLayers: Array<ModelerPluginLayer> = []
   private pluginGestures: Array<ModelerGesture> = []
+  private readonly actions: ActionRegistry
+  private readonly tools: ToolRegistry
+  private readonly palette: PaletteRegistry
+  private readonly shortcuts: ShortcutRegistry
   private readonly pluginContext: ModelerPluginContext
   private onModelChange?: (model: ModelerModel) => void
   private onSelectionChange?: (selection: Array<string>) => void
@@ -56,6 +65,13 @@ export class Controller implements ModelerController {
     this.store = options.store ?? new Store(options.model, { elementRegistry: this.elementRegistry })
     this.options = normalizeModelerOptions(options.options)
     this.pluginRuntime = options.pluginRuntime ?? createPluginRuntime()
+    this.actions = new ActionRegistry(() => this.pluginContext)
+    this.tools = new ToolRegistry(() => this.pluginContext, () => this.invalidate('render'))
+    this.palette = new PaletteRegistry(() => this.getOptions().palette)
+    this.shortcuts = new ShortcutRegistry(
+      () => this.getOptions().shortcuts,
+      () => this.getOptions().interaction?.selection,
+    )
     this.ensureDefaultPlugins(options.plugins)
     this.onModelChange = options.onModelChange
     this.onSelectionChange = options.onSelectionChange
@@ -71,6 +87,7 @@ export class Controller implements ModelerController {
     })
     this.recomputeLayout()
     this.pluginRuntime.bindRoot(this.pluginContext)
+    this.activateConfiguredTool()
   }
 
   unmount(): void {
@@ -89,6 +106,7 @@ export class Controller implements ModelerController {
     }
     if (options.model) this.setModel(options.model)
     else {
+      this.activateConfiguredTool()
       this.recomputeLayout()
       this.invalidate()
     }
@@ -322,6 +340,34 @@ export class Controller implements ModelerController {
         reconcile: (name, ownerId, schema) => this.requireHost().layers.reconcile(name, ownerId, schema),
       },
       gestures: { add: gesture => this.addGesture(gesture) },
+      actions: {
+        register: definition => this.actions.register(definition),
+        get: id => this.actions.get(id),
+        getAll: () => this.actions.getAll(),
+        run: id => this.actions.run(id),
+      },
+      tools: {
+        register: definition => this.tools.register(definition),
+        get: id => this.tools.get(id),
+        getAll: () => this.tools.getAll(),
+        activate: id => this.tools.activate(id),
+        deactivate: id => this.tools.deactivate(id),
+        getActive: () => this.tools.getActive(),
+        getActiveId: () => this.tools.getActiveId(),
+        createAt: (id, point) => this.tools.createAt(id, point),
+      },
+      palette: {
+        register: definition => this.palette.register(definition),
+        get: id => this.palette.get(id),
+        getAll: () => this.palette.getAll(),
+        getItems: () => this.palette.getItems(),
+      },
+      shortcuts: {
+        register: definition => this.shortcuts.register(definition),
+        get: id => this.shortcuts.get(id),
+        getAll: () => this.shortcuts.getAll(),
+        resolve: event => this.shortcuts.resolve(event),
+      },
     }
   }
 
@@ -341,10 +387,19 @@ export class Controller implements ModelerController {
   }
 
   private ensureDefaultPlugins(plugins: Array<ModelerPlugin> = []): void {
+    if (!this.pluginRuntime.getPlugins().some(plugin => plugin.id === CoreActionsPlugin.ID)) {
+      this.pluginRuntime.use(CoreActionsPlugin.create())
+    }
     if (!this.pluginRuntime.getPlugins().some(plugin => plugin.id === MODELER_ELEMENTS_PLUGIN_ID)) {
       this.pluginRuntime.use(ElementsPlugin.create())
     }
     plugins.forEach(plugin => this.pluginRuntime.use(plugin))
+  }
+
+  private activateConfiguredTool(): void {
+    const configured = this.options.current.interaction?.tools?.activeToolId
+    if (configured) this.tools.activate(configured)
+    else this.tools.deactivate()
   }
 
   private hitTestElements(point: ModelerPoint): ModelerHitTarget {
@@ -397,10 +452,15 @@ export class Controller implements ModelerController {
     for (let index = ordered.length - 1; index >= 0; index -= 1) {
       const element = ordered[index]
       if (!element) continue
+      const definition = this.elementRegistry.get(element.type)
+      if (!definition) continue
       const world = this.screenToWorld(point)
       const local = MODEL_ELEMENTS_RUNTIME.geometry.unrotatePoint(element, world)
-      if (local.x >= element.x && local.x <= element.x + element.width
-        && local.y >= element.y && local.y <= element.y + element.height) {
+      const contains = definition.hitTest
+        ? definition.hitTest(this.pluginContext, element, local)
+        : local.x >= element.x && local.x <= element.x + element.width
+          && local.y >= element.y && local.y <= element.y + element.height
+      if (contains) {
         return { type: 'element', id: element.id }
       }
     }

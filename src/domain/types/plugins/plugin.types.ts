@@ -17,6 +17,10 @@ import type {
 } from '@/domain/types/model/model.types'
 import type { ModelerHitTarget } from '@/domain/types/interaction/hit-target.types'
 import type { ModelerLayerName } from '@/domain/types/plugins/layer.types'
+import type { ModelerActionRegistryApi } from '@/domain/types/actions/action.types'
+import type { ModelerPaletteRegistryApi } from '@/domain/types/palette/palette.types'
+import type { ModelerShortcutRegistryApi } from '@/domain/types/keyboard/shortcut.types'
+import type { ModelerToolRegistryApi } from '@/domain/types/tools/tool.types'
 
 export type ModelerStoreKey<T> = string | symbol | { id: string; __type?: T }
 
@@ -72,6 +76,10 @@ export interface ModelerPluginContext {
   invalidate(phase?: 'update' | 'render' | 'both'): void
   layers: ModelerLayerApi
   gestures: { add(gesture: ModelerGesture): () => void }
+  actions: ModelerActionRegistryApi
+  tools: ModelerToolRegistryApi
+  palette: ModelerPaletteRegistryApi
+  shortcuts: ModelerShortcutRegistryApi
 }
 
 export interface ModelerPlugin {

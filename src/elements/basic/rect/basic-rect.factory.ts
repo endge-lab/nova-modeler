@@ -21,13 +21,6 @@ export function createBasicRectElement(input: ModelerElementInput): ModelerEleme
     rotation: input.rotation,
     zIndex: input.zIndex,
     data: input.data ?? {},
-    style: {
-      fill: '#ffffff',
-      stroke: '#94a3b8',
-      selectedStroke: '#2563eb',
-      strokeWidth: 1,
-      radius: 6,
-      ...input.style,
-    },
+    style: input.style ? { ...input.style } : {},
   }
 }

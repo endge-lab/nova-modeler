@@ -46,6 +46,17 @@ export const BasicRectDefinition: ModelerElementDefinition = {
       drag: 'grabbing',
     },
   },
+  createTool: {
+    title: 'Rectangle',
+    palette: {
+      id: 'basic.rect.create',
+      group: 'elements',
+      order: 100,
+      icon: 'rect',
+    },
+    shortcuts: [{ key: 'r' }],
+    create: input => createBasicRectElement(input),
+  },
   normalize: element => createBasicRectElement(element),
   render: (context: ModelerElementRenderContext, element) => ({
     type: Modeler.BasicRectView,

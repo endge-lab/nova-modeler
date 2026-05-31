@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { Nova, RaphSchedulerType, RendererType, boundsContainsPoint, type NovaSchema } from '@endge/nova'
 import { NovaUIKit } from '@endge/nova-ui-kit'
 import {
@@ -7,9 +7,11 @@ import {
   MarqueeSelectionPlugin,
   MiniMapPlugin,
   Root,
+  SelectionRuntime,
   SnapRuntime,
   applyModelerCommand,
   appendGridSchema,
+  createBpmnEventElement,
   createBasicRectElement,
   createGridRenderPlan,
   createModelerController,
@@ -25,6 +27,11 @@ import {
 } from '@/index'
 
 describe('nova modeler minimal kernel', () => {
+  beforeEach(() => {
+    if (!URL.createObjectURL) URL.createObjectURL = vi.fn(() => 'blob:nova-modeler-test')
+    if (!URL.revokeObjectURL) URL.revokeObjectURL = vi.fn()
+  })
+
   it('creates and mutates viewport-only model', () => {
     const model = createModelerModel({ id: 'demo', viewport: { scale: 1.5 }, canvas: { width: 5000 } })
     expect(model.id).toBe('demo')
@@ -59,12 +66,51 @@ describe('nova modeler minimal kernel', () => {
       bounds: { width: 10, height: 8 },
     })
     expect(resized.elements[0]).toMatchObject({ width: 24, height: 24 })
+    const deleted = applyModelerCommand({ ...resized, selection: ['rect-1'] }, {
+      type: 'element.delete',
+      id: 'rect-1',
+    })
+    expect(deleted.elements).toEqual([])
+    expect(deleted.selection).toEqual([])
+    const deletedMany = applyModelerCommand({
+      ...resized,
+      elements: [
+        createBasicRectElement({ id: 'rect-1' }),
+        createBasicRectElement({ id: 'rect-2' }),
+      ],
+      selection: ['rect-1', 'rect-2'],
+    }, {
+      type: 'element.deleteMany',
+      ids: ['rect-1', 'rect-2'],
+    })
+    expect(deletedMany.elements).toEqual([])
+    expect(deletedMany.selection).toEqual([])
     const rotated = applyModelerCommand(resized, {
       type: 'element.rotate',
       id: 'rect-1',
       rotation: Math.PI / 4,
     })
     expect(rotated.elements[0]?.rotation).toBe(Math.PI / 4)
+  })
+
+  it('resolves selection modifiers and delete shortcuts from options', () => {
+    const options = normalizeModelerOptions().current.interaction?.selection
+    expect(SelectionRuntime.resolvePointerSelection({
+      current: ['a'],
+      elementId: 'b',
+      event: new MouseEvent('mousedown', { shiftKey: true }),
+      options,
+    })).toEqual(['a', 'b'])
+    expect(SelectionRuntime.resolvePointerSelection({
+      current: ['a', 'b'],
+      elementId: 'b',
+      event: new MouseEvent('mousedown', { metaKey: true }),
+      options,
+    })).toEqual(['a'])
+    expect(SelectionRuntime.matchShortcut(
+      new KeyboardEvent('keydown', { key: 'Backspace' }),
+      options?.deleteShortcuts,
+    )).toMatchObject({ key: 'Backspace' })
   })
 
   it('computes layout, hit-test and viewport clamp', () => {
@@ -94,6 +140,38 @@ describe('nova modeler minimal kernel', () => {
     expect(controller.hitTest({ x: 100, y: 100 })).toEqual({ type: 'resize-handle', elementId: 'rect-1', handle: 'nw' })
     expect(controller.hitTest({ x: 180, y: 95 })).toEqual({ type: 'port', elementId: 'rect-1', portId: 'top' })
     expect(controller.hitTest({ x: 265, y: 148 })).toEqual({ type: 'port', elementId: 'rect-1', portId: 'right' })
+  })
+
+  it('normalizes and hit-tests BPMN none events as circles', () => {
+    const event = createBpmnEventElement({
+      id: 'start-1',
+      x: 100,
+      y: 100,
+      eventPosition: 'start',
+      trigger: 'none',
+    })
+    expect(event).toMatchObject({
+      type: 'bpmn.event',
+      width: 48,
+      height: 48,
+      data: {
+        eventPosition: 'start',
+        trigger: 'none',
+      },
+    })
+
+    const controller = createModelerController({
+      model: createModelerModel({
+        elements: [event],
+        selection: ['start-1'],
+      }),
+    })
+    controller.mount(createControllerHost(640, 420))
+
+    expect(controller.getElementRegistry().require('bpmn.event').normalize?.(event).data.trigger).toBe('none')
+    expect(controller.hitTest({ x: 124, y: 124 })).toEqual({ type: 'element', id: 'start-1' })
+    expect(controller.hitTest({ x: 100, y: 100 })).toEqual({ type: 'canvas' })
+    expect(controller.hitTest({ x: 124, y: 95 })).toEqual({ type: 'port', elementId: 'start-1', portId: 'top' })
   })
 
   it('keeps controller store as reactive source of truth', () => {
@@ -246,7 +324,7 @@ describe('nova modeler minimal kernel', () => {
     expect(root.getApi().fitView().scale).toBeGreaterThan(0)
   })
 
-  it('registers and renders basic rect elements', () => {
+  it('registers and renders basic rect and BPMN event elements', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -262,8 +340,11 @@ describe('nova modeler minimal kernel', () => {
       id: 'elements-root',
       props: {
         model: createModelerModel({
-          elements: [createBasicRectElement({ id: 'rect-1', x: 100, y: 100 })],
-          selection: ['rect-1'],
+          elements: [
+            createBasicRectElement({ id: 'rect-1', x: 100, y: 100 }),
+            createBpmnEventElement({ id: 'start-1', x: 320, y: 120 }),
+          ],
+          selection: ['rect-1', 'start-1'],
         }),
         width: 640,
         height: 420,
@@ -272,9 +353,11 @@ describe('nova modeler minimal kernel', () => {
     app.raph.run()
     const interaction = app.surfaces.find(item => item.name === 'elements-root:interaction')
     expect(interaction?.children.some(child => (child as { componentId?: string }).componentId === 'rect-1:view')).toBe(true)
+    expect(interaction?.children.some(child => (child as { componentId?: string }).componentId === 'start-1:view')).toBe(true)
     expect(interaction?.children.some(child => (child as { componentId?: string }).componentId === 'rect-1:rotate')).toBe(true)
     expect(interaction?.children.some(child => (child as { componentId?: string }).componentId === 'rect-1:resize:nw')).toBe(true)
     expect(interaction?.children.some(child => (child as { componentId?: string }).componentId === 'rect-1:port:top')).toBe(true)
+    expect(interaction?.children.some(child => (child as { componentId?: string }).componentId === 'start-1:port:top')).toBe(true)
     app.destroy()
   })
 
@@ -422,6 +505,7 @@ describe('nova modeler minimal kernel', () => {
     const controls = app.surfaces.find(item => item.name === 'partial-slots-root:controls')
     expect(controls?.children.map(child => (child as { componentId?: string }).componentId)).toContain('partial-slots-root:default-controls')
     expect(controls?.children.map(child => (child as { componentId?: string }).componentId)).toContain('partial-slots-root:default-palette-host')
+    expect(controls?.children.map(child => (child as { componentId?: string }).componentId)).toContain('partial-slots-root:context-pad')
     expect(app.events.hitTest(606, 34)?.componentId).toContain('partial-slots-root:zoom-controls')
 
     app.setHitTestMode('spatial')
@@ -429,7 +513,137 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('creates a basic rect from the default control palette', () => {
+  it('deletes the selected element from the default context pad', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    const root = app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'context-pad-root',
+      props: {
+        model: createModelerModel({
+          elements: [createBasicRectElement({ id: 'rect-1', x: 100, y: 100, width: 160, height: 96 })],
+          selection: ['rect-1'],
+        }),
+        width: 640,
+        height: 420,
+      },
+    }) as Root
+    app.raph.run()
+    app.raph.run()
+
+    const target = app.events.hitTest(292, 120)
+    expect(target?.componentId).toBe('context-pad-root:context-pad')
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 292, clientY: 120, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 292, clientY: 120, button: 0 }))
+    app.raph.run()
+
+    expect(root.getApi().getModel().elements).toEqual([])
+    expect(root.getApi().getModel().selection).toEqual([])
+    app.destroy()
+  })
+
+  it('deletes selected elements with configurable keyboard shortcuts', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    const root = app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'keyboard-root',
+      props: {
+        model: createModelerModel({
+          elements: [
+            createBasicRectElement({ id: 'rect-1', x: 100, y: 100, width: 160, height: 96 }),
+            createBasicRectElement({ id: 'rect-2', x: 320, y: 100, width: 160, height: 96 }),
+          ],
+          selection: ['rect-1', 'rect-2'],
+        }),
+        options: {
+          interaction: {
+            selection: {
+              deleteShortcuts: [{ key: 'x', meta: true, preventDefault: true }],
+            },
+          },
+        },
+        width: 640,
+        height: 420,
+      },
+    }) as Root
+    app.raph.run()
+
+    app.handleEvent('keydown', new KeyboardEvent('keydown', { key: 'Backspace' }))
+    expect(root.getApi().getModel().elements).toHaveLength(2)
+
+    app.handleEvent('keydown', new KeyboardEvent('keydown', { key: 'x', metaKey: true }))
+    expect(root.getApi().getModel().elements).toEqual([])
+    expect(root.getApi().getModel().selection).toEqual([])
+    app.destroy()
+  })
+
+  it('selects elements with marquee using the configured modifier', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    const runtime = createPluginRuntime().use(MarqueeSelectionPlugin.create())
+    const root = app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'marquee-root',
+      props: {
+        model: createModelerModel({
+          elements: [
+            createBasicRectElement({ id: 'rect-1', x: 100, y: 100, width: 160, height: 96 }),
+            createBasicRectElement({ id: 'rect-2', x: 400, y: 100, width: 160, height: 96 }),
+          ],
+        }),
+        pluginRuntime: runtime,
+        options: {
+          interaction: {
+            selection: {
+              marqueeModifier: 'ctrl',
+            },
+          },
+        },
+        width: 640,
+        height: 420,
+      },
+    }) as Root
+    app.raph.run()
+    app.raph.run()
+
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 40, clientY: 40, button: 0, shiftKey: true }))
+    app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 280, clientY: 220, button: 0, shiftKey: true }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 280, clientY: 220, button: 0, shiftKey: true }))
+    expect(root.getApi().getModel().selection).toEqual([])
+
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 40, clientY: 40, button: 0, ctrlKey: true }))
+    app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 280, clientY: 220, button: 0, ctrlKey: true }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 280, clientY: 220, button: 0, ctrlKey: true }))
+    expect(root.getApi().getModel().selection).toEqual(['rect-1'])
+    app.destroy()
+  })
+
+  it('creates basic rect and BPMN event by dragging from the default control palette', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -455,11 +669,23 @@ describe('nova modeler minimal kernel', () => {
     expect(app.events.hitTest(44, 44)?.componentId).toBe('palette-root:palette')
     app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 44, clientY: 44, button: 0 }))
     app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 44, clientY: 44, button: 0 }))
+    expect(root.getApi().getModel().elements).toHaveLength(0)
+
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 44, clientY: 44, button: 0 }))
+    app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 240, clientY: 220, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 240, clientY: 220, button: 0 }))
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 44, clientY: 92, button: 0 }))
+    app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 360, clientY: 260, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 360, clientY: 260, button: 0 }))
 
     const model = root.getApi().getModel()
-    expect(model.elements).toHaveLength(1)
+    expect(model.elements).toHaveLength(2)
     expect(model.elements[0]?.type).toBe('basic.rect')
-    expect(model.selection).toEqual([model.elements[0]?.id])
+    expect(model.elements[0]).toMatchObject({ x: 160, y: 172 })
+    expect(model.elements[1]?.type).toBe('bpmn.event')
+    expect(model.elements[1]).toMatchObject({ x: 336, y: 236 })
+    expect(model.elements[1]?.data).toMatchObject({ eventPosition: 'start', trigger: 'none' })
+    expect(model.selection).toEqual([model.elements[1]?.id])
     app.destroy()
   })
 

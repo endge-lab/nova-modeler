@@ -10,6 +10,11 @@ import {
 } from '@endge/nova'
 import type { EventList } from '@endge/utils'
 import { Modeler } from '@/config/schema.config'
+import {
+  MODELER_THEME_FALLBACKS,
+  MODELER_THEME_TOKENS,
+  type ModelerThemeTokenKey,
+} from '@/config/theme.config'
 import type {
   ModelerRotateHandleDescriptor,
   ModelerViewport,
@@ -83,10 +88,25 @@ export class RotateHandleView<E extends EventList = Record<string, any>>
       y: screen.y,
       radius: this.props.handle.size / 2,
       styles: {
-        background: '#ffffff',
-        border: { color: '#2563eb', width: 2 },
+        background: this.resolveThemeColor('elementHandleFill'),
+        border: {
+          color: this.resolveThemeColor('elementHandleStroke'),
+          width: this.resolveThemeNumber('elementHandleStrokeWidth'),
+        },
       },
     }] as NovaSchema)
+  }
+
+  private resolveThemeColor(token: ModelerThemeTokenKey): string {
+    const fallback = String(MODELER_THEME_FALLBACKS[token])
+    return this.nova.theme.resolve(MODELER_THEME_TOKENS[token], fallback) ?? fallback
+  }
+
+  private resolveThemeNumber(token: ModelerThemeTokenKey): number {
+    const fallback = Number(MODELER_THEME_FALLBACKS[token])
+    const raw = this.nova.theme.resolve(MODELER_THEME_TOKENS[token], String(fallback)) ?? fallback
+    const value = typeof raw === 'number' ? raw : Number(raw)
+    return Number.isFinite(value) ? value : fallback
   }
 }
 

@@ -5,6 +5,8 @@ export type ModelerCommand =
   | { type: 'setViewport'; viewport: Partial<ModelerViewport> }
   | { type: 'select'; ids: Array<string> }
   | { type: 'element.add'; element: ModelerElement }
+  | { type: 'element.delete'; id: string }
+  | { type: 'element.deleteMany'; ids: Array<string> }
   | { type: 'element.patch'; id: string; patch: Partial<ModelerElement> }
   | { type: 'element.resize'; id: string; bounds: Partial<ModelerRect> }
   | { type: 'element.move'; id: string; dx: number; dy: number }

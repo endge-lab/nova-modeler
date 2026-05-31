@@ -2,7 +2,7 @@ import type {
   ModelerElementDefinition,
   ModelerElementRegistry,
 } from '@/domain/types/index'
-import { BasicElementDefinitions } from '@/elements/basic/basic-elements'
+import { ModelerElementDefinitions } from '@/elements/elements'
 
 /**
  * Хранит доступные definitions элементов Modeler.
@@ -54,7 +54,7 @@ export class ElementRegistry implements ModelerElementRegistry {
  * Создает registry с базовыми элементами Modeler.
  */
 export function createModelerElementRegistry(
-  definitions: Array<ModelerElementDefinition> = BasicElementDefinitions,
+  definitions: Array<ModelerElementDefinition> = ModelerElementDefinitions,
 ): ElementRegistry {
   return new ElementRegistry().registerMany(definitions)
 }

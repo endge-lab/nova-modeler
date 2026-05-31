@@ -12,9 +12,11 @@ import type { EventList } from '@endge/utils'
 import { Modeler } from '@/config/schema.config'
 import { MODELER_CONTEXT } from '@/config/context.config'
 import type {
+  ModelerElement,
   ModelerPoint,
   ModelerRect,
 } from '@/domain/types/index'
+import { SelectionRuntime } from '@/model/selection/SelectionRuntime'
 import { eventPoint } from '@/tools/event-point'
 import { createMarqueeSchema } from '@/plugins/marquee-selection/marquee-selection-schema'
 
@@ -107,7 +109,10 @@ export class MarqueeSelection<E extends EventList = Record<string, any>>
     this.disposeGesture = context.gestures.add({
       id: `${this.componentId}:gesture`,
       priority: 80,
-      hitTest: (_ctx, event, target) => this.props.enabled && event.button === 0 && event.shiftKey && target.type === 'canvas',
+      hitTest: (ctx, event, target) => this.props.enabled
+        && event.button === 0
+        && target.type === 'canvas'
+        && SelectionRuntime.shouldStartMarquee(event, ctx.getOptions().interaction?.selection),
       onPointerDown: (_ctx, event) => {
         const point = eventPoint(event)
         this.draft = { start: point, current: point }
@@ -120,11 +125,22 @@ export class MarqueeSelection<E extends EventList = Record<string, any>>
         this.dirty({ render: true })
         return false
       },
-      onPointerUp: ctx => {
+      onPointerUp: (ctx, event) => {
         if (!this.draft) return
         const rect = resolveRect(this.draft.start, this.draft.current)
         this.draft = null
-        const ids: Array<string> = rect.width >= this.props.minDragPx || rect.height >= this.props.minDragPx ? [] : []
+        const hitIds = rect.width >= this.props.minDragPx || rect.height >= this.props.minDragPx
+          ? resolveElementIdsInRect(ctx.getModel().elements, resolveWorldRect(ctx.screenToWorld(rect), ctx.screenToWorld({
+              x: rect.x + rect.width,
+              y: rect.y + rect.height,
+            })))
+          : []
+        const ids = SelectionRuntime.resolveRangeSelection({
+          current: ctx.getModel().selection,
+          ids: hitIds,
+          event,
+          options: ctx.getOptions().interaction?.selection,
+        })
         ctx.applyCommand({ type: 'select', ids })
         this.props.onSelectionComplete?.(ids)
         this.dirty({ render: true })
@@ -145,6 +161,33 @@ function resolveRect(a: ModelerPoint, b: ModelerPoint): ModelerRect {
     width: Math.abs(a.x - b.x),
     height: Math.abs(a.y - b.y),
   }
+}
+
+function resolveWorldRect(a: ModelerPoint, b: ModelerPoint): ModelerRect {
+  return {
+    x: Math.min(a.x, b.x),
+    y: Math.min(a.y, b.y),
+    width: Math.abs(a.x - b.x),
+    height: Math.abs(a.y - b.y),
+  }
+}
+
+function resolveElementIdsInRect(elements: Array<ModelerElement>, rect: ModelerRect): Array<string> {
+  return elements
+    .filter(element => rectIntersects(rect, {
+      x: element.x,
+      y: element.y,
+      width: element.width,
+      height: element.height,
+    }))
+    .map(element => element.id)
+}
+
+function rectIntersects(a: ModelerRect, b: ModelerRect): boolean {
+  return a.x <= b.x + b.width
+    && a.x + a.width >= b.x
+    && a.y <= b.y + b.height
+    && a.y + a.height >= b.y
 }
 
 function finiteNumber(value: unknown, fallback: number): number {

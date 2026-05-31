@@ -5,6 +5,7 @@ import type {
   ModelerResizeHandle,
 } from '@/domain/types/index'
 import { SnapRuntime } from '@/model/snap/SnapRuntime'
+import { SelectionRuntime } from '@/model/selection/SelectionRuntime'
 import { eventPoint } from '@/tools/event-point'
 import type { ElementsRuntime } from '@/plugins/elements/model/ElementsRuntime'
 
@@ -45,7 +46,15 @@ export class ElementsGestures {
       onPointerDown: (context, event) => {
         const target = context.hitTest(eventPoint(event))
         if (target.type !== 'element') return false
-        context.applyCommand({ type: 'select', ids: [target.id] })
+        context.applyCommand({
+          type: 'select',
+          ids: SelectionRuntime.resolvePointerSelection({
+            current: context.getModel().selection,
+            elementId: target.id,
+            event,
+            options: context.getOptions().interaction?.selection,
+          }),
+        })
         return false
       },
     }))
@@ -59,7 +68,15 @@ export class ElementsGestures {
         const element = context.getModel().elements.find(item => item.id === target.id)
         const definition = element ? context.getElementRegistry().get(element.type) : undefined
         if (!element || definition?.capabilities?.draggable === false) return false
-        context.applyCommand({ type: 'select', ids: [target.id] })
+        context.applyCommand({
+          type: 'select',
+          ids: SelectionRuntime.resolvePointerSelection({
+            current: context.getModel().selection,
+            elementId: target.id,
+            event,
+            options: context.getOptions().interaction?.selection,
+          }),
+        })
         this.activeMove = {
           element: { ...element, data: { ...element.data }, style: { ...element.style } },
           startWorld: context.screenToWorld(eventPoint(event)),

@@ -19,6 +19,30 @@ export const DEFAULT_MODELER_OPTIONS: ModelerOptions = {
       enabled: true,
       disableModifier: 'alt',
     },
+    selection: {
+      multiple: true,
+      additiveModifier: 'shift',
+      toggleModifier: 'meta',
+      marqueeModifier: 'shift',
+      clearOnCanvasPointerDown: true,
+      selectOnPointerDown: true,
+      deleteShortcuts: [
+        { key: 'Backspace', preventDefault: true },
+        { key: 'Delete', preventDefault: true },
+      ],
+    },
+    tools: {
+      activeToolId: null,
+    },
+  },
+  palette: {
+    groups: {
+      tools: { dividerAfter: true },
+      elements: {},
+    },
+  },
+  shortcuts: {
+    bindings: {},
   },
 }
 
@@ -26,7 +50,31 @@ export function createDefaultModelerOptions(): ModelerOptions {
   return {
     ...DEFAULT_MODELER_OPTIONS,
     viewport: { ...DEFAULT_MODELER_OPTIONS.viewport },
-    interaction: { ...DEFAULT_MODELER_OPTIONS.interaction },
+    interaction: {
+      ...DEFAULT_MODELER_OPTIONS.interaction,
+      snap: DEFAULT_MODELER_OPTIONS.interaction?.snap === false
+        ? false
+        : { ...(DEFAULT_MODELER_OPTIONS.interaction?.snap ?? {}) },
+      selection: {
+        ...DEFAULT_MODELER_OPTIONS.interaction?.selection,
+        deleteShortcuts: [...(DEFAULT_MODELER_OPTIONS.interaction?.selection?.deleteShortcuts ?? [])],
+      },
+      tools: { ...DEFAULT_MODELER_OPTIONS.interaction?.tools },
+    },
+    palette: {
+      ...DEFAULT_MODELER_OPTIONS.palette,
+      visibleItemIds: DEFAULT_MODELER_OPTIONS.palette?.visibleItemIds
+        ? [...DEFAULT_MODELER_OPTIONS.palette.visibleItemIds]
+        : undefined,
+      order: DEFAULT_MODELER_OPTIONS.palette?.order
+        ? [...DEFAULT_MODELER_OPTIONS.palette.order]
+        : undefined,
+      groups: { ...(DEFAULT_MODELER_OPTIONS.palette?.groups ?? {}) },
+    },
+    shortcuts: {
+      ...DEFAULT_MODELER_OPTIONS.shortcuts,
+      bindings: { ...(DEFAULT_MODELER_OPTIONS.shortcuts?.bindings ?? {}) },
+    },
   }
 }
 
@@ -54,6 +102,49 @@ function mergeModelerOptions(options?: ModelerOptions): ModelerOptions {
     interaction: {
       ...defaults.interaction,
       ...(options?.interaction ?? {}),
+      snap: options?.interaction?.snap === false
+        ? false
+        : {
+            ...(defaults.interaction?.snap === false ? {} : defaults.interaction?.snap ?? {}),
+            ...(options?.interaction?.snap ?? {}),
+          },
+      selection: {
+        ...(defaults.interaction?.selection ?? {}),
+        ...(options?.interaction?.selection ?? {}),
+        deleteShortcuts: options?.interaction?.selection?.deleteShortcuts
+          ? [...options.interaction.selection.deleteShortcuts]
+          : [...(defaults.interaction?.selection?.deleteShortcuts ?? [])],
+      },
+      tools: {
+        ...(defaults.interaction?.tools ?? {}),
+        ...(options?.interaction?.tools ?? {}),
+      },
+    },
+    palette: {
+      ...(defaults.palette ?? {}),
+      ...(options?.palette ?? {}),
+      visibleItemIds: options?.palette?.visibleItemIds
+        ? [...options.palette.visibleItemIds]
+        : defaults.palette?.visibleItemIds
+          ? [...defaults.palette.visibleItemIds]
+          : undefined,
+      order: options?.palette?.order
+        ? [...options.palette.order]
+        : defaults.palette?.order
+          ? [...defaults.palette.order]
+          : undefined,
+      groups: {
+        ...(defaults.palette?.groups ?? {}),
+        ...(options?.palette?.groups ?? {}),
+      },
+    },
+    shortcuts: {
+      ...(defaults.shortcuts ?? {}),
+      ...(options?.shortcuts ?? {}),
+      bindings: {
+        ...(defaults.shortcuts?.bindings ?? {}),
+        ...(options?.shortcuts?.bindings ?? {}),
+      },
     },
   }
 }

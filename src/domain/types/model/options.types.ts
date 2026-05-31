@@ -1,4 +1,6 @@
 import type { ModelerSnapOptions } from '@/domain/types/interaction/snap.types'
+import type { ModelerShortcutOptions } from '@/domain/types/keyboard/shortcut.types'
+import type { ModelerPaletteOptions } from '@/domain/types/palette/palette.types'
 
 export interface ModelerViewportOptions {
   minZoom?: number
@@ -12,12 +14,16 @@ export interface ModelerInteractionOptions {
   readonly?: boolean
   gridSize?: number
   snap?: false | ModelerSnapOptions
+  selection?: ModelerSelectionOptions
+  tools?: ModelerInteractionToolsOptions
 }
 
 export interface ModelerOptions {
   version?: number
   viewport?: ModelerViewportOptions
   interaction?: ModelerInteractionOptions
+  palette?: ModelerPaletteOptions
+  shortcuts?: ModelerShortcutOptions
 }
 
 export interface ModelerOptionsRef {
@@ -26,3 +32,29 @@ export interface ModelerOptionsRef {
 }
 
 export type ModelerFeatureName = 'marqueeSelection'
+
+export type ModelerSelectionModifier = 'shift' | 'ctrl' | 'meta' | 'alt' | 'none'
+
+export interface ModelerKeyboardShortcut {
+  key?: string
+  code?: string
+  shift?: boolean
+  ctrl?: boolean
+  meta?: boolean
+  alt?: boolean
+  preventDefault?: boolean
+}
+
+export interface ModelerSelectionOptions {
+  multiple?: boolean
+  additiveModifier?: ModelerSelectionModifier
+  toggleModifier?: ModelerSelectionModifier
+  marqueeModifier?: ModelerSelectionModifier
+  clearOnCanvasPointerDown?: boolean
+  selectOnPointerDown?: boolean
+  deleteShortcuts?: Array<ModelerKeyboardShortcut>
+}
+
+export interface ModelerInteractionToolsOptions {
+  activeToolId?: string | null
+}

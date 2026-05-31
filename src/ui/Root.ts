@@ -29,6 +29,7 @@ import {
   Controller,
   createModelerController,
 } from '@/model/Controller'
+import { SelectionRuntime } from '@/model/selection/SelectionRuntime'
 import { eventPoint } from '@/tools/event-point'
 import { MODELER_INPUT_CONFIG } from '@/config/input.config'
 import { normalizeModelerOptions } from '@/config/options.config'
@@ -419,7 +420,7 @@ export class Root<E extends EventList = Record<string, any>>
             position: 'fixed',
             inset: { top: 16, left: 16 },
             width: 56,
-            height: 56,
+            height: 104,
             zIndex: 3000,
           },
           children: [
@@ -429,6 +430,11 @@ export class Root<E extends EventList = Record<string, any>>
               props: { controller: this.controllerInstance },
             },
           ],
+        },
+        {
+          type: Modeler.ContextPad,
+          id: `${this.componentId}:context-pad`,
+          props: { controller: this.controllerInstance },
         },
         {
           type: NovaUIKit.Flex,
@@ -577,7 +583,14 @@ export class Root<E extends EventList = Record<string, any>>
         const result = gesture.onPointerDown?.(context, event)
         if (result === false) return false
       }
-      if (event.button === 0 && (target.type === 'canvas' || target.type === 'empty')) {
+      if (event.button === 0 && target.type === 'canvas' && this.applyActiveCreateTool(point)) {
+        return false
+      }
+      if (
+        event.button === 0
+        && (target.type === 'canvas' || target.type === 'empty')
+        && SelectionRuntime.shouldClearOnCanvasPointerDown(this.controllerInstance.getOptions().interaction?.selection)
+      ) {
         this.clearSelection()
       }
       if (this.shouldStartPan(event)) {
@@ -644,6 +657,17 @@ export class Root<E extends EventList = Record<string, any>>
       return false
     })
     this.on('keydown', event => {
+      const shortcut = this.controllerInstance.getPluginContext().shortcuts.resolve(event)
+      if (shortcut) {
+        if (shortcut.shortcut.preventDefault !== false) event.preventDefault()
+        if (shortcut.definition.actionId) {
+          this.controllerInstance.getPluginContext().actions.run(shortcut.definition.actionId)
+        }
+        if (shortcut.definition.toolId) {
+          this.controllerInstance.getPluginContext().tools.activate(shortcut.definition.toolId)
+        }
+        return false
+      }
       if (event.key === ' ') {
         this.spacePressed = true
         if (!this.activeModelerCursor) this.setModelerCursor('pan')
@@ -668,6 +692,14 @@ export class Root<E extends EventList = Record<string, any>>
   private clearSelection(): void {
     if (this.controllerInstance.getModel().selection.length === 0) return
     this.controllerInstance.applyCommand({ type: 'select', ids: [] })
+  }
+
+  private applyActiveCreateTool(point: ModelerPoint): boolean {
+    const context = this.controllerInstance.getPluginContext()
+    const activeTool = context.tools.getActive()
+    if (!activeTool || activeTool.kind !== 'create-element') return false
+    const world = context.screenToWorld(point)
+    return !!context.tools.createAt(activeTool.id, world)
   }
 
   private setModelerCursorFromTarget(target: ModelerHitTarget): void {

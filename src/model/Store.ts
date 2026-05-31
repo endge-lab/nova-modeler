@@ -171,6 +171,14 @@ export class Store implements ModelerStore {
       this.addElement(command.element)
       return this.toModel()
     }
+    if (command.type === 'element.delete') {
+      this.deleteElement(command.id)
+      return this.toModel()
+    }
+    if (command.type === 'element.deleteMany') {
+      this.deleteElements(command.ids)
+      return this.toModel()
+    }
     if (command.type === 'element.patch') {
       this.patchElement(command.id, command.patch)
       return this.toModel()
@@ -214,6 +222,22 @@ export class Store implements ModelerStore {
       this.elements.set([...this.elements.items, this.normalizeElement(element)])
       this.version += 1
       this.elementsVersion += 1
+    })
+  }
+
+  deleteElement(id: string): void {
+    this.deleteElements([id])
+  }
+
+  deleteElements(ids: Array<string>): void {
+    const deleteIds = new Set(ids)
+    if (deleteIds.size === 0) return
+    Nova.batchStore(this, () => {
+      this.elements.set(this.elements.items.filter(element => !deleteIds.has(element.id)))
+      this.selection.set(this.selection.ids.filter(selectionId => !deleteIds.has(selectionId)))
+      this.version += 1
+      this.elementsVersion += 1
+      this.selectionVersion += 1
     })
   }
 
