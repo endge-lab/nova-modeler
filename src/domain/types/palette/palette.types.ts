@@ -15,7 +15,16 @@ export interface ModelerPaletteGroupOptions {
   dividerAfter?: boolean
 }
 
+export type ModelerPalettePlacement = 'left' | 'right' | 'top' | 'bottom'
+
 export interface ModelerPaletteOptions {
+  placement?: ModelerPalettePlacement
+  draggable?: boolean
+  offset?: number
+  itemSize?: number
+  gap?: number
+  padding?: number
+  gripSize?: number
   visibleItemIds?: Array<string>
   order?: Array<string>
   groups?: Record<string, ModelerPaletteGroupOptions>

@@ -4,6 +4,7 @@ import {
   Prop,
   createNovaDecoratedComponentDescriptor,
   type NovaApp,
+  type NovaCursorDeclaration,
   type NovaSchema,
   type NovaSurface,
 } from '@endge/nova'
@@ -26,25 +27,45 @@ import {
 import type {
   ModelerController,
   ModelerGesture,
+  ModelerPaletteItemDefinition,
+  ModelerPalettePlacement,
   ModelerPluginContext,
 } from '@/domain/types/index'
 import type {
   PaletteApi,
   PaletteDescriptor,
-  PaletteItemLayout,
-  PaletteItemType,
+  PaletteDividerLayout,
+  PaletteGripLayout,
+  PaletteLayoutEntry,
   PaletteProps,
   PaletteResolvedProps,
 } from '@/domain/types/controls/palette.types'
-import {
-  BASIC_RECT_DEFAULT_HEIGHT,
-  BASIC_RECT_DEFAULT_WIDTH,
-  createBasicRectElement,
-} from '@/elements/basic/rect/basic-rect.factory'
-import {
-  BPMN_EVENT_DEFAULT_SIZE,
-  createBpmnEventElement,
-} from '@/elements/bpmn/event/bpmn-event.factory'
+
+type PaletteOrientation = 'vertical' | 'horizontal'
+type PaletteDockMode = 'docked' | 'floating'
+
+interface PaletteResolvedLayoutOptions {
+  placement: ModelerPalettePlacement
+  orientation: PaletteOrientation
+  draggable: boolean
+  offset: number
+  itemSize: number
+  gap: number
+  padding: number
+  gripSize: number
+}
+
+interface PaletteLayoutPlan {
+  entries: Array<PaletteLayoutEntry>
+  width: number
+  height: number
+}
+
+const PALETTE_CURSOR_RULES: NovaCursorDeclaration = [
+  { when: { state: ['pressed', 'dragging'], paletteCursor: 'grip' }, use: 'grabbing' },
+  { when: { paletteCursor: 'grip' }, use: 'grab' },
+  { use: 'default' },
+]
 
 @NovaComponent({
   type: Modeler.Palette,
@@ -52,8 +73,8 @@ import {
   version: '0.1.0',
   dirtyPolicy: {
     matrix: ['x', 'y', 'zIndex'],
-    update: ['width', 'height', 'position', 'inset', 'visible'],
-    render: ['visible', 'controller'],
+    update: ['width', 'height', 'position', 'inset', 'visible', 'placement', 'draggable', 'offset', 'itemSize', 'gap', 'padding', 'gripSize'],
+    render: ['visible', 'controller', 'placement', 'draggable', 'offset', 'itemSize', 'gap', 'padding', 'gripSize'],
   },
 })
 export class Palette<E extends EventList = Record<string, any>>
@@ -61,16 +82,20 @@ export class Palette<E extends EventList = Record<string, any>>
   readonly [NOVA_UI_LAYOUT_TARGET] = true as const
 
   private pressed = false
-  private hoveredItem: PaletteItemType | null = null
-  private pressedItem: PaletteItemType | null = null
-  private activeDragItem: PaletteItemType | null = null
+  private hoveredItem: string | null = null
+  private pressedItem: string | null = null
+  private activeDragItem: string | null = null
   private activePassthroughGesture: ModelerGesture | null = null
-  private draggingItem: PaletteItemType | null = null
+  private draggingItem: string | null = null
+  private activeGrip = false
+  private paletteMode: PaletteDockMode = 'docked'
+  private floatingPosition: { x: number; y: number } | null = null
+  private paletteDragStart: { x: number; y: number; paletteX: number; paletteY: number } | null = null
   private pressStartPoint: { x: number; y: number } | null = null
   private dragPreviewPoint: { x: number; y: number } | null = null
   private externalLayout = false
-  private rectCounter = 0
-  private bpmnEventCounter = 0
+  private disposeToolSubscription: (() => void) | undefined
+  private lastPlacement: ModelerPalettePlacement | null = null
 
   @Prop.object<ModelerController>()
   declare controller?: ModelerController
@@ -90,6 +115,8 @@ export class Palette<E extends EventList = Record<string, any>>
       height: props.height,
       interactive: props.visible,
       zIndex: props.zIndex,
+      cursor: PALETTE_CURSOR_RULES,
+      cursorContext: { paletteCursor: 'none' },
     })
     this.restoreLocalRenderBounds()
     this.setupEvents()
@@ -98,10 +125,17 @@ export class Palette<E extends EventList = Record<string, any>>
   static normalizeProps(props: PaletteProps = {}): PaletteResolvedProps {
     return {
       controller: props.controller,
+      placement: props.placement,
+      draggable: props.draggable,
+      offset: props.offset,
+      itemSize: props.itemSize,
+      gap: props.gap,
+      padding: props.padding,
+      gripSize: props.gripSize,
       x: finiteNumber(props.x, 0),
       y: finiteNumber(props.y, 0),
       width: Math.max(0, finiteNumber(props.width, 56)),
-      height: Math.max(0, finiteNumber(props.height, 104)),
+      height: Math.max(0, finiteNumber(props.height, 152)),
       position: props.position ?? 'static',
       inset: props.inset,
       zIndex: props.zIndex,
@@ -122,14 +156,7 @@ export class Palette<E extends EventList = Record<string, any>>
     super.setProps(patch as Partial<PaletteResolvedProps>)
     this.props = Palette.normalizeProps(this.props)
     if (!this.externalLayout) {
-      this.options({
-        x: this.props.x,
-        y: this.props.y,
-        width: this.props.width,
-        height: this.props.height,
-        interactive: this.props.visible,
-        zIndex: this.props.zIndex,
-      })
+      this.syncPaletteFrame()
     }
     return this
   }
@@ -153,7 +180,24 @@ export class Palette<E extends EventList = Record<string, any>>
   }
 
   measureLayout(_constraints: NovaUiLayoutConstraints): NovaUiLayoutMeasure {
-    return { width: this.props.width, height: this.props.height }
+    const plan = this.createLayoutPlan(this.resolvePaletteLayoutOptions())
+    return { width: plan.width, height: plan.height }
+  }
+
+  update(): void {
+    super.update()
+    if (!this.externalLayout) this.syncPaletteFrame()
+  }
+
+  protected override onMount(): void {
+    super.onMount()
+    this.subscribeToActiveTool()
+  }
+
+  protected override onUnmount(): void {
+    this.disposeToolSubscription?.()
+    this.disposeToolSubscription = undefined
+    super.onUnmount()
   }
 
   render(): void {
@@ -164,9 +208,10 @@ export class Palette<E extends EventList = Record<string, any>>
     }
 
     const schema: NovaSchema = []
-    const width = this.width || this.props.width
-    const height = this.height || this.props.height
-    const items = this.createItemLayouts(width, height)
+    const layoutOptions = this.resolvePaletteLayoutOptions()
+    const plan = this.createLayoutPlan(layoutOptions)
+    const width = plan.width
+    const height = plan.height
 
     schema.push({
       type: 'rect',
@@ -184,19 +229,30 @@ export class Palette<E extends EventList = Record<string, any>>
       },
     })
 
-    for (const item of items) {
-      const activeBackground = this.pressedItem === item.type
+    const context = this.resolveContext()
+    const activeToolId = context?.tools.getActiveId() ?? null
+    for (const entry of plan.entries) {
+      if (entry.type === 'divider') {
+        this.appendDivider(schema, entry, layoutOptions)
+        continue
+      }
+      if (entry.type === 'grip') {
+        this.appendGrip(schema, entry)
+        continue
+      }
+      const item = entry.item
+      const activeBackground = this.pressedItem === item.id || activeToolId === item.toolId
         ? this.resolvePaletteColor('paletteItemPressedBackground')
-        : this.hoveredItem === item.type
+        : this.hoveredItem === item.id
           ? this.resolvePaletteColor('paletteItemHoverBackground')
           : 'rgba(0,0,0,0)'
 
       schema.push({
         type: 'rect',
-        x: item.x,
-        y: item.y,
-        width: item.size,
-        height: item.size,
+        x: entry.x,
+        y: entry.y,
+        width: entry.size,
+        height: entry.size,
         styles: {
           background: activeBackground,
           border: {
@@ -207,8 +263,7 @@ export class Palette<E extends EventList = Record<string, any>>
         },
       })
 
-      if (item.type === 'basic.rect') this.appendRectIcon(schema, item.x, item.y, item.size)
-      else this.appendBpmnEventIcon(schema, item.x, item.y, item.size)
+      this.appendItemIcon(schema, item, entry.x, entry.y, entry.size)
     }
 
     this.appendDragPreview(schema)
@@ -218,11 +273,13 @@ export class Palette<E extends EventList = Record<string, any>>
   private setupEvents(): void {
     this.on('mouseenter', event => {
       if (!this.props.visible) return
+      this.setPaletteCursorFromEvent(event)
       this.hoveredItem = this.resolveItemAtEvent(event)
       this.dirty({ render: true })
     })
     this.on('mousemove', event => {
       if (!this.props.visible) return
+      this.setPaletteCursorFromEvent(event)
       const next = this.resolveItemAtEvent(event)
       if (next === this.hoveredItem) return
       this.hoveredItem = next
@@ -230,15 +287,38 @@ export class Palette<E extends EventList = Record<string, any>>
     })
     this.on('mouseleave', () => {
       this.hoveredItem = null
+      this.setPaletteCursor(null)
       this.dirty({ render: true })
     })
     this.on('mousedown', event => {
       if (!this.props.visible) return false
       if (this.hasPointerModifier(event)) return this.startPassthroughGesture(event)
+      const grip = this.resolveGripAtEvent(event)
+      if (grip && this.resolvePaletteLayoutOptions().draggable) {
+        const point = this.events.getCanvasMousePosition(event)
+        this.pressed = true
+        this.activeGrip = true
+        this.paletteDragStart = { x: point.x, y: point.y, paletteX: this.x, paletteY: this.y }
+        this.setPaletteCursor('grip')
+        this.dirty({ render: true })
+        return false
+      }
       const item = this.resolveItemAtEvent(event)
+      if (item && !this.isCreateToolItem(item)) {
+        this.runPaletteItem(item)
+        this.pressed = false
+        this.pressedItem = null
+        this.activeDragItem = null
+        this.draggingItem = null
+        this.dragPreviewPoint = null
+        this.pressStartPoint = null
+        this.dirty({ render: true })
+        return false
+      }
       this.pressed = !!item
       this.pressedItem = item
       this.activeDragItem = item
+      this.activeGrip = false
       this.draggingItem = null
       this.dragPreviewPoint = null
       this.pressStartPoint = this.events.getCanvasMousePosition(event)
@@ -252,7 +332,11 @@ export class Palette<E extends EventList = Record<string, any>>
         const result = this.activePassthroughGesture.onPointerMove?.(controller.getPluginContext(), event)
         if (result === false) return false
       }
-      if (!this.activeDragItem) return false
+      if (this.activeGrip) {
+        this.movePaletteByEvent(event)
+        return false
+      }
+      if (!this.activeDragItem || !this.isCreateToolItem(this.activeDragItem)) return false
       this.dragPreviewPoint = this.resolveLocalEventPoint(event)
       if (this.draggingItem === this.activeDragItem) {
         this.dirty({ render: true })
@@ -275,6 +359,8 @@ export class Palette<E extends EventList = Record<string, any>>
       }
       if (this.activeDragItem && this.draggingItem) {
         this.createElementAtEvent(this.activeDragItem, event)
+      } else if (this.activeDragItem) {
+        this.runPaletteItem(this.activeDragItem)
       }
       this.resetPressState()
       return false
@@ -290,11 +376,32 @@ export class Palette<E extends EventList = Record<string, any>>
         if (result === false) return false
       }
       if (!this.pressed) return false
+      if (this.activeGrip) {
+        this.movePaletteByEvent(event)
+        this.resetPressState()
+        return
+      }
       if (this.activeDragItem && this.hasPointerMovedBeyondClick(event)) {
         this.createElementAtEvent(this.activeDragItem, event)
+      } else if (this.activeDragItem) {
+        this.runPaletteItem(this.activeDragItem)
       }
       this.resetPressState()
       this.dirty({ render: true })
+      return false
+    })
+    this.on('click', event => {
+      if (!this.props.visible) return false
+      const item = this.resolveItemAtEvent(event)
+      if (item) this.runPaletteItem(item)
+      return false
+    })
+    this.on('dblclick', event => {
+      if (!this.props.visible) return false
+      if (this.resolveGripAtEvent(event)) {
+        this.resetDockedPosition()
+        return false
+      }
       return false
     })
     this.on('dragcancel', () => {
@@ -307,14 +414,24 @@ export class Palette<E extends EventList = Record<string, any>>
     })
   }
 
+  private subscribeToActiveTool(): void {
+    this.disposeToolSubscription?.()
+    this.disposeToolSubscription = this.resolveContext()?.tools.subscribe(() => {
+      this.dirty({ render: true })
+    })
+  }
+
   private resetPressState(): void {
     this.pressed = false
     this.pressedItem = null
     this.activeDragItem = null
+    this.activeGrip = false
+    this.paletteDragStart = null
     this.draggingItem = null
     this.pressStartPoint = null
     this.dragPreviewPoint = null
     this.restoreLocalRenderBounds()
+    this.setPaletteCursor(null)
     this.dirty({ render: true })
   }
 
@@ -347,6 +464,14 @@ export class Palette<E extends EventList = Record<string, any>>
     return event.altKey || event.ctrlKey || event.metaKey || event.shiftKey
   }
 
+  private setPaletteCursorFromEvent(event: MouseEvent): void {
+    this.setPaletteCursor(this.resolveGripAtEvent(event) ? 'grip' : null)
+  }
+
+  private setPaletteCursor(cursor: 'grip' | null): void {
+    this.options({ cursorContext: { paletteCursor: cursor ?? 'none' } })
+  }
+
   private startPassthroughGesture(event: MouseEvent): false | void {
     const controller = this.resolveOptionalController()
     if (!controller) return
@@ -365,64 +490,46 @@ export class Palette<E extends EventList = Record<string, any>>
     return this.props.controller ?? this.injectOptional(MODELER_CONTROLLER)
   }
 
-  private createElementAtEvent(type: PaletteItemType, event: MouseEvent): void {
-    const context = this.props.controller ?? this.injectOptional(MODELER_CONTEXT)
+  private resolveContext(): ModelerPluginContext | undefined {
+    return this.resolveOptionalController()?.getPluginContext()
+      ?? this.injectOptional(MODELER_CONTEXT)
+  }
+
+  private createElementAtEvent(itemId: string, event: MouseEvent): void {
+    const context = this.resolveContext()
     if (!context) return
 
+    const item = context.palette.get(itemId)
+    if (!item?.toolId) return
     const point = this.events.getCanvasMousePosition(event)
     if (!this.isPointInsideCanvas(context, point)) return
 
     const center = context.screenToWorld(point)
-    if (type === 'basic.rect') this.createRectAt(center)
-    if (type === 'bpmn.event') this.createBpmnEventAt(center)
+    context.tools.createAt(item.toolId, center)
   }
 
   private createRect(): void {
-    const context = this.props.controller ?? this.injectOptional(MODELER_CONTEXT)
+    const context = this.resolveContext()
     if (!context) return
 
-    this.createRectAt(this.resolveInsertCenter(context))
-  }
-
-  private createRectAt(center: { x: number; y: number }): void {
-    const context = this.props.controller ?? this.injectOptional(MODELER_CONTEXT)
-    if (!context) return
-
-    const id = `basic-rect-${Date.now().toString(36)}-${this.rectCounter += 1}`
-    context.applyCommand({
-      type: 'element.add',
-      element: createBasicRectElement({
-        id,
-        x: Math.round(center.x - 80),
-        y: Math.round(center.y - 48),
-      }),
-    })
-    context.applyCommand({ type: 'select', ids: [id] })
+    context.tools.createAt('create:basic.rect', this.resolveInsertCenter(context))
   }
 
   private createBpmnEvent(): void {
-    const context = this.props.controller ?? this.injectOptional(MODELER_CONTEXT)
+    const context = this.resolveContext()
     if (!context) return
 
-    this.createBpmnEventAt(this.resolveInsertCenter(context))
+    context.tools.createAt('create:bpmn.event', this.resolveInsertCenter(context))
   }
 
-  private createBpmnEventAt(center: { x: number; y: number }): void {
-    const context = this.props.controller ?? this.injectOptional(MODELER_CONTEXT)
+  private runPaletteItem(itemId: string): void {
+    const context = this.resolveContext()
     if (!context) return
 
-    const id = `bpmn-event-${Date.now().toString(36)}-${this.bpmnEventCounter += 1}`
-    context.applyCommand({
-      type: 'element.add',
-      element: createBpmnEventElement({
-        id,
-        x: Math.round(center.x - 24),
-        y: Math.round(center.y - 24),
-        eventPosition: 'start',
-        trigger: 'none',
-      }),
-    })
-    context.applyCommand({ type: 'select', ids: [id] })
+    const item = context.palette.get(itemId)
+    if (!item) return
+    if (item.actionId) context.actions.run(item.actionId)
+    if (item.toolId) context.tools.activate(item.toolId)
   }
 
   private resolveInsertCenter(context: ModelerController | ModelerPluginContext): { x: number; y: number } {
@@ -441,7 +548,109 @@ export class Palette<E extends EventList = Record<string, any>>
       && point.y <= canvas.y + canvas.height
   }
 
-  private resolveItemAtEvent(event: MouseEvent): PaletteItemType | null {
+  private syncPaletteFrame(): void {
+    const options = this.resolvePaletteLayoutOptions()
+    if (this.lastPlacement && this.lastPlacement !== options.placement) {
+      this.paletteMode = 'docked'
+      this.floatingPosition = null
+    }
+    this.lastPlacement = options.placement
+    if (!options.draggable) {
+      this.paletteMode = 'docked'
+      this.floatingPosition = null
+    }
+
+    const plan = this.createLayoutPlan(options)
+    const position = this.paletteMode === 'floating' && this.floatingPosition
+      ? this.clampPalettePosition(this.floatingPosition, plan.width, plan.height)
+      : this.resolveDockedPosition(options, plan.width, plan.height)
+    if (this.paletteMode === 'floating') this.floatingPosition = position
+
+    this.options({
+      x: position.x,
+      y: position.y,
+      width: plan.width,
+      height: plan.height,
+      interactive: this.props.visible,
+      zIndex: this.props.zIndex,
+    })
+    if (this.draggingItem) this.expandLocalRenderBounds()
+    else this.restoreLocalRenderBounds()
+  }
+
+  private resolvePaletteLayoutOptions(): PaletteResolvedLayoutOptions {
+    const options = this.resolveContext()?.getOptions().palette
+    const placement = this.props.placement ?? options?.placement ?? 'left'
+    return {
+      placement,
+      orientation: placement === 'left' || placement === 'right' ? 'vertical' : 'horizontal',
+      draggable: this.props.draggable ?? options?.draggable ?? true,
+      offset: this.resolvePaletteNumberOption(this.props.offset, options?.offset, 16),
+      itemSize: this.resolvePaletteNumberOption(this.props.itemSize, options?.itemSize, 40),
+      gap: this.resolvePaletteNumberOption(this.props.gap, options?.gap, 8),
+      padding: this.resolvePaletteNumberOption(this.props.padding, options?.padding, 8),
+      gripSize: this.resolvePaletteNumberOption(this.props.gripSize, options?.gripSize, 32),
+    }
+  }
+
+  private resolvePaletteNumberOption(prop: number | undefined, option: number | undefined, fallback: number): number {
+    return Math.max(0, finiteNumber(prop, finiteNumber(option, fallback)))
+  }
+
+  private resolveDockedPosition(
+    options: PaletteResolvedLayoutOptions,
+    width: number,
+    height: number,
+  ): { x: number; y: number } {
+    const surfaceWidth = this.surface.width
+    const surfaceHeight = this.surface.height
+    if (options.placement === 'right') {
+      return {
+        x: Math.max(0, surfaceWidth - width - options.offset),
+        y: options.offset,
+      }
+    }
+    if (options.placement === 'top') {
+      return { x: options.offset, y: options.offset }
+    }
+    if (options.placement === 'bottom') {
+      return {
+        x: options.offset,
+        y: Math.max(0, surfaceHeight - height - options.offset),
+      }
+    }
+    return { x: options.offset, y: options.offset }
+  }
+
+  private movePaletteByEvent(event: MouseEvent): void {
+    if (!this.paletteDragStart) return
+    const point = this.events.getCanvasMousePosition(event)
+    const plan = this.createLayoutPlan(this.resolvePaletteLayoutOptions())
+    const next = this.clampPalettePosition({
+      x: this.paletteDragStart.paletteX + point.x - this.paletteDragStart.x,
+      y: this.paletteDragStart.paletteY + point.y - this.paletteDragStart.y,
+    }, plan.width, plan.height)
+    this.paletteMode = 'floating'
+    this.floatingPosition = next
+    this.options({ x: next.x, y: next.y })
+    this.dirty({ matrix: true, render: true })
+  }
+
+  private resetDockedPosition(): void {
+    this.paletteMode = 'docked'
+    this.floatingPosition = null
+    this.syncPaletteFrame()
+    this.dirty({ matrix: true, render: true })
+  }
+
+  private clampPalettePosition(position: { x: number; y: number }, width: number, height: number): { x: number; y: number } {
+    return {
+      x: clamp(position.x, 0, Math.max(0, this.surface.width - width)),
+      y: clamp(position.y, 0, Math.max(0, this.surface.height - height)),
+    }
+  }
+
+  private resolveItemAtEvent(event: MouseEvent): string | null {
     const point = this.resolveLocalEventPoint(event)
     return this.resolveItemAtLocalPoint(point.x, point.y)
   }
@@ -452,23 +661,166 @@ export class Palette<E extends EventList = Record<string, any>>
     return { x: localX, y: localY }
   }
 
-  private resolveItemAtLocalPoint(x: number, y: number): PaletteItemType | null {
-    for (const item of this.createItemLayouts(this.width || this.props.width, this.height || this.props.height)) {
-      if (x >= item.x && x <= item.x + item.size && y >= item.y && y <= item.y + item.size) return item.type
+  private resolveItemAtLocalPoint(x: number, y: number): string | null {
+    for (const item of this.createLayoutPlan(this.resolvePaletteLayoutOptions()).entries) {
+      if (item.type !== 'item') continue
+      if (x >= item.x && x <= item.x + item.size && y >= item.y && y <= item.y + item.size) return item.item.id
     }
     return null
   }
 
-  private createItemLayouts(width: number, height: number): Array<PaletteItemLayout> {
-    const itemSize = Math.min(40, Math.max(0, width - 16))
-    const gap = 8
-    const totalHeight = itemSize * 2 + gap
-    const itemX = (width - itemSize) / 2
-    const startY = Math.max(8, (height - totalHeight) / 2)
-    return [
-      { type: 'basic.rect', x: itemX, y: startY, size: itemSize },
-      { type: 'bpmn.event', x: itemX, y: startY + itemSize + gap, size: itemSize },
-    ]
+  private resolveGripAtEvent(event: MouseEvent): PaletteGripLayout | null {
+    const point = this.resolveLocalEventPoint(event)
+    for (const item of this.createLayoutPlan(this.resolvePaletteLayoutOptions()).entries) {
+      if (item.type !== 'grip') continue
+      if (point.x >= item.x && point.x <= item.x + item.width && point.y >= item.y && point.y <= item.y + item.height) return item
+    }
+    return null
+  }
+
+  private createLayoutPlan(options: PaletteResolvedLayoutOptions): PaletteLayoutPlan {
+    const context = this.resolveContext()
+    const items = context?.palette.getItems() ?? []
+    const layout: Array<PaletteLayoutEntry> = []
+    if (options.orientation === 'horizontal') return this.createHorizontalLayoutPlan(items, options, layout)
+    return this.createVerticalLayoutPlan(items, options, layout)
+  }
+
+  private createVerticalLayoutPlan(
+    items: Array<ModelerPaletteItemDefinition>,
+    options: PaletteResolvedLayoutOptions,
+    layout: Array<PaletteLayoutEntry>,
+  ): PaletteLayoutPlan {
+    const width = options.padding * 2 + options.itemSize
+    const itemX = options.padding
+    let y = options.padding
+    const context = this.resolveContext()
+    for (let index = 0; index < items.length; index += 1) {
+      const item = items[index]
+      if (!item) continue
+      layout.push({ type: 'item', item, x: itemX, y, size: options.itemSize })
+      y += options.itemSize
+      const next = items[index + 1]
+      const shouldDivide = context?.getOptions().palette?.groups?.[item.group]?.dividerAfter && next?.group !== item.group
+      if (shouldDivide) {
+        y += options.gap
+        layout.push({ type: 'divider', x: options.padding, y, width: options.itemSize, height: 1 })
+        y += 1 + options.gap
+      } else {
+        y += options.gap
+      }
+    }
+    if (options.draggable) {
+      const gripY = y
+      layout.push({ type: 'grip', x: options.padding, y: gripY, width: options.itemSize, height: options.gripSize })
+      y += options.gripSize
+    } else if (layout.length > 0) {
+      y -= options.gap
+    }
+    return { entries: layout, width, height: Math.max(options.padding * 2, y + options.padding) }
+  }
+
+  private createHorizontalLayoutPlan(
+    items: Array<ModelerPaletteItemDefinition>,
+    options: PaletteResolvedLayoutOptions,
+    layout: Array<PaletteLayoutEntry>,
+  ): PaletteLayoutPlan {
+    const height = options.padding * 2 + options.itemSize
+    const itemY = options.padding
+    let x = options.padding
+    const context = this.resolveContext()
+    for (let index = 0; index < items.length; index += 1) {
+      const item = items[index]
+      if (!item) continue
+      layout.push({ type: 'item', item, x, y: itemY, size: options.itemSize })
+      x += options.itemSize
+      const next = items[index + 1]
+      const shouldDivide = context?.getOptions().palette?.groups?.[item.group]?.dividerAfter && next?.group !== item.group
+      if (shouldDivide) {
+        x += options.gap
+        layout.push({ type: 'divider', x, y: options.padding, width: 1, height: options.itemSize })
+        x += 1 + options.gap
+      } else {
+        x += options.gap
+      }
+    }
+    if (options.draggable) {
+      const gripX = x
+      layout.push({ type: 'grip', x: gripX, y: options.padding, width: options.gripSize, height: options.itemSize })
+      x += options.gripSize
+    } else if (layout.length > 0) {
+      x -= options.gap
+    }
+    return { entries: layout, width: Math.max(options.padding * 2, x + options.padding), height }
+  }
+
+  private isCreateToolItem(itemId: string): boolean {
+    const context = this.resolveContext()
+    const item = context?.palette.get(itemId)
+    const tool = item?.toolId ? context?.tools.get(item.toolId) : undefined
+    return tool?.kind === 'create-element'
+  }
+
+  private appendDivider(schema: NovaSchema, entry: PaletteDividerLayout, options: PaletteResolvedLayoutOptions): void {
+    if (options.orientation === 'horizontal') {
+      schema.push({
+        type: 'line',
+        x1: entry.x,
+        y1: entry.y,
+        x2: entry.x,
+        y2: entry.y + entry.height,
+        styles: {
+          color: this.resolvePaletteColor('paletteBorderColor'),
+          width: 1,
+        },
+      })
+      return
+    }
+    schema.push({
+      type: 'line',
+      x1: entry.x,
+      y1: entry.y,
+      x2: entry.x + entry.width,
+      y2: entry.y,
+      styles: {
+        color: this.resolvePaletteColor('paletteBorderColor'),
+        width: 1,
+      },
+    })
+  }
+
+  private appendGrip(schema: NovaSchema, entry: PaletteGripLayout): void {
+    const color = this.resolvePaletteColor('paletteIconStroke')
+    const centerX = entry.x + entry.width / 2
+    const centerY = entry.y + entry.height / 2
+    const colGap = Math.min(7, entry.width / 4)
+    const rowGap = Math.min(6, entry.height / 4)
+    for (let row = 0; row < 2; row += 1) {
+      for (let col = 0; col < 3; col += 1) {
+        schema.push({
+          type: 'circle',
+          x: centerX + (col - 1) * colGap,
+          y: centerY + (row - 0.5) * rowGap,
+          radius: 1.6,
+          styles: {
+            background: color,
+            border: { color, width: 0 },
+          },
+        })
+      }
+    }
+  }
+
+  private appendItemIcon(schema: NovaSchema, item: ModelerPaletteItemDefinition, x: number, y: number, size: number): void {
+    if (item.icon === 'marquee-rect') {
+      this.appendMarqueeIcon(schema, x, y, size)
+      return
+    }
+    if (item.icon === 'bpmn-event') {
+      this.appendBpmnEventIcon(schema, x, y, size)
+      return
+    }
+    this.appendRectIcon(schema, x, y, size)
   }
 
   private appendRectIcon(schema: NovaSchema, x: number, y: number, size: number): void {
@@ -507,14 +859,43 @@ export class Palette<E extends EventList = Record<string, any>>
     })
   }
 
+  private appendMarqueeIcon(schema: NovaSchema, x: number, y: number, size: number): void {
+    const left = x + size * 0.24
+    const top = y + size * 0.24
+    const right = x + size * 0.76
+    const bottom = y + size * 0.76
+    const color = this.resolvePaletteColor('paletteIconStroke')
+    const segments: Array<[number, number, number, number]> = [
+      [left, top, left + size * 0.16, top],
+      [right - size * 0.16, top, right, top],
+      [left, bottom, left + size * 0.16, bottom],
+      [right - size * 0.16, bottom, right, bottom],
+      [left, top, left, top + size * 0.16],
+      [left, bottom - size * 0.16, left, bottom],
+      [right, top, right, top + size * 0.16],
+      [right, bottom - size * 0.16, right, bottom],
+    ]
+    segments.forEach(([x1, y1, x2, y2]) => {
+      schema.push({
+        type: 'line',
+        x1,
+        y1,
+        x2,
+        y2,
+        styles: { color, width: 2 },
+      })
+    })
+  }
+
   private appendDragPreview(schema: NovaSchema): void {
     if (!this.draggingItem || !this.dragPreviewPoint) return
 
-    const context = this.props.controller ?? this.injectOptional(MODELER_CONTEXT)
+    const context = this.resolveContext()
     const scale = context?.getViewport().scale ?? 1
-    if (this.draggingItem === 'basic.rect') {
-      const width = BASIC_RECT_DEFAULT_WIDTH * scale
-      const height = BASIC_RECT_DEFAULT_HEIGHT * scale
+    const item = context?.palette.get(this.draggingItem)
+    if (item?.icon !== 'bpmn-event') {
+      const width = 160 * scale
+      const height = 96 * scale
       schema.push({
         type: 'rect',
         x: this.dragPreviewPoint.x - width / 2,
@@ -534,7 +915,7 @@ export class Palette<E extends EventList = Record<string, any>>
       return
     }
 
-    const radius = (BPMN_EVENT_DEFAULT_SIZE * scale) / 2
+    const radius = (48 * scale) / 2
     schema.push({
       type: 'circle',
       x: this.dragPreviewPoint.x,
@@ -576,4 +957,8 @@ export const MODELER_PALETTE_DESCRIPTOR = createNovaDecoratedComponentDescriptor
 
 function finiteNumber(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value))
 }

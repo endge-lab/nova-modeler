@@ -1,6 +1,14 @@
-import type { ModelerKeyboardShortcut } from '@/domain/types/model/options.types'
-
 export type ModelerShortcutScope = 'canvas' | 'global'
+
+export interface ModelerKeyboardShortcut {
+  key?: string
+  code?: string
+  shift?: boolean
+  ctrl?: boolean
+  meta?: boolean
+  alt?: boolean
+  preventDefault?: boolean
+}
 
 export interface ModelerShortcutDefinition {
   id: string

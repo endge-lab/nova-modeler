@@ -7,6 +7,7 @@ import type {
 
 export class ToolRegistry {
   private readonly items = new Map<string, ModelerToolDefinition>()
+  private readonly listeners = new Set<(activeToolId: string | null) => void>()
   private activeId: string | null = null
 
   constructor(
@@ -40,6 +41,7 @@ export class ToolRegistry {
     this.activeId = id
     next.activate?.(this.getContext())
     this.invalidate()
+    this.notify()
     return true
   }
 
@@ -50,6 +52,7 @@ export class ToolRegistry {
     this.activeId = null
     current?.deactivate?.(this.getContext())
     this.invalidate()
+    this.notify()
     return true
   }
 
@@ -67,5 +70,14 @@ export class ToolRegistry {
     const element = tool.createAt(this.getContext(), point)
     if (tool.oneShot !== false) this.deactivate(id)
     return element
+  }
+
+  subscribe(listener: (activeToolId: string | null) => void): () => void {
+    this.listeners.add(listener)
+    return () => this.listeners.delete(listener)
+  }
+
+  private notify(): void {
+    this.listeners.forEach(listener => listener(this.activeId))
   }
 }

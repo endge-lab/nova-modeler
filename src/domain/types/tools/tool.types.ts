@@ -23,4 +23,5 @@ export interface ModelerToolRegistryApi {
   getActive(): ModelerToolDefinition | undefined
   getActiveId(): string | null
   createAt(id: string, point: ModelerPoint): ModelerElement | undefined
+  subscribe(listener: (activeToolId: string | null) => void): () => void
 }

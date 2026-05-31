@@ -4,18 +4,46 @@ import type {
   NovaUiPosition,
 } from '@endge/nova-ui-kit'
 import type { ModelerController } from '@/domain/types/plugins/controller.types'
-
-export type PaletteItemType = 'basic.rect' | 'bpmn.event'
+import type {
+  ModelerPaletteItemDefinition,
+  ModelerPalettePlacement,
+} from '@/domain/types/palette/palette.types'
 
 export interface PaletteItemLayout {
-  type: PaletteItemType
+  type: 'item'
+  item: ModelerPaletteItemDefinition
   x: number
   y: number
   size: number
 }
 
+export interface PaletteDividerLayout {
+  type: 'divider'
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+export interface PaletteGripLayout {
+  type: 'grip'
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+export type PaletteLayoutEntry = PaletteItemLayout | PaletteDividerLayout | PaletteGripLayout
+
 export interface PaletteProps {
   controller?: ModelerController
+  placement?: ModelerPalettePlacement
+  draggable?: boolean
+  offset?: number
+  itemSize?: number
+  gap?: number
+  padding?: number
+  gripSize?: number
   x?: number
   y?: number
   width?: number
@@ -28,6 +56,13 @@ export interface PaletteProps {
 
 export interface PaletteResolvedProps {
   controller?: ModelerController
+  placement?: ModelerPalettePlacement
+  draggable?: boolean
+  offset?: number
+  itemSize?: number
+  gap?: number
+  padding?: number
+  gripSize?: number
   x: number
   y: number
   width: number

@@ -1,3 +1,4 @@
+export * from '@/plugins/core/core-actions-plugin'
 export * from '@/plugins/mini-map/mini-map-plugin'
 export * from '@/plugins/mini-map/mini-map.types'
 export * from '@/plugins/mini-map/mini-map-schema'

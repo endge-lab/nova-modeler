@@ -36,6 +36,13 @@ export const DEFAULT_MODELER_OPTIONS: ModelerOptions = {
     },
   },
   palette: {
+    placement: 'left',
+    draggable: true,
+    offset: 16,
+    itemSize: 40,
+    gap: 8,
+    padding: 8,
+    gripSize: 32,
     groups: {
       tools: { dividerAfter: true },
       elements: {},
@@ -69,6 +76,13 @@ export function createDefaultModelerOptions(): ModelerOptions {
       order: DEFAULT_MODELER_OPTIONS.palette?.order
         ? [...DEFAULT_MODELER_OPTIONS.palette.order]
         : undefined,
+      placement: DEFAULT_MODELER_OPTIONS.palette?.placement,
+      draggable: DEFAULT_MODELER_OPTIONS.palette?.draggable,
+      offset: DEFAULT_MODELER_OPTIONS.palette?.offset,
+      itemSize: DEFAULT_MODELER_OPTIONS.palette?.itemSize,
+      gap: DEFAULT_MODELER_OPTIONS.palette?.gap,
+      padding: DEFAULT_MODELER_OPTIONS.palette?.padding,
+      gripSize: DEFAULT_MODELER_OPTIONS.palette?.gripSize,
       groups: { ...(DEFAULT_MODELER_OPTIONS.palette?.groups ?? {}) },
     },
     shortcuts: {

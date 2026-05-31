@@ -1,5 +1,8 @@
 import type { ModelerSnapOptions } from '@/domain/types/interaction/snap.types'
-import type { ModelerShortcutOptions } from '@/domain/types/keyboard/shortcut.types'
+import type {
+  ModelerKeyboardShortcut,
+  ModelerShortcutOptions,
+} from '@/domain/types/keyboard/shortcut.types'
 import type { ModelerPaletteOptions } from '@/domain/types/palette/palette.types'
 
 export interface ModelerViewportOptions {
@@ -34,16 +37,6 @@ export interface ModelerOptionsRef {
 export type ModelerFeatureName = 'marqueeSelection'
 
 export type ModelerSelectionModifier = 'shift' | 'ctrl' | 'meta' | 'alt' | 'none'
-
-export interface ModelerKeyboardShortcut {
-  key?: string
-  code?: string
-  shift?: boolean
-  ctrl?: boolean
-  meta?: boolean
-  alt?: boolean
-  preventDefault?: boolean
-}
 
 export interface ModelerSelectionOptions {
   multiple?: boolean

@@ -4,7 +4,7 @@ import type {
   ModelerElement,
   ModelerElementInput,
 } from '@/domain/types/elements/element.types'
-import type { ModelerKeyboardShortcut } from '@/domain/types/model/options.types'
+import type { ModelerKeyboardShortcut } from '@/domain/types/keyboard/shortcut.types'
 import type { ModelerPoint } from '@/domain/types/model/geometry.types'
 import type { ModelerPaletteItemDefinition } from '@/domain/types/palette/palette.types'
 import type { ModelerPluginContext } from '@/domain/types/plugins/plugin.types'

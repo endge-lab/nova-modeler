@@ -112,7 +112,8 @@ export class MarqueeSelection<E extends EventList = Record<string, any>>
       hitTest: (ctx, event, target) => this.props.enabled
         && event.button === 0
         && target.type === 'canvas'
-        && SelectionRuntime.shouldStartMarquee(event, ctx.getOptions().interaction?.selection),
+        && (ctx.tools.getActiveId() === 'marqueeSelection'
+          || SelectionRuntime.shouldStartMarquee(event, ctx.getOptions().interaction?.selection)),
       onPointerDown: (_ctx, event) => {
         const point = eventPoint(event)
         this.draft = { start: point, current: point }
@@ -142,6 +143,7 @@ export class MarqueeSelection<E extends EventList = Record<string, any>>
           options: ctx.getOptions().interaction?.selection,
         })
         ctx.applyCommand({ type: 'select', ids })
+        if (ctx.tools.getActiveId() === 'marqueeSelection') ctx.tools.deactivate('marqueeSelection')
         this.props.onSelectionComplete?.(ids)
         this.dirty({ render: true })
         return false

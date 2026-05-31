@@ -71,7 +71,7 @@ export class ElementsPlugin extends PluginBase {
       kind: 'create-element',
       title: createTool.title,
       oneShot: true,
-      createAt: (context, point) => this.createElementAt(definition, point),
+      createAt: (_context, point) => this.createElementAt(definition, point),
     }))
     this.addDisposer(this.context.palette.register({
       id: paletteId,

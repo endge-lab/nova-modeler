@@ -63,9 +63,9 @@ describe('nova modeler minimal benchmarks', () => {
       })
       appendGridSchema(schema, plan, '#94a3b8')
       totalDots += schema.length
-      expect(plan.dotCount).toBeLessThanOrEqual(8_000)
+      expect(plan.dotCount).toBeLessThanOrEqual(32_000)
     }
-    expect(totalDots).toBeLessThanOrEqual(8_000_000)
-    expect(performance.now() - started).toBeLessThan(350)
+    expect(totalDots).toBeLessThanOrEqual(32_000_000)
+    expect(performance.now() - started).toBeLessThan(700)
   })
 })

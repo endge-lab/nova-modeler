@@ -1,7 +1,7 @@
 import type {
   ModelerActionDefinition,
   ModelerPluginContext,
-} from '@/domain/types/index'
+} from '@/domain/types'
 
 export class ActionRegistry {
   private readonly items = new Map<string, ModelerActionDefinition>()

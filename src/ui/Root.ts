@@ -155,6 +155,7 @@ export class Root<E extends EventList = Record<string, any>>
   private activeModelerCursor: string | null = null
   private currentModelerCursor = 'default'
   private spacePressed = false
+  private temporaryToolId: string | null = null
 
   constructor(
     app: NovaApp<E>,
@@ -411,25 +412,23 @@ export class Root<E extends EventList = Record<string, any>>
       return []
     }
     if (name === 'controls') {
+      const paletteOptions = this.controllerInstance.getOptions().palette ?? {}
       return [
         {
-          type: NovaUIKit.Flex,
-          id: `${this.componentId}:default-palette-host`,
+          type: Modeler.Palette,
+          id: `${this.componentId}:palette`,
           props: {
-            alignItems: 'center',
+            controller: this.controllerInstance,
             position: 'fixed',
-            inset: { top: 16, left: 16 },
-            width: 56,
-            height: 104,
             zIndex: 3000,
+            placement: paletteOptions.placement,
+            draggable: paletteOptions.draggable,
+            offset: paletteOptions.offset,
+            itemSize: paletteOptions.itemSize,
+            gap: paletteOptions.gap,
+            padding: paletteOptions.padding,
+            gripSize: paletteOptions.gripSize,
           },
-          children: [
-            {
-              type: Modeler.Palette,
-              id: `${this.componentId}:palette`,
-              props: { controller: this.controllerInstance },
-            },
-          ],
         },
         {
           type: Modeler.ContextPad,
@@ -657,6 +656,9 @@ export class Root<E extends EventList = Record<string, any>>
       return false
     })
     this.on('keydown', event => {
+      if (event.key === 'Shift' && !event.repeat && this.activateTemporaryMarqueeTool()) {
+        return false
+      }
       const shortcut = this.controllerInstance.getPluginContext().shortcuts.resolve(event)
       if (shortcut) {
         if (shortcut.shortcut.preventDefault !== false) event.preventDefault()
@@ -682,6 +684,10 @@ export class Root<E extends EventList = Record<string, any>>
       }
     })
     this.on('keyup', event => {
+      if (event.key === 'Shift') {
+        this.deactivateTemporaryTool('marqueeSelection')
+        return false
+      }
       if (event.key === ' ') {
         this.spacePressed = false
         if (!this.activeModelerCursor) this.setModelerCursor('default')
@@ -700,6 +706,20 @@ export class Root<E extends EventList = Record<string, any>>
     if (!activeTool || activeTool.kind !== 'create-element') return false
     const world = context.screenToWorld(point)
     return !!context.tools.createAt(activeTool.id, world)
+  }
+
+  private activateTemporaryMarqueeTool(): boolean {
+    const tools = this.controllerInstance.getPluginContext().tools
+    if (tools.getActiveId()) return false
+    if (!tools.activate('marqueeSelection')) return false
+    this.temporaryToolId = 'marqueeSelection'
+    return true
+  }
+
+  private deactivateTemporaryTool(toolId: string): void {
+    if (this.temporaryToolId !== toolId) return
+    this.temporaryToolId = null
+    this.controllerInstance.getPluginContext().tools.deactivate(toolId)
   }
 
   private setModelerCursorFromTarget(target: ModelerHitTarget): void {

@@ -111,6 +111,55 @@ describe('nova modeler minimal kernel', () => {
       new KeyboardEvent('keydown', { key: 'Backspace' }),
       options?.deleteShortcuts,
     )).toMatchObject({ key: 'Backspace' })
+    expect(normalizeModelerOptions().current.palette).toMatchObject({
+      placement: 'left',
+      draggable: true,
+      offset: 16,
+      itemSize: 40,
+      gap: 8,
+      padding: 8,
+      gripSize: 32,
+    })
+    expect(normalizeModelerOptions({
+      palette: {
+        placement: 'bottom',
+        draggable: false,
+        offset: 24,
+      },
+    }).current.palette).toMatchObject({
+      placement: 'bottom',
+      draggable: false,
+      offset: 24,
+    })
+  })
+
+  it('publishes actions, tools, palette items and shortcuts from plugins and element definitions', () => {
+    const controller = createModelerController({
+      model: createModelerModel(),
+      plugins: [MarqueeSelectionPlugin.create()],
+      options: {
+        palette: {
+          visibleItemIds: ['marqueeSelection.tool', 'basic.rect.create'],
+          order: ['basic.rect.create', 'marqueeSelection.tool'],
+        },
+        shortcuts: {
+          bindings: {
+            'basic.rect.create': [{ key: 'b', preventDefault: true }],
+          },
+        },
+      },
+    })
+    controller.mount(createControllerHost(640, 420))
+    const context = controller.getPluginContext()
+
+    expect(context.actions.get('selection.delete')).toBeTruthy()
+    expect(context.actions.get('element.create.basic.rect')).toBeTruthy()
+    expect(context.tools.get('marqueeSelection')).toMatchObject({ kind: 'mode' })
+    expect(context.tools.get('create:basic.rect')).toMatchObject({ kind: 'create-element' })
+    expect(context.palette.getItems().map(item => item.id)).toEqual(['basic.rect.create', 'marqueeSelection.tool'])
+    expect(context.shortcuts.resolve(new KeyboardEvent('keydown', { key: 'r' }))).toBeUndefined()
+    expect(context.shortcuts.resolve(new KeyboardEvent('keydown', { key: 'b' }))?.definition.toolId).toBe('create:basic.rect')
+    controller.unmount()
   })
 
   it('computes layout, hit-test and viewport clamp', () => {
@@ -265,8 +314,8 @@ describe('nova modeler minimal kernel', () => {
       viewportX: -13,
       viewportY: 21,
     })
-    expect(tiny.spacing).toBeGreaterThanOrEqual(18)
-    expect(tiny.dotCount).toBeLessThanOrEqual(8_000)
+    expect(tiny.spacing).toBe(12.8)
+    expect(tiny.dotCount).toBeLessThanOrEqual(32_000)
     expect(tiny.radius).toBeLessThan(normal.radius)
     expect(tiny.offsetX).toBeGreaterThanOrEqual(0)
     expect(tiny.offsetY).toBeGreaterThanOrEqual(0)
@@ -316,7 +365,7 @@ describe('nova modeler minimal kernel', () => {
         height: 420,
         plugins: [MiniMapPlugin.create(), MarqueeSelectionPlugin.create()],
       },
-    })
+    }) as Root
     app.schema.createChild(root, { type: Modeler.ZoomControls, props: { step: 0.2 } })
     app.raph.run()
     expect(root.getApi().getViewport().scale).toBe(1)
@@ -383,7 +432,7 @@ describe('nova modeler minimal kernel', () => {
         width: 640,
         height: 420,
       },
-    }) as Root
+    })
     app.raph.run()
 
     app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 140, clientY: 130, button: 0 }))
@@ -504,7 +553,7 @@ describe('nova modeler minimal kernel', () => {
 
     const controls = app.surfaces.find(item => item.name === 'partial-slots-root:controls')
     expect(controls?.children.map(child => (child as { componentId?: string }).componentId)).toContain('partial-slots-root:default-controls')
-    expect(controls?.children.map(child => (child as { componentId?: string }).componentId)).toContain('partial-slots-root:default-palette-host')
+    expect(controls?.children.map(child => (child as { componentId?: string }).componentId)).toContain('partial-slots-root:palette')
     expect(controls?.children.map(child => (child as { componentId?: string }).componentId)).toContain('partial-slots-root:context-pad')
     expect(app.events.hitTest(606, 34)?.componentId).toContain('partial-slots-root:zoom-controls')
 
@@ -643,6 +692,204 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
+  it('moves all selected elements when dragging a selected element', () => {
+    const controller = createModelerController({
+      model: createModelerModel({
+        elements: [
+          createBasicRectElement({ id: 'rect-1', x: 100, y: 100, width: 160, height: 96 }),
+          createBasicRectElement({ id: 'rect-2', x: 320, y: 100, width: 160, height: 96 }),
+        ],
+        selection: ['rect-1', 'rect-2'],
+      }),
+      options: {
+        interaction: {
+          snap: false,
+        },
+      },
+    })
+    controller.mount(createControllerHost(640, 420))
+    const context = controller.getPluginContext()
+    const moveGesture = controller.getGestures().find(gesture => gesture.id === 'modeler-elements:move')
+
+    expect(moveGesture?.hitTest?.(context, offsetMouseEvent('mousedown', 140, 130), controller.hitTest({ x: 140, y: 130 }))).toBe(true)
+    moveGesture?.onPointerDown?.(context, offsetMouseEvent('mousedown', 140, 130))
+    moveGesture?.onPointerMove?.(context, offsetMouseEvent('mousemove', 180, 160))
+    moveGesture?.onPointerUp?.(context, offsetMouseEvent('mouseup', 180, 160))
+
+    expect(controller.getModel().selection).toEqual(['rect-1', 'rect-2'])
+    expect(controller.getModel().elements).toMatchObject([
+      { id: 'rect-1', x: 140, y: 130 },
+      { id: 'rect-2', x: 360, y: 130 },
+    ])
+    controller.unmount()
+  })
+
+  it('activates marquee selection from the palette tool item', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    const runtime = createPluginRuntime().use(MarqueeSelectionPlugin.create())
+    const root = app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'palette-tool-root',
+      props: {
+        model: createModelerModel({
+          elements: [
+            createBasicRectElement({ id: 'rect-1', x: 100, y: 100, width: 160, height: 96 }),
+            createBasicRectElement({ id: 'rect-2', x: 400, y: 100, width: 160, height: 96 }),
+          ],
+        }),
+        pluginRuntime: runtime,
+        width: 640,
+        height: 420,
+      },
+    }) as Root
+    app.raph.run()
+    app.raph.run()
+
+    expect(app.events.hitTest(44, 44)?.componentId).toBe('palette-tool-root:palette')
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 44, clientY: 44, button: 0 }))
+    expect((root as unknown as { controllerInstance: ReturnType<typeof createModelerController> }).controllerInstance
+      .getPluginContext().tools.getActiveId()).toBe('marqueeSelection')
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 44, clientY: 44, button: 0 }))
+    app.raph.run()
+    expect((root as unknown as { controllerInstance: ReturnType<typeof createModelerController> }).controllerInstance
+      .getPluginContext().tools.getActiveId()).toBe('marqueeSelection')
+
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 40, clientY: 40, button: 0, ctrlKey: true }))
+    app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 280, clientY: 220, button: 0, ctrlKey: true }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 280, clientY: 220, button: 0, ctrlKey: true }))
+    expect(root.getApi().getModel().selection).toEqual(['rect-1'])
+    expect((root as unknown as { controllerInstance: ReturnType<typeof createModelerController> }).controllerInstance
+      .getPluginContext().tools.getActiveId()).toBeNull()
+    app.destroy()
+  })
+
+  it('activates marquee selection from a custom controls palette slot', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    const runtime = createPluginRuntime().use(MarqueeSelectionPlugin.create())
+    const controller = createModelerController({ pluginRuntime: runtime })
+    const root = app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'palette-slot-tool-root',
+      props: {
+        model: createModelerModel(),
+        controller,
+        pluginRuntime: runtime,
+        width: 640,
+        height: 420,
+      },
+      slots: {
+        controls: () => [{
+          type: Modeler.Palette,
+          id: 'slot-palette',
+          props: {
+            position: 'fixed',
+            controller,
+            placement: 'left',
+            draggable: true,
+            zIndex: 3000,
+          },
+        }],
+      },
+    }) as Root
+    app.raph.run()
+    app.raph.run()
+
+    expect(app.events.hitTest(44, 44)?.componentId).toBe('slot-palette')
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 44, clientY: 44, button: 0 }))
+    expect(controller.getPluginContext().tools.getActiveId()).toBe('marqueeSelection')
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 44, clientY: 44, button: 0 }))
+    app.raph.run()
+    expect(controller.getPluginContext().tools.getActiveId()).toBe('marqueeSelection')
+    root.setProps({ options: { version: 1 } })
+    app.raph.run()
+    expect(controller.getPluginContext().tools.getActiveId()).toBe('marqueeSelection')
+    app.destroy()
+  })
+
+  it('temporarily activates marquee selection while Shift is pressed', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    const root = app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'shift-marquee-root',
+      props: {
+        model: createModelerModel(),
+        pluginRuntime: createPluginRuntime().use(MarqueeSelectionPlugin.create()),
+        width: 640,
+        height: 420,
+      },
+    }) as Root
+    app.raph.run()
+    app.raph.run()
+
+    const controller = (root as unknown as { controllerInstance: ReturnType<typeof createModelerController> }).controllerInstance
+    expect(controller.getPluginContext().tools.getActiveId()).toBeNull()
+    app.handleEvent('keydown', new KeyboardEvent('keydown', { key: 'Shift' }))
+    expect(controller.getPluginContext().tools.getActiveId()).toBe('marqueeSelection')
+    app.handleEvent('keyup', new KeyboardEvent('keyup', { key: 'Shift' }))
+    expect(controller.getPluginContext().tools.getActiveId()).toBeNull()
+    app.destroy()
+  })
+
+  it('activates create tools from shortcuts and creates on the next canvas click', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    const root = app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'shortcut-create-root',
+      props: {
+        model: createModelerModel(),
+        width: 640,
+        height: 420,
+      },
+    }) as Root
+    app.raph.run()
+
+    app.handleEvent('keydown', new KeyboardEvent('keydown', { key: 'r' }))
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 240, clientY: 220, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 240, clientY: 220, button: 0 }))
+
+    const model = root.getApi().getModel()
+    expect(model.elements).toHaveLength(1)
+    expect(model.elements[0]).toMatchObject({ type: 'basic.rect', x: 160, y: 172 })
+    expect(model.selection).toEqual([model.elements[0]?.id])
+    app.destroy()
+  })
+
   it('creates basic rect and BPMN event by dragging from the default control palette', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
@@ -686,6 +933,154 @@ describe('nova modeler minimal kernel', () => {
     expect(model.elements[1]).toMatchObject({ x: 336, y: 236 })
     expect(model.elements[1]?.data).toMatchObject({ eventPosition: 'start', trigger: 'none' })
     expect(model.selection).toEqual([model.elements[1]?.id])
+    app.destroy()
+  })
+
+  it('docks palette by placement and switches between vertical and horizontal layouts', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    const root = app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'palette-placement-root',
+      props: {
+        model: createModelerModel(),
+        width: 640,
+        height: 420,
+        options: {
+          palette: {
+            placement: 'right',
+          },
+        },
+      },
+    }) as Root
+    app.raph.run()
+    app.raph.run()
+
+    expect(app.events.hitTest(596, 120)?.componentId).toBe('palette-placement-root:palette')
+    expect(app.events.hitTest(44, 44)?.componentId).not.toBe('palette-placement-root:palette')
+
+    app.destroy()
+
+    const topCanvas = document.createElement('canvas')
+    const topApp = Nova.createApp({
+      target: topCanvas,
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(topApp.schema)
+    const topSurface = topApp.createSurface('modeler')
+    topApp.schema.createNode(topSurface, {
+      type: Modeler.Root,
+      id: 'palette-top-root',
+      props: {
+        model: createModelerModel(),
+        width: 640,
+        height: 420,
+        options: {
+          palette: {
+            placement: 'top',
+          },
+        },
+      },
+    })
+    topApp.raph.run()
+    topApp.raph.run()
+
+    expect(topApp.events.hitTest(44, 44)?.componentId).toBe('palette-top-root:palette')
+    expect(topApp.events.hitTest(92, 44)?.componentId).toBe('palette-top-root:palette')
+    expect(topApp.events.hitTest(44, 92)?.componentId).not.toBe('palette-top-root:palette')
+    topApp.destroy()
+  })
+
+  it('drags palette by the grip and resets it on double click', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'palette-drag-root',
+      props: {
+        model: createModelerModel(),
+        width: 640,
+        height: 420,
+      },
+    })
+    app.raph.run()
+    app.raph.run()
+
+    expect(app.events.hitTest(44, 144)?.componentId).toBe('palette-drag-root:palette')
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 44, clientY: 144, button: 0 }))
+    expect(app.canvas.element.style.cursor).toBe('grabbing')
+    app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 140, clientY: 180, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 140, clientY: 180, button: 0 }))
+    app.raph.run()
+
+    expect(app.events.hitTest(140, 180)?.componentId).toBe('palette-drag-root:palette')
+    expect(app.events.hitTest(44, 144)?.componentId).not.toBe('palette-drag-root:palette')
+
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 140, clientY: 180, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 140, clientY: 180, button: 0 }))
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 140, clientY: 180, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 140, clientY: 180, button: 0 }))
+    app.raph.run()
+
+    expect(app.events.hitTest(44, 144)?.componentId).toBe('palette-drag-root:palette')
+    app.destroy()
+  })
+
+  it('hides palette grip when dragging is disabled', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'palette-no-drag-root',
+      props: {
+        model: createModelerModel(),
+        width: 640,
+        height: 420,
+        options: {
+          palette: {
+            draggable: false,
+          },
+        },
+      },
+    })
+    app.raph.run()
+    app.raph.run()
+
+    expect(app.events.hitTest(44, 44)?.componentId).toBe('palette-no-drag-root:palette')
+    expect(app.events.hitTest(44, 144)?.componentId).not.toBe('palette-no-drag-root:palette')
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 44, clientY: 144, button: 0 }))
+    app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 140, clientY: 180, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 140, clientY: 180, button: 0 }))
+    app.raph.run()
+
+    expect(app.events.hitTest(140, 180)?.componentId).not.toBe('palette-no-drag-root:palette')
+    expect(app.events.hitTest(44, 44)?.componentId).toBe('palette-no-drag-root:palette')
     app.destroy()
   })
 
@@ -1171,11 +1566,20 @@ function createControllerHost(width: number, height: number) {
     onModelCommit: vi.fn(),
     layers: {
       get: vi.fn(),
-      mount: vi.fn(),
+      mount: vi.fn(() => ({ remove: vi.fn() })),
       unmount: vi.fn(),
       reconcile: vi.fn(() => vi.fn()),
     },
   }
+}
+
+function offsetMouseEvent(type: string, x: number, y: number): MouseEvent {
+  const event = new MouseEvent(type, { button: 0 })
+  Object.defineProperties(event, {
+    offsetX: { value: x },
+    offsetY: { value: y },
+  })
+  return event
 }
 
 function create2DContextStub(): CanvasRenderingContext2D {

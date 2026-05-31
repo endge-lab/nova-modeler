@@ -47,16 +47,26 @@ export class Controller implements ModelerController {
   private readonly elementRegistry: ModelerElementRegistry
   private host: ControllerHost | null = null
   private layout: ModelerLayout
+
+  //
   private pluginRuntime: ModelerPluginRuntime
-  private readonly storeValues = new Map<ModelerStoreKey<unknown>, unknown>()
-  private readonly modelListeners = new Set<(model: ModelerModel) => void>()
   private pluginLayers: Array<ModelerPluginLayer> = []
   private pluginGestures: Array<ModelerGesture> = []
+
+  //
+  private readonly storeValues = new Map<ModelerStoreKey<unknown>, unknown>()
+  private readonly modelListeners = new Set<(model: ModelerModel) => void>()
+
+  //
   private readonly actions: ActionRegistry
   private readonly tools: ToolRegistry
   private readonly palette: PaletteRegistry
   private readonly shortcuts: ShortcutRegistry
+
   private readonly pluginContext: ModelerPluginContext
+  private lastConfiguredActiveToolId: string | null | undefined
+
+  //
   private onModelChange?: (model: ModelerModel) => void
   private onSelectionChange?: (selection: Array<string>) => void
 
@@ -66,7 +76,10 @@ export class Controller implements ModelerController {
     this.options = normalizeModelerOptions(options.options)
     this.pluginRuntime = options.pluginRuntime ?? createPluginRuntime()
     this.actions = new ActionRegistry(() => this.pluginContext)
-    this.tools = new ToolRegistry(() => this.pluginContext, () => this.invalidate('render'))
+    this.tools = new ToolRegistry(
+      () => this.pluginContext,
+      () => this.invalidate('render'),
+    )
     this.palette = new PaletteRegistry(() => this.getOptions().palette)
     this.shortcuts = new ShortcutRegistry(
       () => this.getOptions().shortcuts,
@@ -194,10 +207,10 @@ export class Controller implements ModelerController {
     const elementTarget = this.hitTestElements(point)
     if (elementTarget.type !== 'empty') return elementTarget
     const canvas = this.layout.canvas
-    return point.x >= canvas.x
-      && point.x <= canvas.x + canvas.width
-      && point.y >= canvas.y
-      && point.y <= canvas.y + canvas.height
+    return point.x >= canvas.x &&
+      point.x <= canvas.x + canvas.width &&
+      point.y >= canvas.y &&
+      point.y <= canvas.y + canvas.height
       ? { type: 'canvas' }
       : { type: 'empty' }
   }
@@ -236,6 +249,7 @@ export class Controller implements ModelerController {
     this.pluginGestures = []
     this.pluginRuntime = pluginRuntime
     this.ensureDefaultPlugins()
+    this.lastConfiguredActiveToolId = undefined
     if (this.host) this.pluginRuntime.bindRoot(this.pluginContext)
   }
 
@@ -286,7 +300,7 @@ export class Controller implements ModelerController {
     this.pluginLayers.sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
     this.invalidate('render')
     return () => {
-      this.pluginLayers = this.pluginLayers.filter(item => item !== layer)
+      this.pluginLayers = this.pluginLayers.filter((item) => item !== layer)
       this.invalidate('render')
     }
   }
@@ -295,7 +309,7 @@ export class Controller implements ModelerController {
     this.pluginGestures.push(gesture)
     this.pluginGestures.sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0))
     return () => {
-      this.pluginGestures = this.pluginGestures.filter(item => item !== gesture)
+      this.pluginGestures = this.pluginGestures.filter((item) => item !== gesture)
     }
   }
 
@@ -303,9 +317,9 @@ export class Controller implements ModelerController {
     return {
       model: {
         get: () => this.getModel(),
-        set: model => this.setModel(model),
-        update: updater => this.setModel(updater(this.getModel())),
-        subscribe: listener => {
+        set: (model) => this.setModel(model),
+        update: (updater) => this.setModel(updater(this.getModel())),
+        subscribe: (listener) => {
           this.modelListeners.add(listener)
           return () => this.modelListeners.delete(listener)
         },
@@ -319,54 +333,55 @@ export class Controller implements ModelerController {
             }
           }
         },
-        inject: key => this.storeValues.get(key as ModelerStoreKey<unknown>) as never,
+        inject: (key) => this.storeValues.get(key as ModelerStoreKey<unknown>) as never,
       },
       getModel: () => this.getModel(),
       getLayout: () => this.getLayout(),
       getOptions: () => this.getOptions(),
       getElementRegistry: () => this.getElementRegistry(),
       getViewport: () => this.getViewport(),
-      setViewport: viewport => this.setViewport(viewport),
-      applyCommand: command => this.applyCommand(command),
-      hitTest: point => this.hitTest(point),
-      screenToWorld: point => this.screenToWorld(point),
-      worldToScreen: point => this.worldToScreen(point),
-      invalidate: phase => this.invalidate(phase),
+      setViewport: (viewport) => this.setViewport(viewport),
+      applyCommand: (command) => this.applyCommand(command),
+      hitTest: (point) => this.hitTest(point),
+      screenToWorld: (point) => this.screenToWorld(point),
+      worldToScreen: (point) => this.worldToScreen(point),
+      invalidate: (phase) => this.invalidate(phase),
       layers: {
-        add: layer => this.addLayer(layer),
-        get: name => this.requireHost().layers.get(name),
+        add: (layer) => this.addLayer(layer),
+        get: (name) => this.requireHost().layers.get(name),
         mount: (name, schema) => this.requireHost().layers.mount(name, schema),
-        unmount: node => this.requireHost().layers.unmount(node),
+        unmount: (node) => this.requireHost().layers.unmount(node),
         reconcile: (name, ownerId, schema) => this.requireHost().layers.reconcile(name, ownerId, schema),
       },
-      gestures: { add: gesture => this.addGesture(gesture) },
+      gestures: { add: (gesture) => this.addGesture(gesture) },
       actions: {
-        register: definition => this.actions.register(definition),
-        get: id => this.actions.get(id),
+        register: (definition) => this.actions.register(definition),
+        get: (id) => this.actions.get(id),
         getAll: () => this.actions.getAll(),
-        run: id => this.actions.run(id),
+        run: (id) => this.actions.run(id),
       },
       tools: {
-        register: definition => this.tools.register(definition),
-        get: id => this.tools.get(id),
+        register: (definition) => this.tools.register(definition),
+        get: (id) => this.tools.get(id),
         getAll: () => this.tools.getAll(),
-        activate: id => this.tools.activate(id),
-        deactivate: id => this.tools.deactivate(id),
+        activate: (id) => this.tools.activate(id),
+        deactivate: (id) => this.tools.deactivate(id),
         getActive: () => this.tools.getActive(),
         getActiveId: () => this.tools.getActiveId(),
         createAt: (id, point) => this.tools.createAt(id, point),
+        subscribe: (listener) => this.tools.subscribe(listener),
       },
       palette: {
-        register: definition => this.palette.register(definition),
-        get: id => this.palette.get(id),
+        register: (definition) => this.palette.register(definition),
+        get: (id) => this.palette.get(id),
         getAll: () => this.palette.getAll(),
         getItems: () => this.palette.getItems(),
       },
       shortcuts: {
-        register: definition => this.shortcuts.register(definition),
-        get: id => this.shortcuts.get(id),
+        register: (definition) => this.shortcuts.register(definition),
+        get: (id) => this.shortcuts.get(id),
         getAll: () => this.shortcuts.getAll(),
-        resolve: event => this.shortcuts.resolve(event),
+        resolve: (event) => this.shortcuts.resolve(event),
       },
     }
   }
@@ -379,25 +394,29 @@ export class Controller implements ModelerController {
   static shouldSyncLayerTemplates(previous: ModelerModel, next: ModelerModel): boolean {
     if (previous.id !== next.id) return true
     if (previous.selectionVersion !== next.selectionVersion) return true
-    return previous.canvas.x !== next.canvas.x
-      || previous.canvas.y !== next.canvas.y
-      || previous.canvas.width !== next.canvas.width
-      || previous.canvas.height !== next.canvas.height
-      || previous.canvas.gridSize !== next.canvas.gridSize
+    return (
+      previous.canvas.x !== next.canvas.x ||
+      previous.canvas.y !== next.canvas.y ||
+      previous.canvas.width !== next.canvas.width ||
+      previous.canvas.height !== next.canvas.height ||
+      previous.canvas.gridSize !== next.canvas.gridSize
+    )
   }
 
   private ensureDefaultPlugins(plugins: Array<ModelerPlugin> = []): void {
-    if (!this.pluginRuntime.getPlugins().some(plugin => plugin.id === CoreActionsPlugin.ID)) {
+    if (!this.pluginRuntime.getPlugins().some((plugin) => plugin.id === CoreActionsPlugin.ID)) {
       this.pluginRuntime.use(CoreActionsPlugin.create())
     }
-    if (!this.pluginRuntime.getPlugins().some(plugin => plugin.id === MODELER_ELEMENTS_PLUGIN_ID)) {
+    if (!this.pluginRuntime.getPlugins().some((plugin) => plugin.id === MODELER_ELEMENTS_PLUGIN_ID)) {
       this.pluginRuntime.use(ElementsPlugin.create())
     }
-    plugins.forEach(plugin => this.pluginRuntime.use(plugin))
+    plugins.forEach((plugin) => this.pluginRuntime.use(plugin))
   }
 
   private activateConfiguredTool(): void {
     const configured = this.options.current.interaction?.tools?.activeToolId
+    if (configured === this.lastConfiguredActiveToolId) return
+    this.lastConfiguredActiveToolId = configured
     if (configured) this.tools.activate(configured)
     else this.tools.deactivate()
   }
@@ -414,8 +433,12 @@ export class Controller implements ModelerController {
       if (!handle) continue
       const screen = this.worldToScreen(handle)
       const size = MODELER_ROTATE_HANDLE_SIZE
-      if (point.x >= screen.x - size / 2 && point.x <= screen.x + size / 2
-        && point.y >= screen.y - size / 2 && point.y <= screen.y + size / 2) {
+      if (
+        point.x >= screen.x - size / 2 &&
+        point.x <= screen.x + size / 2 &&
+        point.y >= screen.y - size / 2 &&
+        point.y <= screen.y + size / 2
+      ) {
         return { type: 'rotate-handle', elementId: element.id }
       }
     }
@@ -427,8 +450,12 @@ export class Controller implements ModelerController {
       for (const handle of MODEL_ELEMENTS_RUNTIME.handles.createResizeHandles(element, definition)) {
         const screen = this.worldToScreen(handle)
         const size = MODELER_RESIZE_HANDLE_SIZE
-        if (point.x >= screen.x - size / 2 && point.x <= screen.x + size / 2
-          && point.y >= screen.y - size / 2 && point.y <= screen.y + size / 2) {
+        if (
+          point.x >= screen.x - size / 2 &&
+          point.x <= screen.x + size / 2 &&
+          point.y >= screen.y - size / 2 &&
+          point.y <= screen.y + size / 2
+        ) {
           return { type: 'resize-handle', elementId: element.id, handle: handle.handle }
         }
       }
@@ -438,7 +465,10 @@ export class Controller implements ModelerController {
       if (!element) continue
       const definition = this.elementRegistry.get(element.type)
       if (!definition || !selected.has(element.id)) continue
-      for (const port of MODEL_ELEMENTS_RUNTIME.ports.createElementPorts(element, definition.getPorts?.(this.pluginContext, element) ?? [])) {
+      for (const port of MODEL_ELEMENTS_RUNTIME.ports.createElementPorts(
+        element,
+        definition.getPorts?.(this.pluginContext, element) ?? [],
+      )) {
         const screen = this.worldToScreen(port)
         const radius = port.radius ?? MODELER_PORT_RADIUS
         const dx = point.x - screen.x
@@ -458,8 +488,10 @@ export class Controller implements ModelerController {
       const local = MODEL_ELEMENTS_RUNTIME.geometry.unrotatePoint(element, world)
       const contains = definition.hitTest
         ? definition.hitTest(this.pluginContext, element, local)
-        : local.x >= element.x && local.x <= element.x + element.width
-          && local.y >= element.y && local.y <= element.y + element.height
+        : local.x >= element.x &&
+          local.x <= element.x + element.width &&
+          local.y >= element.y &&
+          local.y <= element.y + element.height
       if (contains) {
         return { type: 'element', id: element.id }
       }

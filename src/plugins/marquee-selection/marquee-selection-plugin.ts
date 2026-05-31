@@ -71,6 +71,28 @@ export class MarqueeSelectionPlugin extends PluginBase {
    * Подключает marquee selection component и controller bridge.
    */
   protected onSetup(): void {
+    this.addDisposer(this.context.tools.register({
+      id: 'marqueeSelection',
+      kind: 'mode',
+      title: 'Rectangular selection',
+      oneShot: true,
+    }))
+    this.addDisposer(this.context.palette.register({
+      id: 'marqueeSelection.tool',
+      kind: 'tool',
+      group: 'tools',
+      order: 10,
+      title: 'Rectangular selection',
+      icon: 'marquee-rect',
+      toolId: 'marqueeSelection',
+    }))
+    this.addDisposer(this.context.shortcuts.register({
+      id: 'marqueeSelection.activate',
+      title: 'Rectangular selection',
+      toolId: 'marqueeSelection',
+      defaults: [{ key: 'm' }],
+      scope: 'canvas',
+    }))
     this.node = this.mount('interaction', {
       type: Modeler.MarqueeSelection,
       id: `${this.id}:node`,

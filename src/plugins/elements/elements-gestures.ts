@@ -17,7 +17,8 @@ export class ElementsGestures {
   } | null = null
 
   private activeMove: {
-    element: ModelerElement
+    primary: ModelerElement
+    elements: Array<ModelerElement>
     startWorld: ModelerPoint
   } | null = null
 
@@ -65,20 +66,30 @@ export class ElementsGestures {
       onPointerDown: (context, event) => {
         const target = context.hitTest(eventPoint(event))
         if (target.type !== 'element') return false
-        const element = context.getModel().elements.find(item => item.id === target.id)
+        const model = context.getModel()
+        const element = model.elements.find(item => item.id === target.id)
         const definition = element ? context.getElementRegistry().get(element.type) : undefined
         if (!element || definition?.capabilities?.draggable === false) return false
+        const nextSelection = this.shouldKeepCurrentSelection(model.selection, target.id, event)
+          ? model.selection
+          : SelectionRuntime.resolvePointerSelection({
+              current: model.selection,
+              elementId: target.id,
+              event,
+              options: context.getOptions().interaction?.selection,
+            })
         context.applyCommand({
           type: 'select',
-          ids: SelectionRuntime.resolvePointerSelection({
-            current: context.getModel().selection,
-            elementId: target.id,
-            event,
-            options: context.getOptions().interaction?.selection,
-          }),
+          ids: nextSelection,
         })
+        const selected = new Set(nextSelection)
+        const elements = model.elements
+          .filter(item => selected.has(item.id))
+          .filter(item => context.getElementRegistry().get(item.type)?.capabilities?.draggable !== false)
+          .map(item => ({ ...item, data: { ...item.data }, style: { ...item.style } }))
         this.activeMove = {
-          element: { ...element, data: { ...element.data }, style: { ...element.style } },
+          primary: { ...element, data: { ...element.data }, style: { ...element.style } },
+          elements,
           startWorld: context.screenToWorld(eventPoint(event)),
         }
         return false
@@ -87,17 +98,24 @@ export class ElementsGestures {
         if (!this.activeMove) return false
         const current = context.screenToWorld(eventPoint(event))
         const snapped = this.snap.moveElement({
-          element: this.activeMove.element,
+          element: this.activeMove.primary,
           raw: {
-            x: this.activeMove.element.x + current.x - this.activeMove.startWorld.x,
-            y: this.activeMove.element.y + current.y - this.activeMove.startWorld.y,
+            x: this.activeMove.primary.x + current.x - this.activeMove.startWorld.x,
+            y: this.activeMove.primary.y + current.y - this.activeMove.startWorld.y,
           },
           event,
         })
-        context.applyCommand({
-          type: 'element.patch',
-          id: this.activeMove.element.id,
-          patch: snapped,
+        const dx = snapped.x - this.activeMove.primary.x
+        const dy = snapped.y - this.activeMove.primary.y
+        this.activeMove.elements.forEach(element => {
+          context.applyCommand({
+            type: 'element.patch',
+            id: element.id,
+            patch: {
+              x: element.x + dx,
+              y: element.y + dy,
+            },
+          })
         })
         return false
       },
@@ -216,5 +234,14 @@ export class ElementsGestures {
     this.activeResize = null
     this.activeMove = null
     this.activeRotate = null
+  }
+
+  private shouldKeepCurrentSelection(selection: Array<string>, elementId: string, event: MouseEvent): boolean {
+    return selection.includes(elementId)
+      && selection.length > 1
+      && !event.shiftKey
+      && !event.ctrlKey
+      && !event.metaKey
+      && !event.altKey
   }
 }
