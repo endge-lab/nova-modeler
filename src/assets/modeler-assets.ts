@@ -15,6 +15,10 @@ import cancelIconSource from '@/assets/icons/cancel.svg?raw'
 import compensationIconSource from '@/assets/icons/compensation.svg?raw'
 import conditionalIconSource from '@/assets/icons/conditional.svg?raw'
 import linkIconSource from '@/assets/icons/link.svg?raw'
+import textCaptionIconSource from '@/assets/icons/text-caption.svg?raw'
+import boxMarginIconSource from '@/assets/icons/box-margin.svg?raw'
+import fileTextIconSource from '@/assets/icons/file-text.svg?raw'
+import databaseIconSource from '@/assets/icons/database.svg?raw'
 import signalIconSource from '@/assets/icons/signal.svg?raw'
 import terminateIconSource from '@/assets/icons/terminate.svg?raw'
 import multipleIconSource from '@/assets/icons/multiple.svg?raw'
@@ -52,6 +56,10 @@ export const MODELER_ASSETS = NovaAssets.define('nova-modeler', {
     compensation: NovaAssets.svg(compensationIconSource, { width: 24, height: 24, color: '#3f3f46' }),
     conditional: NovaAssets.svg(conditionalIconSource, { width: 24, height: 24, color: '#3f3f46' }),
     link: NovaAssets.svg(linkIconSource, { width: 24, height: 24, color: '#3f3f46' }),
+    textCaption: NovaAssets.svg(textCaptionIconSource, { width: 24, height: 24, color: '#3f3f46' }),
+    boxMargin: NovaAssets.svg(boxMarginIconSource, { width: 24, height: 24, color: '#3f3f46' }),
+    fileText: NovaAssets.svg(fileTextIconSource, { width: 24, height: 24, color: '#3f3f46' }),
+    database: NovaAssets.svg(databaseIconSource, { width: 24, height: 24, color: '#3f3f46' }),
     signal: NovaAssets.svg(signalIconSource, { width: 24, height: 24, color: '#3f3f46' }),
     terminate: NovaAssets.svg(terminateIconSource, { width: 24, height: 24, color: '#3f3f46' }),
     multiple: NovaAssets.svg(multipleIconSource, { width: 24, height: 24, color: '#3f3f46' }),

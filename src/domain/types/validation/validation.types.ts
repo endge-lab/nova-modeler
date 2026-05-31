@@ -30,3 +30,26 @@ export interface ModelerValidationResult {
   modelVersion: number
   issues: Array<ModelerValidationIssue>
 }
+
+export const MODELER_BPMN_VALIDATION_DIALOG_TYPE = 'modeler-bpmn-validation'
+
+export interface BpmnValidationDialogProps {
+  type?: string
+  title?: string
+  description?: string
+  width?: number
+  height?: number
+  minWidth?: number
+  minHeight?: number
+  modal?: boolean
+  backdrop?: boolean
+  closeButton?: boolean
+  draggable?: boolean
+  resizable?: boolean
+}
+
+export interface BpmnValidationDialogResolvedProps extends Required<BpmnValidationDialogProps> {}
+
+export interface BpmnValidationDialogPayload extends Record<string, unknown> {
+  result?: ModelerValidationResult
+}

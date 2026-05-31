@@ -47,7 +47,15 @@ import type {
 
 type PaletteOrientation = 'vertical' | 'horizontal'
 type PaletteDockMode = 'docked' | 'floating'
-type PaletteDragPreviewShape = 'basic-rect' | 'bpmn-event' | 'bpmn-task' | 'bpmn-gateway'
+type PaletteDragPreviewShape =
+  | 'basic-rect'
+  | 'bpmn-event'
+  | 'bpmn-task'
+  | 'bpmn-gateway'
+  | 'bpmn-text-annotation'
+  | 'bpmn-group'
+  | 'bpmn-data-object'
+  | 'bpmn-data-store'
 
 interface PaletteResolvedLayoutOptions {
   placement: ModelerPalettePlacement
@@ -871,6 +879,26 @@ export class Palette<E extends EventList = Record<string, any>>
       this.appendAssetIcon(schema, MODELER_ASSETS.icons.connectArrow, x, y, size)
       return
     }
+    if (item.icon === 'bpmn-text-annotation') {
+      this.appendAssetIcon(schema, MODELER_ASSETS.icons.textCaption, x, y, size)
+      return
+    }
+    if (item.icon === 'bpmn-group') {
+      this.appendAssetIcon(schema, MODELER_ASSETS.icons.boxMargin, x, y, size)
+      return
+    }
+    if (item.icon === 'bpmn-data-object') {
+      this.appendAssetIcon(schema, MODELER_ASSETS.icons.fileText, x, y, size)
+      return
+    }
+    if (item.icon === 'bpmn-data-store') {
+      this.appendAssetIcon(schema, MODELER_ASSETS.icons.database, x, y, size)
+      return
+    }
+    if (item.icon === 'bpmn-association') {
+      this.appendAssetIcon(schema, MODELER_ASSETS.icons.link, x, y, size)
+      return
+    }
     if (item.icon === 'marquee-rect') {
       this.appendMarqueeIcon(schema, x, y, size)
       return
@@ -1076,6 +1104,90 @@ export class Palette<E extends EventList = Record<string, any>>
       return
     }
 
+    if (shape === 'bpmn-text-annotation') {
+      const width = 160 * scale
+      const height = 80 * scale
+      const x = this.dragPreviewPoint.x - width / 2
+      const y = this.dragPreviewPoint.y - height / 2
+      const color = this.resolvePaletteColor('palettePreviewStroke')
+      const opacity = this.resolvePaletteNumber('palettePreviewOpacity')
+      schema.push({ type: 'line', x1: x, y1: y, x2: x, y2: y + height, styles: { color, width: 1.5, opacity } })
+      schema.push({ type: 'line', x1: x, y1: y, x2: x + 14 * scale, y2: y, styles: { color, width: 1.5, opacity } })
+      schema.push({ type: 'line', x1: x, y1: y + height, x2: x + 14 * scale, y2: y + height, styles: { color, width: 1.5, opacity } })
+      return
+    }
+
+    if (shape === 'bpmn-group') {
+      const width = 240 * scale
+      const height = 160 * scale
+      schema.push({
+        type: 'rect',
+        x: this.dragPreviewPoint.x - width / 2,
+        y: this.dragPreviewPoint.y - height / 2,
+        width,
+        height,
+        styles: {
+          background: 'rgba(0,0,0,0)',
+          border: {
+            color: this.resolvePaletteColor('palettePreviewStroke'),
+            width: 1.5,
+            radius: 4,
+            dashPattern: [6, 4],
+          },
+          opacity: this.resolvePaletteNumber('palettePreviewOpacity'),
+        },
+      })
+      return
+    }
+
+    if (shape === 'bpmn-data-object') {
+      const width = 96 * scale
+      const height = 120 * scale
+      const fold = 16 * scale
+      const left = this.dragPreviewPoint.x - width / 2
+      const top = this.dragPreviewPoint.y - height / 2
+      const right = left + width
+      schema.push({
+        type: 'polygon',
+        points: [
+          { x: left, y: top },
+          { x: right - fold, y: top },
+          { x: right, y: top + fold },
+          { x: right, y: top + height },
+          { x: left, y: top + height },
+        ],
+        styles: {
+          background: this.resolvePaletteColor('palettePreviewFill'),
+          stroke: this.resolvePaletteColor('palettePreviewStroke'),
+          lineWidth: 1.5,
+          opacity: this.resolvePaletteNumber('palettePreviewOpacity'),
+        },
+      })
+      return
+    }
+
+    if (shape === 'bpmn-data-store') {
+      const width = 120 * scale
+      const height = 96 * scale
+      schema.push({
+        type: 'rect',
+        x: this.dragPreviewPoint.x - width / 2,
+        y: this.dragPreviewPoint.y - height / 2,
+        width,
+        height,
+        styles: {
+          background: this.resolvePaletteColor('palettePreviewFill'),
+          border: {
+            color: this.resolvePaletteColor('palettePreviewStroke'),
+            width: 1.5,
+            radius: 18 * scale,
+          },
+          opacity: this.resolvePaletteNumber('palettePreviewOpacity'),
+        },
+      })
+      return
+    }
+
     if (shape === 'bpmn-task') {
       const width = 120 * scale
       const height = 80 * scale
@@ -1121,6 +1233,10 @@ export class Palette<E extends EventList = Record<string, any>>
     const toolId = item?.toolId ?? ''
     const actionId = item?.actionId ?? ''
     const signature = `${id} ${icon} ${toolId} ${actionId}`
+    if (signature.includes('bpmn.textAnnotation') || icon === 'bpmn-text-annotation') return 'bpmn-text-annotation'
+    if (signature.includes('bpmn.group') || icon === 'bpmn-group') return 'bpmn-group'
+    if (signature.includes('bpmn.dataObject') || icon === 'bpmn-data-object') return 'bpmn-data-object'
+    if (signature.includes('bpmn.dataStore') || icon === 'bpmn-data-store') return 'bpmn-data-store'
     if (signature.includes('bpmn.gateway') || icon === 'bpmn-gateway') return 'bpmn-gateway'
     if (signature.includes('bpmn.task') || icon === 'bpmn-task') return 'bpmn-task'
     if (signature.includes('bpmn.event') || icon.startsWith('bpmn-event')) return 'bpmn-event'

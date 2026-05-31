@@ -1,5 +1,9 @@
 import type {
+  ModelerEdgeElement,
+  ModelerEdgeEndpoint,
+  ModelerEdgeWaypoint,
   ModelerElement,
+  ModelerElementInput,
   ModelerPluginContext,
   ModelerPoint,
 } from '@/domain/types/index'
@@ -7,13 +11,40 @@ import { createBpmnFlowElement } from '@/elements/bpmn/flow/bpmn-flow.factory'
 import type { ElementsConnection } from '@/plugins/elements/model/ElementsConnection'
 import type { ElementsEdgePreview } from '@/plugins/elements/model/ElementsEdgePreview'
 
+export interface ElementsConnectionEdgeFactory {
+  idPrefix: string
+  previewId: string
+  create(input: ElementsConnectionEdgeInput): ModelerEdgeElement
+}
+
+export interface ElementsConnectionEdgeInput extends ModelerElementInput {
+  source: ModelerEdgeEndpoint
+  target: ModelerEdgeEndpoint
+  waypoints: Array<ModelerEdgeWaypoint>
+}
+
+const DEFAULT_EDGE_FACTORY: ElementsConnectionEdgeFactory = {
+  idPrefix: 'bpmn-flow',
+  previewId: 'bpmn-flow-preview',
+  create: input => createBpmnFlowElement(input),
+}
+
 export class ElementsConnectionFlow {
   private createCounter = 0
+  private edgeFactory = DEFAULT_EDGE_FACTORY
 
   constructor(
     private readonly connection: ElementsConnection,
     private readonly preview: ElementsEdgePreview,
   ) {}
+
+  useDefaultEdgeFactory(): void {
+    this.edgeFactory = DEFAULT_EDGE_FACTORY
+  }
+
+  useEdgeFactory(factory: ElementsConnectionEdgeFactory): void {
+    this.edgeFactory = factory
+  }
 
   beginFromPort(
     context: ModelerPluginContext,
@@ -74,12 +105,13 @@ export class ElementsConnectionFlow {
       targetElementId: targetResolution.elementId,
       targetPortId: targetResolution.portId,
     })
-    this.preview.set(createBpmnFlowElement({
-      id: 'bpmn-flow-preview',
+    const edgeInput: ElementsConnectionEdgeInput = {
+      id: this.edgeFactory.previewId,
       source,
       target: targetResolution.endpoint,
       waypoints: [this.connection.midpoint(sourcePoint, targetResolution.point)],
-    }))
+    }
+    this.preview.set(this.edgeFactory.create(edgeInput))
   }
 
   completeAtTarget(context: ModelerPluginContext, target: ReturnType<ModelerPluginContext['hitTest']>, fallbackPoint: ModelerPoint): ModelerElement | null {
@@ -88,8 +120,8 @@ export class ElementsConnectionFlow {
     const targetResolution = this.connection.resolveTargetEndpoint(context, target, fallbackPoint)
     if (!targetResolution.elementId) return null
     const sourcePoint = this.connection.resolveElementPoint(context, state.sourceElementId, targetResolution.point) ?? state.sourcePoint
-    const element = createBpmnFlowElement({
-      id: `bpmn-flow-${Date.now().toString(36)}-${this.createCounter += 1}`,
+    const edgeInput: ElementsConnectionEdgeInput = {
+      id: `${this.edgeFactory.idPrefix}-${Date.now().toString(36)}-${this.createCounter += 1}`,
       source: {
         elementId: state.sourceElementId,
         portId: state.sourcePortId,
@@ -97,7 +129,8 @@ export class ElementsConnectionFlow {
       },
       target: targetResolution.endpoint,
       waypoints: [this.connection.midpoint(sourcePoint, targetResolution.point)],
-    })
+    }
+    const element = this.edgeFactory.create(edgeInput)
     context.applyCommand({ type: 'element.add', element })
     context.applyCommand({ type: 'select', ids: [element.id] })
     this.clear()
@@ -107,5 +140,6 @@ export class ElementsConnectionFlow {
   clear(): void {
     this.connection.clear()
     this.preview.clear()
+    this.useDefaultEdgeFactory()
   }
 }

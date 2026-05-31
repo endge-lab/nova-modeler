@@ -97,10 +97,12 @@ export class BpmnFlowView<E extends EventList = Record<string, any>>
   }
 
   private createSchema(): NovaSchema {
-    const path = this.props.path.map(point => this.worldToScreen(point))
-    if (path.length < 2) return []
     const color = this.resolveStroke()
-    const width = Number(this.props.element.style?.strokeWidth ?? this.resolveThemeNumber('bpmnFlowStrokeWidth'))
+    const width = this.resolveStrokeWidth()
+    const path = this.props.path
+      .map(point => this.worldToScreen(point))
+      .map(point => this.alignPointToPixel(point, width))
+    if (path.length < 2) return []
     const opacity = Number(this.props.element.style?.opacity ?? this.resolveThemeNumber('elementOpacity'))
     const schema: NovaSchema = []
     for (let index = 0; index < path.length - 1; index += 1) {
@@ -115,9 +117,26 @@ export class BpmnFlowView<E extends EventList = Record<string, any>>
         styles: { color, width, opacity },
       })
     }
+    this.appendSegmentJoins(schema, path, color, width, opacity)
     this.appendTargetArrow(schema, path, color, width, opacity)
     this.appendSourceMarker(schema, path, color, width, opacity)
     return schema
+  }
+
+  private appendSegmentJoins(schema: NovaSchema, path: Array<ModelerPoint>, color: string, width: number, opacity: number): void {
+    for (let index = 1; index < path.length - 1; index += 1) {
+      const point = path[index]!
+      schema.push({
+        type: 'circle',
+        x: point.x,
+        y: point.y,
+        radius: width / 2,
+        styles: {
+          background: color,
+          opacity,
+        },
+      })
+    }
   }
 
   private appendTargetArrow(schema: NovaSchema, path: Array<ModelerPoint>, color: string, width: number, opacity: number): void {
@@ -228,11 +247,31 @@ export class BpmnFlowView<E extends EventList = Record<string, any>>
     }
   }
 
+  private alignPointToPixel(point: ModelerPoint, strokeWidth: number): ModelerPoint {
+    return {
+      x: this.alignCoordinateToPixel(point.x, strokeWidth),
+      y: this.alignCoordinateToPixel(point.y, strokeWidth),
+    }
+  }
+
+  private alignCoordinateToPixel(value: number, strokeWidth: number): number {
+    const roundedWidth = Math.round(strokeWidth)
+    if (Math.abs(strokeWidth - roundedWidth) > 0.001) return value
+    return roundedWidth % 2 === 0
+      ? Math.round(value)
+      : Math.round(value) + 0.5
+  }
+
   private resolveStroke(): string {
     const style = this.props.element.style ?? {}
     if (this.props.preview) return String(style.stroke ?? this.resolveThemeColor('bpmnFlowPreviewStroke'))
     if (this.props.selected) return String(style.selectedStroke ?? this.resolveThemeColor('bpmnFlowSelectedStroke'))
     return String(style.stroke ?? this.resolveThemeColor('bpmnFlowStroke'))
+  }
+
+  private resolveStrokeWidth(): number {
+    const width = Number(this.props.element.style?.strokeWidth ?? this.resolveThemeNumber('bpmnFlowStrokeWidth'))
+    return Number.isFinite(width) && width > 0 ? width : this.resolveThemeNumber('bpmnFlowStrokeWidth')
   }
 
   private resolveThemeColor(token: ModelerThemeTokenKey, fallback?: string): string {

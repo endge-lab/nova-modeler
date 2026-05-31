@@ -31,6 +31,7 @@ export interface ModelerElementRotateCapability {
 
 export interface ModelerElementColorCapability {
   fill?: boolean
+  stroke?: boolean
   custom?: boolean
 }
 

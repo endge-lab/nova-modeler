@@ -56,8 +56,15 @@ export class ElementsGestures {
     addDisposer(this.context.gestures.add({
       id: 'modeler-elements:create-flow',
       priority: 120,
-      hitTest: (context, event, target) => event.button === 0
-        && (target.type === 'port' || (context.tools.getActiveId() === 'connect' && target.type === 'element')),
+      hitTest: (context, event, target) => {
+        if (event.button !== 0) return false
+        if (target.type === 'port') return true
+        if (context.tools.getActiveId() !== 'connect' || target.type !== 'element') return false
+        const state = this.runtime.connection.get()
+        return state
+          ? this.runtime.connection.canCompleteElement(context, target.id)
+          : this.runtime.connection.canStart(context, target.id)
+      },
       onPointerDown: (context, event) => {
         const point = eventPoint(event)
         const target = context.hitTest(point)
@@ -194,7 +201,12 @@ export class ElementsGestures {
     addDisposer(this.context.gestures.add({
       id: 'modeler-elements:move',
       priority: 90,
-      hitTest: (_context, event, target) => event.button === 0 && target.type === 'element',
+      hitTest: (context, event, target) => {
+        if (event.button !== 0 || target.type !== 'element') return false
+        const element = context.getModel().elements.find(item => item.id === target.id)
+        const definition = element ? context.getElementRegistry().get(element.type) : undefined
+        return !!element && definition?.capabilities?.draggable !== false
+      },
       onPointerDown: (context, event) => {
         const target = context.hitTest(eventPoint(event))
         if (target.type !== 'element') return false

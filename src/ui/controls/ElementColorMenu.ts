@@ -24,6 +24,7 @@ import type {
   ElementColorMenuResolvedProps,
   ModelerController,
   ModelerElement,
+  ModelerElementDefinition,
   ModelerRect,
 } from '@/domain/types'
 
@@ -135,7 +136,7 @@ export class ElementColorMenu<E extends EventList = Record<string, any>>
     }]
     schema.push({
       type: 'text',
-      text: 'Fill color',
+      text: this.resolveColorMode() === 'stroke' ? 'Stroke color' : 'Fill color',
       x: rect.x + MENU_PADDING,
       y: rect.y + 12,
       width: rect.width - MENU_PADDING * 2,
@@ -166,7 +167,9 @@ export class ElementColorMenu<E extends EventList = Record<string, any>>
         y: rect.y + 48,
         width: PICKER_WIDTH,
         height: resolveColorPickerHeight(this.customOpen),
-        value: element.style?.fill ?? '#ffffff',
+        value: this.resolveColorMode() === 'stroke'
+          ? element.style?.stroke ?? '#3f3f46'
+          : element.style?.fill ?? '#ffffff',
         presets: COLOR_PRESETS,
         customOpen: this.customOpen,
         format: 'hex',
@@ -177,16 +180,29 @@ export class ElementColorMenu<E extends EventList = Record<string, any>>
           this.dirty({ render: true })
         },
         onCommit: (value: string, context: ColorPickerValueContext) => {
-          this.applyFill(value, context)
+          this.applyColor(value, context)
         },
       },
     }])
   }
 
-  private applyFill(fill: string, context?: ColorPickerValueContext): void {
+  private applyColor(value: string, context?: ColorPickerValueContext): void {
     const modeler = this.props.controller ?? this.injectOptional(MODELER_CONTEXT)
     const element = this.resolveElement()
     if (!modeler || !element) return
+    if (this.resolveColorMode() === 'stroke') {
+      modeler.applyCommand({
+        type: 'element.patch',
+        id: element.id,
+        patch: {
+          style: {
+            ...(element.style ?? {}),
+            stroke: value,
+          },
+        },
+      })
+      return
+    }
     const presetStroke = context?.source === 'preset' ? context.preset?.borderColor : undefined
     modeler.applyCommand({
       type: 'element.patch',
@@ -194,11 +210,25 @@ export class ElementColorMenu<E extends EventList = Record<string, any>>
       patch: {
         style: {
           ...(element.style ?? {}),
-          fill,
+          fill: value,
           ...(presetStroke ? { stroke: presetStroke } : {}),
         },
       },
     })
+  }
+
+  private resolveColorMode(): 'fill' | 'stroke' {
+    const definition = this.resolveElementDefinition()
+    const colorable = definition?.capabilities?.colorable
+    if (colorable && colorable.stroke === true && colorable.fill !== true) return 'stroke'
+    return 'fill'
+  }
+
+  private resolveElementDefinition(): ModelerElementDefinition | null {
+    const context = this.props.controller ?? this.injectOptional(MODELER_CONTEXT)
+    const element = this.resolveElement()
+    if (!context || !element) return null
+    return context.getElementRegistry().get(element.type) ?? null
   }
 
   private resolveElement(): ModelerElement | null {

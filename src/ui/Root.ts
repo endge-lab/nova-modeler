@@ -100,6 +100,7 @@ const MODELER_CURSOR_RULES: NovaCursorDeclaration = [
   { when: { modelerCursor: 'element' }, use: 'move' },
   { when: { state: ['pressed', 'dragging'], modelerCursor: 'edge-handle' }, use: 'grabbing' },
   { when: { modelerCursor: 'edge-handle' }, use: 'grab' },
+  { when: { modelerCursor: 'pointer' }, use: 'pointer' },
   { when: { modelerCursor: 'port' }, use: 'pointer' },
   { when: { state: ['pressed', 'dragging'], modelerCursor: 'pan' }, use: 'grabbing' },
   { when: { modelerCursor: 'pan' }, use: 'grab' },
@@ -1113,6 +1114,8 @@ export class Root<E extends EventList = Record<string, any>>
     const model = this.controllerInstance.getModel()
     const element = model.elements.find(item => item.id === elementId)
     const definition = element ? this.controllerInstance.getElementRegistry().get(element.type) : undefined
+    if (element && isModelerEdgeElement(element)) return 'pointer'
+    if (definition?.capabilities?.cursor?.hover === 'pointer') return 'pointer'
     if (definition?.capabilities?.cursor?.hover) return 'element'
     if (definition?.capabilities?.draggable === false) return 'default'
     return 'element'

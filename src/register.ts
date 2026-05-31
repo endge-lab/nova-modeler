@@ -15,6 +15,11 @@ import { Grid } from '@/ui/layers/Grid'
 import { MiniMap } from '@/plugins/mini-map/ui/MiniMap'
 import { MarqueeSelection } from '@/plugins/marquee-selection/ui/MarqueeSelection'
 import { BasicRectView } from '@/ui/elements/basic/BasicRectView'
+import { BpmnGroupView } from '@/ui/elements/bpmn/artifacts/group/BpmnGroupView'
+import { BpmnTextAnnotationView } from '@/ui/elements/bpmn/artifacts/text-annotation/BpmnTextAnnotationView'
+import { BpmnAssociationView } from '@/ui/elements/bpmn/association/BpmnAssociationView'
+import { BpmnDataObjectView } from '@/ui/elements/bpmn/data/data-object/BpmnDataObjectView'
+import { BpmnDataStoreView } from '@/ui/elements/bpmn/data/data-store/BpmnDataStoreView'
 import { BpmnEventView } from '@/ui/elements/bpmn/event/BpmnEventView'
 import { BpmnFlowView } from '@/ui/elements/bpmn/flow/BpmnFlowView'
 import { BpmnGatewayView } from '@/ui/elements/bpmn/gateway/BpmnGatewayView'
@@ -27,6 +32,7 @@ import { MODELER_SETTINGS_DIALOG_DESCRIPTOR } from '@/ui/settings/SettingsDialog
 import { SettingsButton } from '@/ui/settings/SettingsButton'
 import { MODELER_SETTINGS_CATEGORY_DESCRIPTOR } from '@/ui/settings/SettingsCategory'
 import { MODELER_SETTINGS_SECTION_DESCRIPTOR } from '@/ui/settings/SettingsSection'
+import { MODELER_BPMN_VALIDATION_DIALOG_DESCRIPTOR } from '@/ui/validation/BpmnValidationDialog'
 
 export function registerModeler(registry: NovaSchemaRegistry): void {
   registerNovaUIKit(registry)
@@ -34,10 +40,15 @@ export function registerModeler(registry: NovaSchemaRegistry): void {
   registry.registerDecorated(Background as never, { override: true })
   registry.registerDecorated(Grid as never, { override: true })
   registry.registerDecorated(BasicRectView as never, { override: true })
+  registry.registerDecorated(BpmnAssociationView as never, { override: true })
   registry.registerDecorated(BpmnFlowView as never, { override: true })
   registry.registerDecorated(BpmnEventView as never, { override: true })
   registry.registerDecorated(BpmnGatewayView as never, { override: true })
   registry.registerDecorated(BpmnTaskView as never, { override: true })
+  registry.registerDecorated(BpmnTextAnnotationView as never, { override: true })
+  registry.registerDecorated(BpmnGroupView as never, { override: true })
+  registry.registerDecorated(BpmnDataObjectView as never, { override: true })
+  registry.registerDecorated(BpmnDataStoreView as never, { override: true })
   registry.registerDecorated(EdgeWaypointHandleView as never, { override: true })
   registry.registerDecorated(PortView as never, { override: true })
   registry.registerDecorated(ResizeHandleView as never, { override: true })
@@ -53,6 +64,7 @@ export function registerModeler(registry: NovaSchemaRegistry): void {
   registry.registerDecorated(Palette as never, { override: true })
   registry.registerDecorated(ZoomControls as never, { override: true })
   registry.register(MODELER_SETTINGS_DIALOG_DESCRIPTOR, { override: true })
+  registry.register(MODELER_BPMN_VALIDATION_DIALOG_DESCRIPTOR, { override: true })
   registry.registerDecorated(SettingsButton as never, { override: true })
   registry.register(MODELER_SETTINGS_CATEGORY_DESCRIPTOR, { override: true })
   registry.register(MODELER_SETTINGS_SECTION_DESCRIPTOR, { override: true })

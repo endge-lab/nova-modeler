@@ -10,21 +10,27 @@ import {
 import type { EventList } from '@endge/utils'
 import {
   NOVA_UI_LAYOUT_TARGET,
+  findNovaUiRoot,
   type NovaUiLayoutConstraints,
   type NovaUiLayoutMeasure,
   type NovaUiLayoutRect,
+  type RootApi,
 } from '@endge/nova-ui-kit'
 import { MODELER_ASSETS } from '@/assets/modeler-assets'
 import { Modeler } from '@/config/schema.config'
-import type {
-  ModelerController,
-  ModelerValidationResult,
+import {
+  MODELER_BPMN_VALIDATION_DIALOG_TYPE,
+  type ModelerController,
+  type ModelerValidationResult,
 } from '@/domain/types/index'
 import { BPMN_VALIDATION_RESULT_KEY } from '@/plugins/bpmn-validation/BpmnValidationPlugin'
 
 export interface BpmnValidationBadgeProps {
   controller?: ModelerController
   result?: ModelerValidationResult
+  rootId?: string
+  dialogType?: string
+  dialogId?: string
   visible?: boolean
   zIndex?: number
 }
@@ -32,6 +38,9 @@ export interface BpmnValidationBadgeProps {
 export interface BpmnValidationBadgeResolvedProps {
   controller?: ModelerController
   result?: ModelerValidationResult
+  rootId?: string
+  dialogType: string
+  dialogId: string
   visible: boolean
   zIndex?: number
 }
@@ -45,7 +54,8 @@ export type BpmnValidationBadgeDescriptor = NovaComponentDescriptor<
 
 const BADGE_WIDTH = 142
 const BADGE_HEIGHT = 36
-const ICON_SIZE = 20
+const ICON_SIZE = 18
+const LABEL_HEIGHT = 20
 const DEFAULT_VALIDATION_RESULT: ModelerValidationResult = {
   status: 'valid',
   modelVersion: 0,
@@ -59,7 +69,7 @@ const DEFAULT_VALIDATION_RESULT: ModelerValidationResult = {
   dirtyPolicy: {
     matrix: ['x', 'y', 'zIndex'],
     update: ['visible', 'zIndex'],
-    render: ['controller', 'result', 'visible'],
+    render: ['controller', 'result', 'rootId', 'dialogType', 'dialogId', 'visible'],
   },
 })
 export class BpmnValidationBadge<E extends EventList = Record<string, any>>
@@ -79,15 +89,19 @@ export class BpmnValidationBadge<E extends EventList = Record<string, any>>
     this.options({
       width: BADGE_WIDTH,
       height: BADGE_HEIGHT,
-      interactive: false,
+      interactive: props.visible,
       zIndex: props.zIndex,
     })
+    this.setupEvents()
   }
 
   static normalizeProps(props: BpmnValidationBadgeProps = {}): BpmnValidationBadgeResolvedProps {
     return {
       controller: props.controller,
       result: props.result,
+      rootId: props.rootId,
+      dialogType: props.dialogType ?? MODELER_BPMN_VALIDATION_DIALOG_TYPE,
+      dialogId: props.dialogId ?? MODELER_BPMN_VALIDATION_DIALOG_TYPE,
       visible: props.visible ?? true,
       zIndex: props.zIndex,
     }
@@ -100,7 +114,7 @@ export class BpmnValidationBadge<E extends EventList = Record<string, any>>
       this.options({
         width: BADGE_WIDTH,
         height: BADGE_HEIGHT,
-        interactive: false,
+        interactive: this.props.visible,
         zIndex: this.props.zIndex,
       })
     }
@@ -115,7 +129,7 @@ export class BpmnValidationBadge<E extends EventList = Record<string, any>>
       y: rect.y,
       width: rect.width,
       height: rect.height,
-      interactive: false,
+      interactive: this.props.visible,
       zIndex: this.props.zIndex,
     })
     if (changed) this.dirty({ matrix: true, render: true })
@@ -132,6 +146,7 @@ export class BpmnValidationBadge<E extends EventList = Record<string, any>>
       this.renderer.schema([])
       return
     }
+    this.syncCursor()
     this.renderer.schema(this.createSchema())
   }
 
@@ -182,17 +197,17 @@ export class BpmnValidationBadge<E extends EventList = Record<string, any>>
         type: 'text',
         text: colors.label,
         x: 42,
-        y: 0,
+        y: (this.height - LABEL_HEIGHT) / 2 + 1,
         width: Math.max(1, this.width - 54),
-        height: this.height,
+        height: LABEL_HEIGHT,
         styles: {
           color: colors.text,
           font: {
             family: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
             size: 14,
-            weight: '700',
+            weight: '500',
           },
-          lineHeight: this.height,
+          lineHeight: LABEL_HEIGHT,
           align: { horizontal: 'left', vertical: 'middle' },
           ellipsis: true,
         },
@@ -204,6 +219,37 @@ export class BpmnValidationBadge<E extends EventList = Record<string, any>>
     return this.props.result
       ?? this.props.controller?.getPluginContext().store.inject(BPMN_VALIDATION_RESULT_KEY)
       ?? DEFAULT_VALIDATION_RESULT
+  }
+
+  private setupEvents(): void {
+    this.on('mouseenter', () => this.syncCursor())
+    this.on('mousemove', () => this.syncCursor())
+    this.on('mouseleave', () => this.setCursor(null))
+    this.on('mousedown', event => {
+      const result = this.resolveResult()
+      if (result.status !== 'invalid') return false
+      this.resolveRootApi()?.openDialog({
+        id: this.props.dialogId,
+        type: this.props.dialogType,
+        result,
+      })
+      event.preventDefault()
+      return false
+    })
+  }
+
+  private syncCursor(): void {
+    this.setCursor(this.resolveResult().status === 'invalid' ? 'button' : null)
+  }
+
+  private setCursor(cursor: 'button' | null): void {
+    this.options({ cursorContext: { bpmnValidationBadgeCursor: cursor ?? 'none' } })
+  }
+
+  private resolveRootApi(): RootApi | null {
+    return findNovaUiRoot(this)?.getApi?.()
+      ?? (this.props.rootId ? this.nova.components.api<RootApi>(this.props.rootId) : undefined)
+      ?? null
   }
 }
 

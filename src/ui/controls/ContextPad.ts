@@ -22,10 +22,14 @@ import {
 } from '@/config/theme.config'
 import type {
   ModelerController,
+  ModelerEdgeElement,
   ModelerElement,
+  ModelerPoint,
   ModelerPluginContext,
   ModelerRect,
 } from '@/domain/types/index'
+import { isModelerEdgeElement } from '@/domain/types/index'
+import { MODEL_ELEMENTS_RUNTIME } from '@/plugins/elements/model/ElementsRuntime'
 import type {
   ContextPadApi,
   ContextPadDescriptor,
@@ -206,22 +210,55 @@ export class ContextPad<E extends EventList = Record<string, any>>
     const element = model.elements.find(item => item.id === model.selection[0])
     if (!element) return null
     const definition = context.getElementRegistry().get(element.type)
-    if (definition?.kind !== 'node') return null
+    if (!definition) return null
+    if (definition.kind === 'edge' && !definition.capabilities?.colorable) return null
     if (this.closedForSelectionKey === `${model.id}:${model.selectionVersion}:${element.id}`) return null
+    const screenBounds = definition.kind === 'edge' && isModelerEdgeElement(element)
+      ? this.resolveEdgeScreenBounds(context, element)
+      : this.resolveNodeScreenBounds(context, element)
+    if (!screenBounds) return null
+    return {
+      type: 'element',
+      element,
+      screenBounds,
+    }
+  }
+
+  private resolveNodeScreenBounds(context: ModelerController | ModelerPluginContext, element: ModelerElement): ModelerRect {
     const topLeft = context.worldToScreen({ x: element.x, y: element.y })
     const bottomRight = context.worldToScreen({
       x: element.x + element.width,
       y: element.y + element.height,
     })
     return {
-      type: 'element',
-      element,
-      screenBounds: {
-        x: Math.min(topLeft.x, bottomRight.x),
-        y: Math.min(topLeft.y, bottomRight.y),
-        width: Math.abs(bottomRight.x - topLeft.x),
-        height: Math.abs(bottomRight.y - topLeft.y),
-      },
+      x: Math.min(topLeft.x, bottomRight.x),
+      y: Math.min(topLeft.y, bottomRight.y),
+      width: Math.abs(bottomRight.x - topLeft.x),
+      height: Math.abs(bottomRight.y - topLeft.y),
+    }
+  }
+
+  private resolveEdgeScreenBounds(context: ModelerController | ModelerPluginContext, element: ModelerEdgeElement): ModelerRect | null {
+    const pluginContext = resolvePluginContext(context)
+    const path = MODEL_ELEMENTS_RUNTIME.edges.createPath(pluginContext, element)
+    const points = path.length > 0 ? path : [
+      element.source.point,
+      ...element.waypoints,
+      element.target.point,
+    ].filter((point): point is ModelerPoint => Boolean(point))
+    if (points.length === 0) return null
+    const screenPoints = points.map(point => context.worldToScreen(point))
+    const xs = screenPoints.map(point => point.x)
+    const ys = screenPoints.map(point => point.y)
+    const minX = Math.min(...xs)
+    const maxX = Math.max(...xs)
+    const minY = Math.min(...ys)
+    const maxY = Math.max(...ys)
+    return {
+      x: minX,
+      y: minY,
+      width: Math.max(1, maxX - minX),
+      height: Math.max(1, maxY - minY),
     }
   }
 

@@ -13,9 +13,9 @@ import type { ConnectionAnchorResolver } from '@/plugins/elements/model/Connecti
 import type { ElementsGeometry } from '@/plugins/elements/model/ElementsGeometry'
 import type { ElementsPorts } from '@/plugins/elements/model/ElementsPorts'
 
-const EDGE_WAYPOINT_HANDLE_SIZE = 9
-const EDGE_SEGMENT_HANDLE_SIZE = 8
-const EDGE_SEGMENT_HIT_TOLERANCE = 8
+const EDGE_WAYPOINT_HANDLE_SIZE = 14
+const EDGE_SEGMENT_HANDLE_SIZE = 14
+const EDGE_SEGMENT_HIT_TOLERANCE = 10
 
 export class ElementsEdges {
   private readonly elementLookupCache = new WeakMap<ModelerModel, Map<string, ModelerElement>>()

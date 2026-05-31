@@ -1,13 +1,16 @@
 import {
   NovaComponent,
   NovaComponentNode,
+  NovaTemplateRuntime,
   createNovaDecoratedComponentDescriptor,
   type NovaApp,
   type NovaComponentDescriptor,
   type NovaCursorDeclaration,
   type NovaSchema,
   type NovaSurface,
+  type NovaTemplateChildSchema,
 } from '@endge/nova'
+import { NovaUIKit } from '@endge/nova-ui-kit'
 import type { EventList } from '@endge/utils'
 import { MODELER_ASSETS } from '@/assets/modeler-assets'
 import { Modeler } from '@/config/schema.config'
@@ -15,7 +18,11 @@ import {
   MODELER_THEME_FALLBACKS,
   MODELER_THEME_TOKENS,
 } from '@/config/theme.config'
-import type { ModelerController } from '@/domain/types'
+import type {
+  ModelerController,
+  ModelerPluginContext,
+} from '@/domain/types'
+import { MODELER_CONTEXT } from '@/config/context.config'
 
 export interface DownloadControlsProps {
   controller?: ModelerController | null
@@ -65,12 +72,6 @@ const BUTTON_PANEL_PADDING = 4
 const BUTTON_PANEL_SIZE = BUTTON_SIZE + BUTTON_PANEL_PADDING * 2
 const MENU_WIDTH = 164
 const MENU_ITEM_HEIGHT = 36
-const MENU_ICON_SIZE = 16
-const MENU_ICON_INSET = 10
-const MENU_ICON_VERTICAL_OFFSET = -3
-const MENU_TEXT_HEIGHT = 20
-const MENU_TEXT_VERTICAL_OFFSET = 3
-const MENU_TEXT_GAP = 8
 const MENU_PADDING = 6
 const MENU_GAP = 6
 const MENU_ITEMS = [
@@ -95,6 +96,7 @@ const DOWNLOAD_CONTROLS_CURSOR_RULES: NovaCursorDeclaration = [
 })
 export class DownloadControls<E extends EventList = Record<string, any>>
   extends NovaComponentNode<DownloadControlsResolvedProps, DownloadControlsApi, Record<string, never>, DownloadControlsProps, E> {
+  private readonly childRuntime: NovaTemplateRuntime<E>
   private openMenu = false
   private hoveredItemId: string | null = null
   private hoveredButton = false
@@ -107,6 +109,7 @@ export class DownloadControls<E extends EventList = Record<string, any>>
     options: { componentId?: string } = {},
   ) {
     super(app, surface, descriptor, props, options)
+    this.childRuntime = new NovaTemplateRuntime(this)
     this.options({
       interactive: props.visible,
       zIndex: props.zIndex,
@@ -152,12 +155,19 @@ export class DownloadControls<E extends EventList = Record<string, any>>
     super.render()
     if (!this.props.visible) {
       this.renderer.schema([])
+      this.childRuntime.reconcile([])
       return
     }
     const schema: NovaSchema = []
     if (this.openMenu) this.appendMenu(schema)
     this.appendButtonPanel(schema)
     this.renderer.schema(schema)
+    this.syncChild()
+  }
+
+  protected override onUnmount(): void {
+    this.childRuntime.dispose()
+    super.onUnmount()
   }
 
   private setupEvents(): void {
@@ -183,7 +193,7 @@ export class DownloadControls<E extends EventList = Record<string, any>>
       }
       const item = this.resolveMenuItem(localX, localY)
       if (item) {
-        this.props.controller?.getPluginContext().actions.run(item.actionId)
+        this.runMenuAction(item)
         this.setOpen(false)
         return false
       }
@@ -295,53 +305,58 @@ export class DownloadControls<E extends EventList = Record<string, any>>
         },
       },
     })
-    for (const item of this.resolveMenuItems()) {
-      schema.push({
-        type: 'rect',
-        x: item.x,
-        y: item.y,
-        width: item.width,
-        height: item.height,
-        styles: {
-          background: this.hoveredItemId === item.id
-            ? this.resolveColor('paletteItemHoverBackground')
-            : 'rgba(0,0,0,0)',
-          border: {
-            color: 'rgba(0,0,0,0)',
-            width: 0,
-            radius: 4,
-          },
-        },
-      })
-      schema.push({
-        type: 'icon',
-        icon: item.icon,
-        x: item.x + MENU_ICON_INSET,
-        y: item.y + (item.height - MENU_ICON_SIZE) / 2 + MENU_ICON_VERTICAL_OFFSET,
-        width: MENU_ICON_SIZE,
-        height: MENU_ICON_SIZE,
-        styles: { opacity: 1 },
-      })
-      const textX = item.x + MENU_ICON_INSET + MENU_ICON_SIZE + MENU_TEXT_GAP
-      schema.push({
-        type: 'text',
-        text: item.label,
-        x: textX,
-        y: item.y + (item.height - MENU_TEXT_HEIGHT) / 2 + MENU_TEXT_VERTICAL_OFFSET,
-        width: item.x + item.width - textX - MENU_ICON_INSET,
-        height: MENU_TEXT_HEIGHT,
-        styles: {
+  }
+
+  private syncChild(): void {
+    if (!this.openMenu || !this.props.visible) {
+      this.childRuntime.reconcile([])
+      return
+    }
+    this.childRuntime.reconcile([this.createMenuLayout()])
+  }
+
+  private createMenuLayout(): NovaTemplateChildSchema {
+    return {
+      type: NovaUIKit.Flex,
+      id: `${this.componentId}:menu-layout`,
+      props: {
+        x: MENU_PADDING,
+        y: MENU_PADDING,
+        width: MENU_WIDTH - MENU_PADDING * 2,
+        height: MENU_ITEM_HEIGHT * MENU_ITEMS.length,
+        col: true,
+        gap: 0,
+        alignItems: 'stretch',
+        justifyContent: 'start',
+        clip: true,
+      },
+      children: this.resolveMenuItems().map(item => ({
+        type: NovaUIKit.Button,
+        id: `${this.componentId}:menu-item:${item.id}`,
+        layout: { width: 'fill', height: MENU_ITEM_HEIGHT },
+        props: {
+          text: item.label,
+          icon: item.icon,
+          iconPlacement: 'left',
+          textAlign: 'left',
+          variant: 'ghost',
+          size: 'md',
+          width: item.width,
+          height: item.height,
           color: this.resolveColor('bpmnTaskTextColor'),
-          font: {
-            family: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-            size: 13,
-            weight: '600',
+          fontFamily: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+          fontSize: 13,
+          fontWeight: '600',
+          background: 'rgba(0,0,0,0)',
+          hoverBackground: this.resolveColor('paletteItemHoverBackground'),
+          pressedBackground: this.resolveColor('paletteItemHoverBackground'),
+          border: { color: 'rgba(0,0,0,0)', width: 0, radius: 4 },
+          onPress: () => {
+            this.runMenuAction(item)
+            this.setOpen(false)
           },
-          lineHeight: MENU_TEXT_HEIGHT,
-          align: { horizontal: 'left', vertical: 'middle' },
-          ellipsis: true,
         },
-      })
+      })),
     }
   }
 
@@ -379,6 +394,14 @@ export class DownloadControls<E extends EventList = Record<string, any>>
 
   private resolveMenuHeight(): number {
     return MENU_PADDING * 2 + MENU_ITEM_HEIGHT * MENU_ITEMS.length
+  }
+
+  private runMenuAction(item: DownloadMenuItemLayout): void {
+    this.resolvePluginContext()?.actions.run(item.actionId)
+  }
+
+  private resolvePluginContext(): ModelerPluginContext | undefined {
+    return this.props.controller?.getPluginContext() ?? this.injectOptional(MODELER_CONTEXT)
   }
 
   private setCursor(cursor: 'button' | null): void {

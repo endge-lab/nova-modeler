@@ -18,6 +18,11 @@ import {
   createBpmnEventElement,
   createBpmnFlowElement,
   createBpmnGatewayElement,
+  createBpmnAssociationElement,
+  createBpmnDataObjectElement,
+  createBpmnDataStoreElement,
+  createBpmnGroupElement,
+  createBpmnTextAnnotationElement,
   createBpmnTaskElement,
   createBasicRectElement,
   createGridRenderPlan,
@@ -488,6 +493,144 @@ describe('nova modeler minimal kernel', () => {
     controller.unmount()
   })
 
+  it('publishes BPMN artifact and data elements as base palette blocks', () => {
+    const textAnnotation = createBpmnTextAnnotationElement({
+      id: 'annotation-1',
+      text: '',
+      bracketSide: 'broken' as never,
+    })
+    const group = createBpmnGroupElement({ id: 'group-1', name: '' })
+    const dataObject = createBpmnDataObjectElement({
+      id: 'data-object-1',
+      dataObjectType: 'broken' as never,
+      isCollection: true,
+    })
+    const dataStore = createBpmnDataStoreElement({ id: 'data-store-1', name: '' })
+    const association = createBpmnAssociationElement({
+      id: 'association-1',
+      associationType: 'broken' as never,
+      source: { elementId: 'source', point: { x: 0, y: 0 } },
+      target: { elementId: 'target', point: { x: 100, y: 0 } },
+    })
+
+    expect(textAnnotation).toMatchObject({
+      type: 'bpmn.textAnnotation',
+      width: 160,
+      height: 80,
+      data: { text: 'Text annotation', bracketSide: 'left' },
+    })
+    expect(group).toMatchObject({
+      type: 'bpmn.group',
+      width: 240,
+      height: 160,
+      data: { name: 'Group' },
+    })
+    expect(dataObject).toMatchObject({
+      type: 'bpmn.dataObject',
+      width: 96,
+      height: 120,
+      data: {
+        name: 'Data object',
+        dataObjectType: 'object',
+        isCollection: true,
+      },
+    })
+    expect(dataStore).toMatchObject({
+      type: 'bpmn.dataStore',
+      width: 120,
+      height: 96,
+      data: { name: 'Data store' },
+    })
+    expect(association).toMatchObject({
+      type: 'bpmn.association',
+      data: { associationType: 'undirected' },
+    })
+
+    const controller = createModelerController({
+      model: createModelerModel({
+        elements: [textAnnotation, group, dataObject, dataStore, association],
+        selection: [dataObject.id],
+      }),
+    })
+    controller.mount(createControllerHost(640, 420))
+    const context = controller.getPluginContext()
+
+    expect(context.palette.get('bpmn.text-annotation.create')).toMatchObject({
+      kind: 'tool',
+      icon: 'bpmn-text-annotation',
+      toolId: 'create:bpmn.text-annotation',
+    })
+    expect(context.palette.get('bpmn.group.create')).toMatchObject({
+      kind: 'tool',
+      icon: 'bpmn-group',
+      toolId: 'create:bpmn.group',
+    })
+    expect(context.palette.get('bpmn.data-object.create')).toMatchObject({
+      kind: 'tool',
+      icon: 'bpmn-data-object',
+      toolId: 'create:bpmn.data-object',
+    })
+    expect(context.palette.get('bpmn.data-store.create')).toMatchObject({
+      kind: 'tool',
+      icon: 'bpmn-data-store',
+      toolId: 'create:bpmn.data-store',
+    })
+    expect(context.palette.get('bpmn.association.create')).toMatchObject({
+      kind: 'action',
+      icon: 'bpmn-association',
+      actionId: 'element.create.bpmn.association',
+    })
+    expect(context.tools.get('create:bpmn.association')).toBeUndefined()
+    expect(context.palette.get('bpmn.data-object.input.create')).toBeUndefined()
+    expect(context.palette.get('bpmn.text-annotation.right.create')).toBeUndefined()
+
+    expect(context.elementVariants.getProvider(textAnnotation)?.id).toBe('bpmn.textAnnotation.variants')
+    expect(context.elementVariants.getProvider(dataObject)?.id).toBe('bpmn.dataObject.variants')
+    expect(context.elementVariants.getProvider(association)?.id).toBe('bpmn.association.variants')
+    expect(controller.getElementRegistry().require('bpmn.association').capabilities?.colorable).toMatchObject({
+      fill: false,
+      stroke: true,
+      custom: true,
+    })
+    expect(controller.getElementRegistry().require('bpmn.dataObject').getPorts?.(context, dataObject).map(port => port.id)).toEqual(['top', 'right', 'bottom', 'left'])
+    controller.unmount()
+  })
+
+  it('creates BPMN association from the palette action through the connection flow', () => {
+    const start = createBpmnEventElement({ id: 'start-1', x: 100, y: 100 })
+    const task = createBpmnTaskElement({ id: 'task-1', x: 220, y: 84 })
+    const controller = createModelerController({
+      model: createModelerModel({
+        elements: [start, task],
+      }),
+    })
+    controller.mount(createControllerHost(640, 420))
+    const context = controller.getPluginContext()
+
+    context.actions.run('element.create.bpmn.association')
+    expect(context.tools.getActiveId()).toBe('connect')
+    expect(MODEL_ELEMENTS_RUNTIME.connectionFlow.beginFromElement(context, start.id, 'tool')).toBe(true)
+    const created = MODEL_ELEMENTS_RUNTIME.connectionFlow.completeAtTarget(
+      context,
+      { type: 'element', id: task.id },
+      { x: task.x, y: task.y + task.height / 2 },
+    )
+
+    expect(created).toMatchObject({
+      type: 'bpmn.association',
+      source: { elementId: start.id },
+      target: { elementId: task.id },
+    })
+    const elements = controller.getModel().elements
+    expect(elements[elements.length - 1]).toMatchObject({
+      type: 'bpmn.association',
+      source: { elementId: start.id },
+      target: { elementId: task.id },
+    })
+    MODEL_ELEMENTS_RUNTIME.connectionFlow.clear()
+    controller.unmount()
+  })
+
   it('normalizes BPMN flows, resolves endpoints and removes connected flows with nodes', () => {
     const start = createBpmnEventElement({ id: 'start-1', x: 100, y: 100 })
     const task = createBpmnTaskElement({ id: 'task-1', x: 220, y: 84 })
@@ -624,7 +767,7 @@ describe('nova modeler minimal kernel', () => {
 
   it('publishes debounced BPMN validation results without reacting to viewport changes', () => {
     vi.useFakeTimers()
-    const validate = vi.fn((model) => createValidationResult(model.version, model.elements.length > 0 ? 'valid' : 'invalid'))
+    const validate = vi.fn(model => createValidationResult(model.version, model.elements.length > 0 ? 'valid' : 'invalid'))
     const controller = createModelerController({
       model: createModelerModel(),
       pluginRuntime: createPluginRuntime().use(BpmnValidationPlugin.create({ debounceMs: 150, validate })),
@@ -702,6 +845,61 @@ describe('nova modeler minimal kernel', () => {
     items = surface.compileRenderFrame().items.map(item => item.schemaItem).filter(Boolean)
     expect(items.filter(item => item.type === 'text' && item.text === 'Invalid BPMN')).toHaveLength(2)
     controller.unmount()
+    app.destroy()
+  })
+
+  it('registers BPMN validation dialog and opens it from an invalid badge', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('validation-dialog')
+    app.schema.createNode(surface, {
+      type: NovaUIKit.Root,
+      id: 'validation-root',
+      props: {
+        width: 640,
+        height: 420,
+      },
+      children: [
+        {
+          type: Modeler.BpmnValidationDialog,
+          id: 'validation-dialog',
+        },
+        {
+          type: Modeler.BpmnValidationBadge,
+          id: 'validation-badge',
+          props: {
+            result: createValidationResult(1, 'invalid'),
+            rootId: 'validation-root',
+          },
+        },
+      ],
+    })
+    app.raph.run()
+    expect(app.components.get('validation-dialog')).toBeTruthy()
+    expect(app.events.hitTest(20, 18)?.componentId).toBe('validation-badge')
+
+    const rootApi = app.components.requireApi<{ getOpenDialogIds: () => Array<string> }>('validation-root')
+    expect(rootApi.getOpenDialogIds()).toEqual([])
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 20, clientY: 18, button: 0 }))
+    app.raph.run()
+    app.raph.run()
+
+    expect(rootApi.getOpenDialogIds()).toEqual(['modeler-bpmn-validation'])
+    const renderedItems = app.surfaces
+      .flatMap(item => item.compileRenderFrame().items)
+      .map(item => item.schemaItem)
+      .filter(Boolean)
+    expect(renderedItems.find(item => item.type === 'text' && item.text === 'BPMN validation')).toBeTruthy()
+    expect(renderedItems.find(item => item.type === 'text' && item.text === '1 BPMN error found')).toBeTruthy()
+    expect(renderedItems.find(item => item.type === 'text' && item.text === 'Invalid test model.')).toBeTruthy()
+    expect(renderedItems.find(item => item.type === 'text' && String(item.text).includes('bpmn.noNodes'))).toBeTruthy()
     app.destroy()
   })
 
@@ -1458,6 +1656,104 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
+  it('downloads BPMN from custom download controls without an explicit controller prop', async () => {
+    const getContext = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const toBlob = vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation(function (callback: BlobCallback, mime?: string) {
+      callback(new Blob(['png'], { type: mime ?? 'image/png' }))
+    })
+    const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:nova-modeler-export')
+    const revokeObjectURL = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined)
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined)
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'download-slot-root',
+      props: {
+        model: createModelerModel({
+          id: 'download-slot',
+          elements: [
+            createBpmnEventElement({ id: 'start', x: 40, y: 90, eventPosition: 'start' }),
+            createBpmnTaskElement({ id: 'task', x: 160, y: 74, name: 'Review request', taskType: 'user' }),
+            createBpmnFlowElement({
+              id: 'flow',
+              source: { elementId: 'start', point: { x: 88, y: 114 } },
+              target: { elementId: 'task', point: { x: 160, y: 114 } },
+            }),
+          ],
+        }),
+        width: 640,
+        height: 420,
+      },
+      slots: {
+        controls: () => [{
+          type: Modeler.DownloadControls,
+          id: 'slot-download-controls',
+          props: { zIndex: 3000 },
+        }],
+      },
+    })
+    app.raph.run()
+    app.raph.run()
+
+    expect(app.events.hitTest(24, 386)?.componentId).toBe('slot-download-controls')
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 24, clientY: 386, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 24, clientY: 386, button: 0 }))
+    app.raph.run()
+    app.raph.run()
+    expect(app.events.hitTest(44, 302)?.componentId).toContain('slot-download-controls:menu-item:bpmn')
+
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 44, clientY: 302, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 44, clientY: 302, button: 0 }))
+    app.raph.run()
+
+    expect(click).toHaveBeenCalledTimes(1)
+    const exportedBlobs = createObjectURL.mock.calls
+      .map(call => call[0])
+      .filter((value): value is Blob => value instanceof Blob && value.type.startsWith('application/xml'))
+    expect(exportedBlobs).toHaveLength(1)
+    const blob = exportedBlobs[0]
+    expect(blob.type).toBe('application/xml;charset=utf-8')
+    expect(blob.size).toBeGreaterThan(0)
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:nova-modeler-export')
+
+    createObjectURL.mockClear()
+    revokeObjectURL.mockClear()
+    click.mockClear()
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 24, clientY: 386, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 24, clientY: 386, button: 0 }))
+    app.raph.run()
+    app.raph.run()
+    expect(app.events.hitTest(44, 338)?.componentId).toContain('slot-download-controls:menu-item:png')
+
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 44, clientY: 338, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 44, clientY: 338, button: 0 }))
+    await Promise.resolve()
+    await Promise.resolve()
+    await new Promise(resolve => setTimeout(resolve, 0))
+    app.raph.run()
+
+    expect(click).toHaveBeenCalledTimes(1)
+    const pngBlobs = createObjectURL.mock.calls
+      .map(call => call[0])
+      .filter((value): value is Blob => value instanceof Blob && value.type === 'image/png')
+    expect(pngBlobs).toHaveLength(1)
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:nova-modeler-export')
+    app.destroy()
+    getContext.mockRestore()
+    toBlob.mockRestore()
+    createObjectURL.mockRestore()
+    revokeObjectURL.mockRestore()
+    click.mockRestore()
+  })
+
   it('hides the default brand logo and keeps the palette at the base offset when branding is disabled', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
@@ -1674,6 +1970,56 @@ describe('nova modeler minimal kernel', () => {
       fill: 'rgba(255, 255, 255, 0.4)',
       stroke: '#1f2937',
     })
+    app.destroy()
+  })
+
+  it('applies stroke color from the color menu for BPMN associations', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const start = createBpmnEventElement({ id: 'start-1', x: 100, y: 100 })
+    const task = createBpmnTaskElement({ id: 'task-1', x: 220, y: 84 })
+    const association = createBpmnAssociationElement({
+      id: 'association-1',
+      source: { elementId: start.id, point: { x: 148, y: 124 } },
+      target: { elementId: task.id, point: { x: 220, y: 124 } },
+      style: { stroke: '#1f2937' },
+    })
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    const root = app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'association-color-root',
+      props: {
+        model: createModelerModel({
+          elements: [start, task, association],
+          selection: [association.id],
+        }),
+        width: 640,
+        height: 420,
+      },
+    }) as Root
+    app.raph.run()
+    app.raph.run()
+
+    expect(app.events.hitTest(344, 148)?.componentId).toBe('association-color-root:context-pad')
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 344, clientY: 148, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 344, clientY: 148, button: 0 }))
+    app.raph.run()
+
+    const picker = app.components.requireApi<ColorPickerApi>('association-color-root:context-pad:color-menu:picker')
+    expect(picker.getProps().value).toBe('#1f2937')
+    picker.getProps().onCommit?.('#112233', { source: 'input' })
+    app.raph.run()
+
+    const current = root.getApi().getModel().elements.find(element => element.id === association.id)
+    expect(current?.style).toMatchObject({ stroke: '#112233' })
+    expect(current?.style?.fill).toBeUndefined()
     app.destroy()
   })
 
@@ -2460,6 +2806,15 @@ describe('nova modeler minimal kernel', () => {
     expect(contextPad?.containsPoint?.(4, 4)).toBe(false)
     expect(contextPad?.containsPoint?.(156, 100)).toBe(false)
 
+    root.applyCommand({ type: 'select', ids: [] })
+    app.raph.run()
+    expect(root.hitTest({ x: 202, y: 124 })).toEqual({ type: 'element', id: flow.id })
+    app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 202, clientY: 124, button: 0 }))
+    expect(app.canvas.element.style.cursor).toBe('pointer')
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 202, clientY: 124, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 202, clientY: 124, button: 0 }))
+    expect(root.getApi().getModel().selection).toEqual([flow.id])
+
     root.applyCommand({ type: 'select', ids: ['start-1', 'task-1'] })
     app.raph.run()
     app.handleEvent('keydown', new KeyboardEvent('keydown', { key: 'c' }))
@@ -2721,6 +3076,9 @@ describe('nova modeler minimal kernel', () => {
           },
           palette: {
             offsetY: 0,
+            itemSize: 16,
+            gap: 2,
+            gripSize: 24,
           },
         },
       },
@@ -2728,23 +3086,39 @@ describe('nova modeler minimal kernel', () => {
     app.raph.run()
     app.raph.run()
 
-    expect(app.events.hitTest(44, 353)?.componentId).toBe('palette-drag-root:palette')
-    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 44, clientY: 353, button: 0 }))
+    const palette = app.components.require('palette-drag-root:palette') as unknown as {
+      x: number
+      y: number
+      createLayoutPlan(options: unknown): { entries: Array<{ type: string; x: number; y: number; width: number; height: number }> }
+      resolvePaletteLayoutOptions(): unknown
+    }
+    const resolveGripPoint = () => {
+      const grip = palette.createLayoutPlan(palette.resolvePaletteLayoutOptions()).entries.find(entry => entry.type === 'grip')
+      if (!grip) throw new Error('Expected palette grip')
+      return {
+        x: palette.x + grip.x + grip.width / 2,
+        y: palette.y + grip.y + grip.height / 2,
+      }
+    }
+    const dockedGrip = resolveGripPoint()
+    expect(app.events.hitTest(dockedGrip.x, dockedGrip.y)?.componentId).toBe('palette-drag-root:palette')
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: dockedGrip.x, clientY: dockedGrip.y, button: 0 }))
     expect(app.canvas.element.style.cursor).toBe('grabbing')
     app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 140, clientY: 392, button: 0 }))
     app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 140, clientY: 392, button: 0 }))
     app.raph.run()
 
     expect(app.events.hitTest(140, 392)?.componentId).toBe('palette-drag-root:palette')
-    expect(app.events.hitTest(44, 353)?.componentId).not.toBe('palette-drag-root:palette')
+    expect(app.events.hitTest(dockedGrip.x, dockedGrip.y)?.componentId).not.toBe('palette-drag-root:palette')
 
-    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 140, clientY: 392, button: 0 }))
-    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 140, clientY: 392, button: 0 }))
-    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 140, clientY: 392, button: 0 }))
-    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 140, clientY: 392, button: 0 }))
+    const floatingGrip = resolveGripPoint()
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: floatingGrip.x, clientY: floatingGrip.y, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: floatingGrip.x, clientY: floatingGrip.y, button: 0 }))
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: floatingGrip.x, clientY: floatingGrip.y, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: floatingGrip.x, clientY: floatingGrip.y, button: 0 }))
     app.raph.run()
 
-    expect(app.events.hitTest(44, 353)?.componentId).toBe('palette-drag-root:palette')
+    expect(app.events.hitTest(dockedGrip.x, dockedGrip.y)?.componentId).toBe('palette-drag-root:palette')
     app.destroy()
   })
 

@@ -86,7 +86,6 @@ export class EdgeWaypointHandleView<E extends EventList = Record<string, any>>
       y: this.props.handle.y * this.props.viewport.scale + this.props.viewport.y,
     }
     const size = this.props.handle.size
-    const virtual = this.props.handle.virtual === true
     this.renderer.schema([{
       type: 'circle',
       x: screen.x,
@@ -94,7 +93,7 @@ export class EdgeWaypointHandleView<E extends EventList = Record<string, any>>
       radius: size / 2,
       styles: {
         background: this.resolveThemeColor('elementHandleStroke'),
-        opacity: virtual ? 0.62 : 1,
+        opacity: 1,
         border: {
           color: this.resolveThemeColor('elementHandleFill'),
           width: Math.max(1, this.resolveThemeNumber('elementHandleStrokeWidth')),

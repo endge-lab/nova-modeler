@@ -107,7 +107,7 @@ export const MODELER_THEME_FALLBACKS = {
   bpmnGatewayMarkerStrokeWidth: 2,
   bpmnFlowStroke: '#111827',
   bpmnFlowSelectedStroke: '#2563eb',
-  bpmnFlowStrokeWidth: 1.6,
+  bpmnFlowStrokeWidth: 3,
   bpmnFlowMarkerFill: '#ffffff',
   bpmnFlowMarkerStroke: '#111827',
   bpmnFlowPreviewStroke: '#2563eb',

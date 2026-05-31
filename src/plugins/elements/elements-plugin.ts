@@ -1,9 +1,11 @@
 import { PluginBase } from '@/model/plugin-runtime/PluginBase'
 import type {
+  ModelerEdgeElement,
   ModelerElementDefinition,
   ModelerPoint,
   ModelerPluginContext,
 } from '@/domain/types/index'
+import type { ElementsConnectionEdgeInput } from '@/plugins/elements/model/ElementsConnectionFlow'
 import { MODELER_ELEMENTS_PLUGIN_ID } from '@/plugins/elements/elements.constants'
 import { ElementsGestures } from '@/plugins/elements/elements-gestures'
 import { ElementsLayer } from '@/plugins/elements/elements-layer'
@@ -66,7 +68,8 @@ export class ElementsPlugin extends PluginBase {
         ...(definition.createTools ?? []),
       ]
       for (const createTool of createTools) {
-        this.publishElementCreateTool(definition, createTool)
+        if (definition.kind === 'edge') this.publishEdgeCreateTool(definition, createTool)
+        else this.publishElementCreateTool(definition, createTool)
       }
     }
   }
@@ -113,11 +116,51 @@ export class ElementsPlugin extends PluginBase {
     }))
   }
 
+  private publishEdgeCreateTool(
+    definition: ModelerElementDefinition,
+    createTool: NonNullable<ModelerElementDefinition['createTool']>,
+  ): void {
+    const actionId = createTool.actionId ?? `element.create.${definition.type}`
+    const paletteId = createTool.palette?.id ?? `${definition.type}.create`
+    const shortcutId = createTool.shortcutId ?? paletteId
+    const idPrefix = definition.type.replace(/[^a-z0-9]+/gi, '-')
+    this.addDisposer(this.context.actions.register({
+      id: actionId,
+      title: createTool.title,
+      run: context => {
+        this.runtime.connectionFlow.useEdgeFactory({
+          idPrefix,
+          previewId: `${idPrefix}-preview`,
+          create: input => createTool.create(input as ElementsConnectionEdgeInput) as ModelerEdgeElement,
+        })
+        context.tools.activate('connect')
+      },
+    }))
+    this.addDisposer(this.context.palette.register({
+      id: paletteId,
+      kind: 'action',
+      group: createTool.palette?.group ?? 'elements',
+      order: createTool.palette?.order ?? 100,
+      title: createTool.palette?.title ?? createTool.title,
+      tooltip: createTool.palette?.tooltip ?? createTool.tooltip,
+      icon: createTool.palette?.icon ?? definition.type,
+      actionId,
+    }))
+    this.addDisposer(this.context.shortcuts.register({
+      id: shortcutId,
+      title: createTool.title,
+      actionId,
+      defaults: createTool.shortcuts ?? [],
+      scope: 'canvas',
+    }))
+  }
+
   private publishConnectTool(): void {
     this.addDisposer(this.context.actions.register({
       id: 'element.connect',
       title: 'Connect elements',
       run: context => {
+        this.runtime.connectionFlow.useDefaultEdgeFactory()
         context.tools.activate('connect')
       },
     }))
@@ -127,6 +170,7 @@ export class ElementsPlugin extends PluginBase {
       run: context => {
         const sourceId = context.getModel().selection[0]
         if (!sourceId) return
+        this.runtime.connectionFlow.useDefaultEdgeFactory()
         context.tools.activate('connect')
         this.beginConnectionFromElement(context, sourceId, 'context-pad')
       },
