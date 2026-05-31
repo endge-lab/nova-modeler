@@ -38,6 +38,11 @@ export class ElementsGestures {
     waypointIndex: number
   } | null = null
 
+  private activeSegmentWaypoint: {
+    element: ModelerEdgeElement
+    waypointIndex: number
+  } | null = null
+
   private readonly snap: SnapRuntime
 
   constructor(
@@ -101,53 +106,70 @@ export class ElementsGestures {
     addDisposer(this.context.gestures.add({
       id: 'modeler-elements:waypoint',
       priority: 115,
-      hitTest: (_context, event, target) => event.button === 0 && target.type === 'edge-waypoint-handle',
+      hitTest: (_context, event, target) => event.button === 0
+        && (target.type === 'edge-waypoint-handle' || target.type === 'edge-segment-handle'),
       onPointerDown: (context, event) => {
         const target = context.hitTest(eventPoint(event))
-        if (target.type !== 'edge-waypoint-handle') return false
+        if (target.type !== 'edge-waypoint-handle' && target.type !== 'edge-segment-handle') return false
         const element = context.getModel().elements.find(item => item.id === target.elementId)
         if (!element || !isModelerEdgeElement(element)) return false
-        this.activeWaypoint = {
-          element: {
-            ...element,
-            source: { ...element.source, point: element.source.point ? { ...element.source.point } : undefined },
-            target: { ...element.target, point: element.target.point ? { ...element.target.point } : undefined },
-            waypoints: element.waypoints.map(point => ({ ...point })),
-            data: { ...element.data },
-            style: { ...element.style },
-          },
-          waypointIndex: target.waypointIndex,
+        const original = this.cloneEdge(element)
+        if (target.type === 'edge-waypoint-handle') {
+          this.activeWaypoint = { element: original, waypointIndex: target.waypointIndex }
+          return false
         }
+        const point = context.screenToWorld(eventPoint(event))
+        const handle = this.runtime.edges.createSegmentHandleAtPoint(context, element, point)
+        const waypointIndex = Math.min(target.segmentIndex, element.waypoints.length)
+        const waypoints = [
+          ...element.waypoints.slice(0, waypointIndex).map(item => ({ ...item })),
+          { x: handle?.x ?? point.x, y: handle?.y ?? point.y },
+          ...element.waypoints.slice(waypointIndex).map(item => ({ ...item })),
+        ]
+        context.applyCommand({
+          type: 'element.patch',
+          id: element.id,
+          patch: { waypoints },
+        })
+        this.activeSegmentWaypoint = { element: original, waypointIndex }
         return false
       },
       onPointerMove: (context, event) => {
-        if (!this.activeWaypoint) return false
+        const active = this.activeWaypoint ?? this.activeSegmentWaypoint
+        if (!active) return false
         const point = context.screenToWorld(eventPoint(event))
-        const waypoints = this.activeWaypoint.element.waypoints.map((waypoint, index) => index === this.activeWaypoint?.waypointIndex
+        const current = context.getModel().elements.find(item => item.id === active.element.id)
+        if (!current || !isModelerEdgeElement(current)) return false
+        const waypoints = current.waypoints.map((waypoint, index) => index === active.waypointIndex
           ? { x: point.x, y: point.y }
           : { ...waypoint })
         context.applyCommand({
           type: 'element.patch',
-          id: this.activeWaypoint.element.id,
+          id: active.element.id,
           patch: { waypoints },
         })
         return false
       },
-      onPointerUp: () => {
+      onPointerUp: context => {
+        const active = this.activeWaypoint ?? this.activeSegmentWaypoint
+        if (active) this.optimizeActiveWaypoints(context, active.element.id)
         this.activeWaypoint = null
+        this.activeSegmentWaypoint = null
         return false
       },
       onCancel: context => {
-        if (this.activeWaypoint) {
+        const active = this.activeWaypoint ?? this.activeSegmentWaypoint
+        if (active) {
           context.applyCommand({
             type: 'element.patch',
-            id: this.activeWaypoint.element.id,
+            id: active.element.id,
             patch: {
-              waypoints: this.activeWaypoint.element.waypoints.map(point => ({ ...point })),
+              waypoints: active.element.waypoints.map(point => ({ ...point })),
             },
           })
         }
         this.activeWaypoint = null
+        this.activeSegmentWaypoint = null
       },
     }))
     addDisposer(this.context.gestures.add({
@@ -360,7 +382,9 @@ export class ElementsGestures {
     this.activeMove = null
     this.activeRotate = null
     this.activeWaypoint = null
+    this.activeSegmentWaypoint = null
     this.runtime.dragShadow.clear()
+    this.runtime.edgeSegmentHover.clear()
     this.runtime.connectionFlow.clear()
   }
 
@@ -379,5 +403,27 @@ export class ElementsGestures {
       && !event.ctrlKey
       && !event.metaKey
       && !event.altKey
+  }
+
+  private optimizeActiveWaypoints(context: ModelerPluginContext, elementId: string): void {
+    const element = context.getModel().elements.find(item => item.id === elementId)
+    if (!element || !isModelerEdgeElement(element)) return
+    const waypoints = this.runtime.routeOptimizer.optimizeWaypoints(context, element, element.waypoints)
+    context.applyCommand({
+      type: 'element.patch',
+      id: element.id,
+      patch: { waypoints },
+    })
+  }
+
+  private cloneEdge(element: ModelerEdgeElement): ModelerEdgeElement {
+    return {
+      ...element,
+      source: { ...element.source, point: element.source.point ? { ...element.source.point } : undefined },
+      target: { ...element.target, point: element.target.point ? { ...element.target.point } : undefined },
+      waypoints: element.waypoints.map(point => ({ ...point })),
+      data: { ...element.data },
+      style: { ...element.style },
+    }
   }
 }

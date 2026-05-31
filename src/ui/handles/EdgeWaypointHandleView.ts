@@ -16,17 +16,20 @@ import {
   type ModelerThemeTokenKey,
 } from '@/config/theme.config'
 import type {
+  ModelerEdgeSegmentHandleDescriptor,
   ModelerEdgeWaypointHandleDescriptor,
   ModelerViewport,
 } from '@/domain/types/index'
 
+type EdgeHandleDescriptor = ModelerEdgeWaypointHandleDescriptor | ModelerEdgeSegmentHandleDescriptor
+
 export interface EdgeWaypointHandleViewProps {
-  handle: ModelerEdgeWaypointHandleDescriptor
+  handle: EdgeHandleDescriptor
   viewport: ModelerViewport
 }
 
 export interface EdgeWaypointHandleViewResolvedProps {
-  handle: ModelerEdgeWaypointHandleDescriptor
+  handle: EdgeHandleDescriptor
   viewport: ModelerViewport
 }
 
@@ -47,8 +50,8 @@ export type EdgeWaypointHandleViewDescriptor = NovaComponentDescriptor<
 })
 export class EdgeWaypointHandleView<E extends EventList = Record<string, any>>
   extends NovaComponentNode<EdgeWaypointHandleViewResolvedProps, Record<string, never>, Record<string, never>, EdgeWaypointHandleViewProps, E> {
-  @Prop.object<ModelerEdgeWaypointHandleDescriptor>({ required: true })
-  declare handle: ModelerEdgeWaypointHandleDescriptor
+  @Prop.object<EdgeHandleDescriptor>({ required: true })
+  declare handle: EdgeHandleDescriptor
 
   @Prop.object<ModelerViewport>({ required: true })
   declare viewport: ModelerViewport
@@ -83,18 +86,18 @@ export class EdgeWaypointHandleView<E extends EventList = Record<string, any>>
       y: this.props.handle.y * this.props.viewport.scale + this.props.viewport.y,
     }
     const size = this.props.handle.size
+    const virtual = this.props.handle.virtual === true
     this.renderer.schema([{
-      type: 'rect',
-      x: screen.x - size / 2,
-      y: screen.y - size / 2,
-      width: size,
-      height: size,
+      type: 'circle',
+      x: screen.x,
+      y: screen.y,
+      radius: size / 2,
       styles: {
-        background: this.resolveThemeColor('elementHandleFill'),
+        background: this.resolveThemeColor('elementHandleStroke'),
+        opacity: virtual ? 0.62 : 1,
         border: {
-          color: this.resolveThemeColor('elementHandleStroke'),
-          width: this.resolveThemeNumber('elementHandleStrokeWidth'),
-          radius: this.resolveThemeNumber('elementHandleRadius'),
+          color: this.resolveThemeColor('elementHandleFill'),
+          width: Math.max(1, this.resolveThemeNumber('elementHandleStrokeWidth')),
         },
       },
     }] as NovaSchema)

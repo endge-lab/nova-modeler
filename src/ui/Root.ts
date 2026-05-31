@@ -22,6 +22,7 @@ import {
   NovaUIKit,
   type InputApi,
   type NovaTooltipTargetResolver,
+  type TooltipInput,
   type TooltipTargetResolution,
 } from '@endge/nova-ui-kit'
 import type { EventList } from '@endge/utils'
@@ -60,6 +61,7 @@ import type {
   ModelerRootResolvedProps as RootResolvedProps,
   ModelerViewport,
 } from '@/domain/types/index'
+import { isModelerEdgeElement } from '@/domain/types/index'
 import type { ContextPadApi } from '@/domain/types/controls/context-pad.types'
 import {
   MODELER_CONTEXT,
@@ -74,6 +76,11 @@ import {
   BPMN_TASK_TYPE,
 } from '@/elements/bpmn/task/bpmn-task.factory'
 import type { BpmnTaskElement } from '@/elements/bpmn/task/bpmn-task.types'
+import {
+  resolveBpmnTaskNameLayout,
+  type BpmnTaskNameLayout,
+} from '@/ui/elements/bpmn/task/BpmnTaskView'
+import { MODEL_ELEMENTS_RUNTIME } from '@/plugins/elements/model/ElementsRuntime'
 
 type RootDescriptor = NovaComponentDescriptor<
   RootResolvedProps,
@@ -91,6 +98,8 @@ const MODELER_CURSOR_RULES: NovaCursorDeclaration = [
   { when: { modelerCursor: 'rotate' }, use: 'grab' },
   { when: { state: ['pressed', 'dragging'], modelerCursor: 'element' }, use: 'grabbing' },
   { when: { modelerCursor: 'element' }, use: 'move' },
+  { when: { state: ['pressed', 'dragging'], modelerCursor: 'edge-handle' }, use: 'grabbing' },
+  { when: { modelerCursor: 'edge-handle' }, use: 'grab' },
   { when: { modelerCursor: 'port' }, use: 'pointer' },
   { when: { state: ['pressed', 'dragging'], modelerCursor: 'pan' }, use: 'grabbing' },
   { when: { modelerCursor: 'pan' }, use: 'grab' },
@@ -351,8 +360,83 @@ export class Root<E extends EventList = Record<string, any>>
     this.dirtyLayerSurfaces(phase)
   }
 
-  resolveNovaTooltipTarget(_input: { x: number; y: number; event?: MouseEvent }): TooltipTargetResolution | null {
-    return null
+  resolveNovaTooltipTarget(input: { x: number; y: number; event?: MouseEvent }): TooltipTargetResolution | null {
+    const target = this.controllerInstance.hitTest({ x: input.x, y: input.y })
+    if (target.type !== 'element') return null
+    const element = this.controllerInstance.getModel().elements.find(item => item.id === target.id)
+    if (!element || element.type !== BPMN_TASK_TYPE) return null
+    const task = element as BpmnTaskElement
+    if (this.taskNameEditor?.elementId === task.id) return null
+    if (!this.containsTaskNamePoint(task, input)) return null
+    const layout = this.resolveTaskNameScreenLayout(task)
+    if (!layout.clipped) return null
+    return {
+      tooltip: {
+        value: layout.text,
+        placement: 'top',
+        delay: 350,
+      } as TooltipInput,
+      rect: layout.rect,
+      targetId: `${task.id}:name`,
+      targetType: 'modeler.bpmn.task.name',
+      targetProps: { elementId: task.id },
+    }
+  }
+
+  private resolveTaskNameScreenLayout(element: BpmnTaskElement): BpmnTaskNameLayout {
+    const viewport = this.controllerInstance.getViewport()
+    const layout = resolveBpmnTaskNameLayout({
+      name: element.data?.name,
+      width: element.width * viewport.scale,
+      height: element.height * viewport.scale,
+      data: element.data,
+    })
+    const center = this.controllerInstance.worldToScreen({
+      x: element.x + element.width / 2,
+      y: element.y + element.height / 2,
+    })
+    return {
+      ...layout,
+      rect: {
+        x: center.x + layout.rect.x,
+        y: center.y + layout.rect.y,
+        width: layout.rect.width,
+        height: layout.rect.height,
+      },
+      lines: layout.lines.map(line => ({
+        ...line,
+        x: center.x + line.x,
+        y: center.y + line.y,
+      })),
+    }
+  }
+
+  private resolveTaskNameContentRect(element: BpmnTaskElement): ModelerRect {
+    return this.resolveTaskNameScreenLayout(element).rect
+  }
+
+  private resolveTaskNameEditorRect(element: BpmnTaskElement): ModelerRect {
+    const layout = this.resolveTaskNameScreenLayout(element)
+    const firstLineY = layout.lines[0]?.y ?? layout.rect.y
+    return {
+      x: layout.rect.x - 10,
+      y: firstLineY - 8,
+      width: layout.rect.width + 20,
+      height: Math.max(28, layout.rect.y + layout.rect.height - firstLineY + 16),
+    }
+  }
+
+  private resolveTaskNameEditorFontSize(element: BpmnTaskElement): number {
+    return this.resolveTaskNameScreenLayout(element).fontSize
+  }
+
+  private resolveTaskNameEditorLineHeight(element: BpmnTaskElement): number {
+    return this.resolveTaskNameScreenLayout(element).lineHeight
+  }
+
+  private resolveTaskNameEditorMaxRows(element: BpmnTaskElement): number {
+    const layout = this.resolveTaskNameScreenLayout(element)
+    return Math.max(1, Math.floor(layout.rect.height / layout.lineHeight))
   }
 
   private setupLayerSurfaces(): void {
@@ -476,6 +560,14 @@ export class Root<E extends EventList = Record<string, any>>
           props: { controller: this.controllerInstance },
         },
         {
+          type: Modeler.DownloadControls,
+          id: `${this.componentId}:download-controls`,
+          props: {
+            controller: this.controllerInstance,
+            zIndex: 3000,
+          },
+        },
+        {
           type: NovaUIKit.Flex,
           id: `${this.componentId}:default-controls`,
           props: {
@@ -486,6 +578,14 @@ export class Root<E extends EventList = Record<string, any>>
             zIndex: 3000,
           },
           children: [
+            {
+              type: Modeler.BpmnValidationBadge,
+              id: `${this.componentId}:bpmn-validation-badge`,
+              props: {
+                controller: this.controllerInstance,
+                position: 'static',
+              },
+            },
             {
               type: Modeler.ZoomControls,
               id: `${this.componentId}:zoom-controls`,
@@ -647,11 +747,14 @@ export class Root<E extends EventList = Record<string, any>>
       return false
     })
     this.on('mousemove', event => {
+      const point = eventPoint(event)
+      const target = this.hitTest(point)
       if (this.activeModelerCursor) {
         this.setModelerCursor(this.activeModelerCursor)
       } else {
-        this.setModelerCursorFromTarget(this.hitTest(eventPoint(event)))
+        this.setModelerCursorFromTarget(target)
       }
+      this.syncEdgeSegmentHover(target, point)
       if (this.activePluginGesture) {
         const result = this.activePluginGesture.onPointerMove?.(this.controllerInstance.getPluginContext(), event)
         if (result === false) return false
@@ -668,7 +771,6 @@ export class Root<E extends EventList = Record<string, any>>
         this.setModelerCursorFromTarget(this.hitTest(eventPoint(event)))
         return false
       }
-      const point = eventPoint(event)
       const dx = point.x - this.dragState.x
       const dy = point.y - this.dragState.y
       const viewport = this.controllerInstance.getViewport()
@@ -687,6 +789,7 @@ export class Root<E extends EventList = Record<string, any>>
       }
       this.dragState = null
       this.activeModelerCursor = null
+      MODEL_ELEMENTS_RUNTIME.edgeSegmentHover.clear()
       this.setModelerCursorFromTarget(this.hitTest(eventPoint(event)))
       return false
     })
@@ -744,6 +847,7 @@ export class Root<E extends EventList = Record<string, any>>
         return false
       }
       if (event.key === 'Escape') {
+        this.closeContextPadMenus()
         const context = this.controllerInstance.getPluginContext()
         const activeTool = context.tools.getActive()
         activeTool?.onCancel?.(context)
@@ -841,7 +945,7 @@ export class Root<E extends EventList = Record<string, any>>
     this.setTaskNameViewLabelHidden(task.id)
     this.clearTaskNameEditorLayer()
     this.disposeTaskNameEditorLayer = this.reconcileLayerOwner('controls', `${this.componentId}:task-name-editor`, [{
-      type: NovaUIKit.TextInput,
+      type: NovaUIKit.TextArea,
       id: this.taskNameEditorInputId(),
       props: {
         x: rect.x,
@@ -853,6 +957,10 @@ export class Root<E extends EventList = Record<string, any>>
         size: 'sm',
         variant: 'ghost',
         align: 'center',
+        wrap: true,
+        resize: 'none',
+        minRows: 1,
+        maxRows: this.resolveTaskNameEditorMaxRows(task),
         color: 'var(--modeler-bpmn-task-text-color, #111827)',
         fontFamily: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
         fontSize: this.resolveTaskNameEditorFontSize(task),
@@ -933,38 +1041,11 @@ export class Root<E extends EventList = Record<string, any>>
   }
 
   private containsTaskNamePoint(element: BpmnTaskElement, point: ModelerPoint): boolean {
-    const rect = this.resolveTaskNameEditorRect(element)
+    const rect = this.resolveTaskNameContentRect(element)
     return point.x >= rect.x
       && point.x <= rect.x + rect.width
       && point.y >= rect.y
       && point.y <= rect.y + rect.height
-  }
-
-  private resolveTaskNameEditorRect(element: BpmnTaskElement): ModelerRect {
-    const topLeft = this.controllerInstance.worldToScreen({
-      x: element.x + 12,
-      y: element.y + 14,
-    })
-    const bottomRight = this.controllerInstance.worldToScreen({
-      x: element.x + element.width - 12,
-      y: element.y + element.height - 14,
-    })
-    const x = Math.min(topLeft.x, bottomRight.x)
-    const y = Math.min(topLeft.y, bottomRight.y)
-    return {
-      x,
-      y,
-      width: Math.max(40, Math.abs(bottomRight.x - topLeft.x)),
-      height: Math.max(28, Math.abs(bottomRight.y - topLeft.y)),
-    }
-  }
-
-  private resolveTaskNameEditorFontSize(element: BpmnTaskElement): number {
-    return Math.max(11, Math.min(14, element.height * this.controllerInstance.getViewport().scale * 0.16))
-  }
-
-  private resolveTaskNameEditorLineHeight(element: BpmnTaskElement): number {
-    return Math.max(14, Math.min(20, element.height * this.controllerInstance.getViewport().scale * 0.2))
   }
 
   private taskNameEditorInputId(): string {
@@ -1000,9 +1081,32 @@ export class Root<E extends EventList = Record<string, any>>
     if (this.spacePressed || this.dragState) return 'pan'
     if (target.type === 'rotate-handle') return 'rotate'
     if (target.type === 'resize-handle') return this.resolveResizeCursor(target.handle)
+    if (target.type === 'edge-waypoint-handle' || target.type === 'edge-segment-handle') return 'edge-handle'
     if (target.type === 'port') return 'port'
     if (target.type === 'element') return this.resolveElementCursor(target.id)
     return 'default'
+  }
+
+  private syncEdgeSegmentHover(target: ModelerHitTarget, point: ModelerPoint): void {
+    if (this.activePluginGesture) {
+      MODEL_ELEMENTS_RUNTIME.edgeSegmentHover.clear()
+      return
+    }
+    if (target.type !== 'edge-segment-handle') {
+      MODEL_ELEMENTS_RUNTIME.edgeSegmentHover.clear()
+      return
+    }
+    const element = this.controllerInstance.getModel().elements.find(item => item.id === target.elementId)
+    if (!element || !isModelerEdgeElement(element)) {
+      MODEL_ELEMENTS_RUNTIME.edgeSegmentHover.clear()
+      return
+    }
+    const handle = MODEL_ELEMENTS_RUNTIME.edges.createSegmentHandleAtPoint(
+      this.controllerInstance.getPluginContext(),
+      element,
+      this.controllerInstance.screenToWorld(point),
+    )
+    MODEL_ELEMENTS_RUNTIME.edgeSegmentHover.set(handle)
   }
 
   private resolveElementCursor(elementId: string): string {

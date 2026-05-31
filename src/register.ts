@@ -4,6 +4,8 @@ import '@/assets/modeler-assets'
 import { Root } from '@/ui/Root'
 import { ContextPad } from '@/ui/controls/ContextPad'
 import { BrandLogo } from '@/ui/controls/BrandLogo'
+import { BpmnValidationBadge } from '@/ui/controls/BpmnValidationBadge'
+import { DownloadControls } from '@/ui/controls/DownloadControls'
 import { ElementColorMenu } from '@/ui/controls/ElementColorMenu'
 import { ElementVariantMenu } from '@/ui/controls/ElementVariantMenu'
 import { Palette } from '@/ui/controls/Palette'
@@ -44,6 +46,8 @@ export function registerModeler(registry: NovaSchemaRegistry): void {
   registry.registerDecorated(MarqueeSelection as never, { override: true })
   registry.registerDecorated(ContextPad as never, { override: true })
   registry.registerDecorated(BrandLogo as never, { override: true })
+  registry.registerDecorated(BpmnValidationBadge as never, { override: true })
+  registry.registerDecorated(DownloadControls as never, { override: true })
   registry.registerDecorated(ElementColorMenu as never, { override: true })
   registry.registerDecorated(ElementVariantMenu as never, { override: true })
   registry.registerDecorated(Palette as never, { override: true })

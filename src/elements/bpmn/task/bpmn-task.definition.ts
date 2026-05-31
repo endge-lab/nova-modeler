@@ -29,10 +29,7 @@ export const BpmnTaskDefinition: ModelerElementDefinition<BpmnTaskElement> = {
     selectable: true,
     draggable: true,
     resizable: false,
-    ports: {
-      visible: 'selected',
-      strategy: 'definition',
-    },
+    ports: false,
     connectable: {
       incoming: true,
       outgoing: true,

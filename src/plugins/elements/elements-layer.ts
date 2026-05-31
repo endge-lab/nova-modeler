@@ -15,6 +15,7 @@ export class ElementsLayer {
   private readonly disposeShadow: () => void
   private readonly disposePreview: () => void
   private readonly disposeConnection: () => void
+  private readonly disposeSegmentHover: () => void
 
   constructor(
     private readonly context: ModelerPluginContext,
@@ -23,6 +24,7 @@ export class ElementsLayer {
     this.disposeShadow = this.runtime.dragShadow.subscribe(() => this.sync())
     this.disposePreview = this.runtime.edgePreview.subscribe(() => this.sync())
     this.disposeConnection = this.runtime.connection.subscribe(() => this.sync())
+    this.disposeSegmentHover = this.runtime.edgeSegmentHover.subscribe(() => this.sync())
   }
 
   sync(): void {
@@ -30,6 +32,7 @@ export class ElementsLayer {
     const interactionSchemas: Array<NovaTemplateChildSchema> = []
     const model = this.context.getModel()
     const selected = new Set(model.selection)
+    const connectionTargetId = this.runtime.connection.get()?.targetElementId
     for (const element of this.runtime.dragShadow.getElements()) {
       const definition = this.context.getElementRegistry().get(element.type)
       if (!definition) continue
@@ -45,9 +48,8 @@ export class ElementsLayer {
       this.appendEdgeInteractionSchema(interactionSchemas, element, selected)
     }
     for (const element of nodes) {
-      this.appendNodeSchema(interactionSchemas, element, selected)
+      this.appendNodeSchema(interactionSchemas, element, selected, connectionTargetId)
     }
-    this.appendConnectionTargetPorts(interactionSchemas)
     const preview = this.runtime.edgePreview.get()
     if (preview) {
       const definition = this.context.getElementRegistry().get(preview.type)
@@ -79,6 +81,14 @@ export class ElementsLayer {
     selected: Set<string>,
   ): void {
     if (!selected.has(element.id) || !isModelerEdgeElement(element)) return
+    const segmentHover = this.runtime.edgeSegmentHover.get()
+    if (segmentHover?.elementId === element.id) {
+      schemas.push({
+        type: Modeler.EdgeWaypointHandleView,
+        id: `${element.id}:segment:${segmentHover.segmentIndex}`,
+        props: { handle: segmentHover, viewport: this.context.getViewport() },
+      })
+    }
     for (const handle of this.runtime.edges.createWaypointHandles(element as ModelerEdgeElement)) {
       schemas.push({
         type: Modeler.EdgeWaypointHandleView,
@@ -92,11 +102,13 @@ export class ElementsLayer {
     schemas: Array<NovaTemplateChildSchema>,
     element: ModelerElement,
     selected: Set<string>,
+    connectionTargetId?: string,
   ): void {
     const definition = this.context.getElementRegistry().get(element.type)
     if (!definition) return
-    schemas.push(definition.render({ ...this.context, selected: selected.has(element.id) }, element))
-    if (!selected.has(element.id)) return
+    const isSelected = selected.has(element.id)
+    schemas.push(definition.render({ ...this.context, selected: isSelected || connectionTargetId === element.id }, element))
+    if (!isSelected) return
     const rotateHandle = this.runtime.handles.createRotateHandle(element, definition)
     if (rotateHandle) {
       schemas.push({
@@ -112,6 +124,7 @@ export class ElementsLayer {
         props: { handle, viewport: this.context.getViewport() },
       })
     }
+    if (definition.capabilities?.ports === false) return
     for (const port of this.runtime.ports.createElementPorts(element, definition.getPorts?.(this.context, element) ?? [])) {
       schemas.push({
         type: Modeler.PortView,
@@ -121,25 +134,11 @@ export class ElementsLayer {
     }
   }
 
-  private appendConnectionTargetPorts(schemas: Array<NovaTemplateChildSchema>): void {
-    for (const port of this.runtime.connection.getAvailableTargetPorts(this.context)) {
-      schemas.push({
-        type: Modeler.PortView,
-        id: `${port.elementId}:connection-port:${port.id}`,
-        props: {
-          port,
-          viewport: this.context.getViewport(),
-          radius: port.highlighted ? MODELER_PORT_RADIUS + 3 : MODELER_PORT_RADIUS + 1,
-          highlighted: true,
-        },
-      })
-    }
-  }
-
   dispose(): void {
     this.disposeShadow()
     this.disposePreview()
     this.disposeConnection()
+    this.disposeSegmentHover()
     this.disposeLinksLayer?.()
     this.disposeInteractionLayer?.()
     this.disposeLinksLayer = undefined

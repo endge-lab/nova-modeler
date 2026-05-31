@@ -50,6 +50,114 @@ const DEFAULT_TASK_DATA: BpmnTaskElementData = {
   isForCompensation: false,
 }
 
+const TASK_NAME_FONT_FAMILY = 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+const TASK_NAME_FONT_WEIGHT = '500' as const
+const TASK_NAME_HORIZONTAL_INSET = 12
+const TASK_NAME_VERTICAL_INSET = 14
+const TASK_NAME_ICON_INLINE_RESERVE = 22
+const TASK_NAME_BOTTOM_MARKER_RESERVE = 18
+const TASK_NAME_MIN_WIDTH = 1
+const TASK_NAME_MIN_HEIGHT = 12
+const TASK_NAME_ELLIPSIS = '...'
+
+export interface BpmnTaskNameLayoutRect {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+export interface BpmnTaskNameLayoutLine {
+  text: string
+  x: number
+  y: number
+  width: number
+  widthLimit: number
+  height: number
+}
+
+export interface BpmnTaskNameLayout {
+  text: string
+  rect: BpmnTaskNameLayoutRect
+  lines: Array<BpmnTaskNameLayoutLine>
+  clipped: boolean
+  fontFamily: string
+  fontSize: number
+  fontWeight: typeof TASK_NAME_FONT_WEIGHT
+  lineHeight: number
+}
+
+export function resolveBpmnTaskNameLayout(input: {
+  name?: string
+  width: number
+  height: number
+  data?: Partial<BpmnTaskElementData> | null
+}): BpmnTaskNameLayout {
+  const data = { ...DEFAULT_TASK_DATA, ...(input.data ?? {}) }
+  const text = normalizeTaskNameText(input.name ?? data.name)
+  const width = Math.max(0, input.width)
+  const height = Math.max(0, input.height)
+  const fontSize = resolveBpmnTaskNameFontSize(height)
+  const lineHeight = resolveBpmnTaskNameLineHeight(height)
+  const hasIcon = data.taskType !== 'none'
+  const hasBottomMarker = data.loopType !== 'none'
+    || data.isForCompensation === true
+    || (data.taskType === 'receive' && data.instantiate === true)
+  const left = TASK_NAME_HORIZONTAL_INSET + (hasIcon ? TASK_NAME_ICON_INLINE_RESERVE : 0)
+  const right = TASK_NAME_HORIZONTAL_INSET
+  const bottom = TASK_NAME_VERTICAL_INSET + (hasBottomMarker ? TASK_NAME_BOTTOM_MARKER_RESERVE : 0)
+  const rect: BpmnTaskNameLayoutRect = {
+    x: -width / 2 + left,
+    y: -height / 2 + TASK_NAME_VERTICAL_INSET,
+    width: Math.max(TASK_NAME_MIN_WIDTH, width - left - right),
+    height: Math.max(TASK_NAME_MIN_HEIGHT, height - TASK_NAME_VERTICAL_INSET - bottom),
+  }
+  const maxLines = Math.max(1, Math.floor(rect.height / lineHeight))
+  const sourceLines = buildTaskNameSourceLines(text, rect.width, {
+    fontFamily: TASK_NAME_FONT_FAMILY,
+    fontSize,
+    fontWeight: TASK_NAME_FONT_WEIGHT,
+  }, maxLines + 1)
+  const visibleLines = sourceLines.slice(0, maxLines)
+  const clipped = sourceLines.length > maxLines || visibleLines.some(line => line.width > rect.width)
+
+  if (clipped && visibleLines.length > 0) {
+    const lastIndex = visibleLines.length - 1
+    visibleLines[lastIndex] = createTaskNameLine(
+      fitTaskNameWithEllipsis(visibleLines[lastIndex]?.text ?? '', rect.width, {
+        fontFamily: TASK_NAME_FONT_FAMILY,
+        fontSize,
+        fontWeight: TASK_NAME_FONT_WEIGHT,
+      }),
+      {
+        fontFamily: TASK_NAME_FONT_FAMILY,
+        fontSize,
+        fontWeight: TASK_NAME_FONT_WEIGHT,
+      },
+    )
+  }
+
+  const contentHeight = visibleLines.length * lineHeight
+  const startY = rect.y + Math.max(0, (rect.height - contentHeight) / 2)
+  return {
+    text,
+    rect,
+    lines: visibleLines.map((line, index) => ({
+      text: line.text,
+      x: rect.x,
+      y: startY + index * lineHeight,
+      width: line.width,
+      widthLimit: rect.width,
+      height: lineHeight,
+    })),
+    clipped,
+    fontFamily: TASK_NAME_FONT_FAMILY,
+    fontSize,
+    fontWeight: TASK_NAME_FONT_WEIGHT,
+    lineHeight,
+  }
+}
+
 @NovaComponent({
   type: Modeler.BpmnTaskView,
   name: 'BpmnTaskView',
@@ -154,27 +262,35 @@ export class BpmnTaskView<E extends EventList = Record<string, any>>
   }
 
   private appendTaskName(schema: NovaSchema, name: string): void {
-    const hasIcon = this.resolveTaskData().taskType !== 'none'
-    schema.push({
-      type: 'text',
-      text: name,
-      x: -this.width / 2 + 12,
-      y: -this.height / 2 + 14,
-      width: Math.max(1, this.width - 24),
-      height: Math.max(12, this.height - 28),
-      styles: {
-        color: this.resolveThemeColor('bpmnTaskTextColor'),
-        font: {
-          family: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-          size: Math.max(11, Math.min(14, this.height * 0.16)),
-          weight: '500',
-        },
-        lineHeight: Math.max(14, Math.min(20, this.height * 0.2)),
-        padding: hasIcon ? { top: 0, right: 0, bottom: 0, left: 22 } : undefined,
-        align: { horizontal: 'center', vertical: 'middle' },
-        ellipsis: true,
-      },
+    const layout = resolveBpmnTaskNameLayout({
+      name,
+      width: this.width,
+      height: this.height,
+      data: this.resolveTaskData(),
     })
+    const color = this.resolveThemeColor('bpmnTaskTextColor')
+    for (const line of layout.lines) {
+      schema.push({
+        type: 'text',
+        text: line.text,
+        x: line.x,
+        y: line.y,
+        width: line.widthLimit,
+        height: line.height,
+        clip: true,
+        styles: {
+          color,
+          font: {
+            family: layout.fontFamily,
+            size: layout.fontSize,
+            weight: layout.fontWeight,
+          },
+          lineHeight: layout.lineHeight,
+          align: { horizontal: 'center', vertical: 'top' },
+          ellipsis: false,
+        },
+      })
+    }
   }
 
   private appendBottomMarkers(schema: NovaSchema): void {
@@ -284,6 +400,142 @@ export class BpmnTaskView<E extends EventList = Record<string, any>>
   private resolveTaskData(): BpmnTaskElementData {
     return this.props.element.data ?? DEFAULT_TASK_DATA
   }
+}
+
+function resolveBpmnTaskNameFontSize(height: number): number {
+  return Math.max(11, Math.min(14, height * 0.16))
+}
+
+function resolveBpmnTaskNameLineHeight(height: number): number {
+  return Math.max(14, Math.min(20, height * 0.2))
+}
+
+function buildTaskNameSourceLines(
+  text: string,
+  width: number,
+  style: { fontFamily: string; fontSize: number; fontWeight: string },
+  limit: number,
+): Array<{ text: string; width: number }> {
+  const lines: Array<{ text: string; width: number }> = []
+  const paragraphs = normalizeLineEndings(text).split('\n')
+  for (const paragraph of paragraphs) {
+    const wrapped = wrapTaskNameParagraph(paragraph, width, style)
+    lines.push(...wrapped)
+    if (lines.length >= limit) return lines.slice(0, limit)
+  }
+  return lines
+}
+
+function wrapTaskNameParagraph(
+  paragraph: string,
+  width: number,
+  style: { fontFamily: string; fontSize: number; fontWeight: string },
+): Array<{ text: string; width: number }> {
+  const words = paragraph.replace(/[ \t\f\v]+/g, ' ').trim().split(' ').filter(Boolean)
+  if (words.length === 0) return [createTaskNameLine('', style)]
+  const lines: Array<{ text: string; width: number }> = []
+  let current = ''
+
+  for (const word of words) {
+    if (current.length === 0) {
+      if (measureTaskNameText(word, style) <= width) {
+        current = word
+        continue
+      }
+      const broken = wrapTaskNameByCharacters(word, width, style)
+      lines.push(...broken.slice(0, -1))
+      current = broken[broken.length - 1]?.text ?? ''
+      continue
+    }
+
+    const candidate = `${current} ${word}`
+    if (measureTaskNameText(candidate, style) <= width) {
+      current = candidate
+      continue
+    }
+
+    lines.push(createTaskNameLine(current, style))
+    if (measureTaskNameText(word, style) > width) {
+      const broken = wrapTaskNameByCharacters(word, width, style)
+      lines.push(...broken.slice(0, -1))
+      current = broken[broken.length - 1]?.text ?? ''
+    } else {
+      current = word
+    }
+  }
+
+  if (current.length > 0 || lines.length === 0) lines.push(createTaskNameLine(current, style))
+  return lines
+}
+
+function wrapTaskNameByCharacters(
+  text: string,
+  width: number,
+  style: { fontFamily: string; fontSize: number; fontWeight: string },
+): Array<{ text: string; width: number }> {
+  const lines: Array<{ text: string; width: number }> = []
+  let current = ''
+  for (const char of Array.from(text)) {
+    const candidate = `${current}${char}`
+    if (current.length > 0 && measureTaskNameText(candidate, style) > width) {
+      lines.push(createTaskNameLine(current, style))
+      current = char
+    } else {
+      current = candidate
+    }
+  }
+  if (current.length > 0 || lines.length === 0) lines.push(createTaskNameLine(current, style))
+  return lines
+}
+
+function fitTaskNameWithEllipsis(
+  text: string,
+  width: number,
+  style: { fontFamily: string; fontSize: number; fontWeight: string },
+): string {
+  if (width <= 0 || measureTaskNameText(TASK_NAME_ELLIPSIS, style) > width) return ''
+  const chars = Array.from(text)
+  let left = 0
+  let right = chars.length
+  while (left < right) {
+    const middle = Math.ceil((left + right) / 2)
+    const candidate = `${chars.slice(0, middle).join('')}${TASK_NAME_ELLIPSIS}`
+    if (measureTaskNameText(candidate, style) <= width) left = middle
+    else right = middle - 1
+  }
+  return `${chars.slice(0, left).join('')}${TASK_NAME_ELLIPSIS}`
+}
+
+function createTaskNameLine(
+  text: string,
+  style: { fontFamily: string; fontSize: number; fontWeight: string },
+): { text: string; width: number } {
+  return {
+    text,
+    width: measureTaskNameText(text, style),
+  }
+}
+
+let taskNameMeasureCanvas: HTMLCanvasElement | null = null
+
+function measureTaskNameText(
+  text: string,
+  style: { fontFamily: string; fontSize: number; fontWeight: string },
+): number {
+  if (typeof document === 'undefined') return Math.ceil(text.length * style.fontSize * 0.6)
+  taskNameMeasureCanvas ??= document.createElement('canvas')
+  const context = taskNameMeasureCanvas.getContext('2d')
+  if (!context) return Math.ceil(text.length * style.fontSize * 0.6)
+  context.font = `normal ${style.fontWeight} ${style.fontSize}px ${style.fontFamily}`
+  return Math.ceil(context.measureText(text).width)
+}
+
+function normalizeLineEndings(text: string): string {
+  return text.replace(/\r\n?/g, '\n')
+}
+
+function normalizeTaskNameText(value: unknown): string {
+  return typeof value === 'string' && value.trim().length > 0 ? value : 'Task'
 }
 
 export const MODELER_BPMN_TASK_VIEW_DESCRIPTOR = createNovaDecoratedComponentDescriptor<

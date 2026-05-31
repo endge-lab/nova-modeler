@@ -41,13 +41,14 @@ export class ElementsConnectionFlow {
     origin: 'tool' | 'context-pad',
     referencePoint?: ModelerPoint,
   ): boolean {
+    if (!this.connection.canStart(context, elementId)) return false
     const source = this.connection.createEndpointFromElement(context, elementId, referencePoint)
     if (!source) return false
     this.connection.begin({
       origin,
       source: source.endpoint,
       sourceElementId: elementId,
-      sourcePortId: source.port.id,
+      sourcePortId: source.port?.id,
       sourcePoint: source.point,
       pointerPoint: source.point,
     })
@@ -60,16 +61,24 @@ export class ElementsConnectionFlow {
     if (!state) return
     const resolvedTarget = target ?? context.hitTest(context.worldToScreen(point))
     const targetResolution = this.connection.resolveTargetEndpoint(context, resolvedTarget, point)
+    const sourcePoint = this.connection.resolveElementPoint(context, state.sourceElementId, targetResolution.point) ?? state.sourcePoint
+    const source = {
+      elementId: state.sourceElementId,
+      portId: state.sourcePortId,
+      point: { ...sourcePoint },
+    }
     this.connection.update({
+      source,
+      sourcePoint,
       pointerPoint: point,
       targetElementId: targetResolution.elementId,
       targetPortId: targetResolution.portId,
     })
     this.preview.set(createBpmnFlowElement({
       id: 'bpmn-flow-preview',
-      source: state.source,
+      source,
       target: targetResolution.endpoint,
-      waypoints: [this.connection.midpoint(state.sourcePoint, targetResolution.point)],
+      waypoints: [this.connection.midpoint(sourcePoint, targetResolution.point)],
     }))
   }
 
@@ -77,12 +86,17 @@ export class ElementsConnectionFlow {
     const state = this.connection.get()
     if (!state) return null
     const targetResolution = this.connection.resolveTargetEndpoint(context, target, fallbackPoint)
-    if (!targetResolution.elementId || !targetResolution.portId) return null
+    if (!targetResolution.elementId) return null
+    const sourcePoint = this.connection.resolveElementPoint(context, state.sourceElementId, targetResolution.point) ?? state.sourcePoint
     const element = createBpmnFlowElement({
       id: `bpmn-flow-${Date.now().toString(36)}-${this.createCounter += 1}`,
-      source: state.source,
+      source: {
+        elementId: state.sourceElementId,
+        portId: state.sourcePortId,
+        point: { ...sourcePoint },
+      },
       target: targetResolution.endpoint,
-      waypoints: [this.connection.midpoint(state.sourcePoint, targetResolution.point)],
+      waypoints: [this.connection.midpoint(sourcePoint, targetResolution.point)],
     })
     context.applyCommand({ type: 'element.add', element })
     context.applyCommand({ type: 'select', ids: [element.id] })

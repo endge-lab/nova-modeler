@@ -476,6 +476,7 @@ export class Controller implements ModelerController {
       if (!element) continue
       const definition = this.elementRegistry.get(element.type)
       if (!definition || !selected.has(element.id)) continue
+      if (definition.capabilities?.ports === false) continue
       for (const port of MODEL_ELEMENTS_RUNTIME.ports.createElementPorts(
         element,
         definition.getPorts?.(this.pluginContext, element) ?? [],
@@ -504,6 +505,16 @@ export class Controller implements ModelerController {
           return { type: 'edge-waypoint-handle', elementId: element.id, waypointIndex: handle.waypointIndex }
         }
       }
+    }
+    for (let index = model.elements.length - 1; index >= 0; index -= 1) {
+      const element = model.elements[index]
+      if (!element || !isModelerEdgeElement(element) || !selected.has(element.id)) continue
+      const handle = MODEL_ELEMENTS_RUNTIME.edges.createSegmentHandleAtPoint(
+        this.pluginContext,
+        element,
+        this.screenToWorld(point),
+      )
+      if (handle) return { type: 'edge-segment-handle', elementId: element.id, segmentIndex: handle.segmentIndex }
     }
     const ordered = [...model.elements].sort(compareElementsByZIndex)
     for (let index = ordered.length - 1; index >= 0; index -= 1) {

@@ -27,10 +27,7 @@ export const BpmnGatewayDefinition: ModelerElementDefinition<BpmnGatewayElement>
   capabilities: {
     selectable: true,
     draggable: true,
-    ports: {
-      visible: 'selected',
-      strategy: 'definition',
-    },
+    ports: false,
     connectable: {
       incoming: true,
       outgoing: true,

@@ -21,6 +21,8 @@ export const Modeler = {
   ElementVariantMenu: 'Modeler.ElementVariantMenu',
   BrandLogo: 'Modeler.BrandLogo',
   Palette: 'Modeler.Palette',
+  DownloadControls: 'Modeler.DownloadControls',
+  BpmnValidationBadge: 'Modeler.BpmnValidationBadge',
   ZoomControls: 'Modeler.ZoomControls',
   SettingsDialog: 'Modeler.SettingsDialog',
   SettingsButton: 'Modeler.SettingsButton',

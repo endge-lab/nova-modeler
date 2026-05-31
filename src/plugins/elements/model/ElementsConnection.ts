@@ -6,6 +6,7 @@ import type {
   ModelerPort,
 } from '@/domain/types/index'
 import { isModelerEdgeElement } from '@/domain/types/index'
+import type { ConnectionAnchorResolver } from '@/plugins/elements/model/ConnectionAnchorResolver'
 import type { ElementsGeometry } from '@/plugins/elements/model/ElementsGeometry'
 import type { ElementsPorts } from '@/plugins/elements/model/ElementsPorts'
 
@@ -13,7 +14,7 @@ export interface ElementsConnectionState {
   origin: 'port-drag' | 'tool' | 'context-pad'
   source: ModelerEdgeEndpoint
   sourceElementId: string
-  sourcePortId: string
+  sourcePortId?: string
   sourcePoint: ModelerPoint
   pointerPoint: ModelerPoint
   targetElementId?: string
@@ -31,6 +32,7 @@ export class ElementsConnection {
   constructor(
     private readonly geometry: ElementsGeometry,
     private readonly ports: ElementsPorts,
+    private readonly anchors: ConnectionAnchorResolver,
   ) {}
 
   begin(state: ElementsConnectionState): void {
@@ -71,9 +73,19 @@ export class ElementsConnection {
     context: ModelerPluginContext,
     elementId: string,
     referencePoint?: ModelerPoint,
-  ): { endpoint: ModelerEdgeEndpoint; point: ModelerPoint; port: ModelerPort } | null {
+  ): { endpoint: ModelerEdgeEndpoint; point: ModelerPoint; port?: ModelerPort } | null {
     const element = context.getModel().elements.find(item => item.id === elementId)
-    if (!element || !this.canStart(context, elementId)) return null
+    if (!element) return null
+    if (this.anchors.isVirtualAnchorElement(element)) {
+      const point = this.anchors.resolveElementAnchor(element, referencePoint)
+      return {
+        endpoint: {
+          elementId,
+          point: { ...point },
+        },
+        point,
+      }
+    }
     const ports = this.getElementPorts(context, element)
     if (ports.length === 0) return null
     const port = referencePoint
@@ -84,6 +96,14 @@ export class ElementsConnection {
       point: { x: port.x, y: port.y },
       port,
     }
+  }
+
+  resolveElementPoint(context: ModelerPluginContext, elementId: string, referencePoint?: ModelerPoint): ModelerPoint | null {
+    const element = context.getModel().elements.find(item => item.id === elementId)
+    if (!element) return null
+    return this.anchors.isVirtualAnchorElement(element)
+      ? this.anchors.resolveElementAnchor(element, referencePoint)
+      : this.createEndpointFromElement(context, elementId, referencePoint)?.point ?? null
   }
 
   resolvePortPoint(context: ModelerPluginContext, elementId: string, portId: string): ModelerPoint | null {
@@ -116,7 +136,7 @@ export class ElementsConnection {
           endpoint: endpoint.endpoint,
           point: endpoint.point,
           elementId: target.id,
-          portId: endpoint.port.id,
+          portId: endpoint.port?.id,
         }
       }
     }
@@ -169,7 +189,7 @@ export class ElementsConnection {
     return Boolean(definition)
       && definition?.capabilities?.connectable !== false
       && definition?.capabilities?.connectable?.incoming !== false
-      && this.getElementPorts(context, element).length > 0
+      && (this.anchors.isVirtualAnchorElement(element) || this.getElementPorts(context, element).length > 0)
   }
 
   midpoint(a: ModelerPoint, b: ModelerPoint): ModelerPoint {

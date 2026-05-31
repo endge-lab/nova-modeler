@@ -4,6 +4,9 @@ import brushIconSource from '@/assets/icons/brush.svg?raw'
 import trashIconSource from '@/assets/icons/trash.svg?raw'
 import settingsIconSource from '@/assets/icons/settings.svg?raw'
 import connectArrowIconSource from '@/assets/icons/arrow-right-circle.svg?raw'
+import downloadIconSource from '@/assets/icons/download.svg?raw'
+import validationValidIconSource from '@/assets/icons/circle-check.svg?raw'
+import validationInvalidIconSource from '@/assets/icons/exclamation-circle.svg?raw'
 import messageIconSource from '@/assets/icons/message.svg?raw'
 import timerIconSource from '@/assets/icons/timer.svg?raw'
 import errorIconSource from '@/assets/icons/error.svg?raw'
@@ -37,6 +40,9 @@ export const MODELER_ASSETS = NovaAssets.define('nova-modeler', {
     trash: NovaAssets.svg(trashIconSource, { width: 24, height: 24, color: '#dc2626' }),
     settings: NovaAssets.svg(settingsIconSource, { width: 24, height: 24, color: '#111827' }),
     connectArrow: NovaAssets.svg(connectArrowIconSource, { width: 24, height: 24, color: '#3f3f46' }),
+    download: NovaAssets.svg(downloadIconSource, { width: 24, height: 24, color: '#3f3f46' }),
+    validationValid: NovaAssets.svg(validationValidIconSource, { width: 24, height: 24, color: '#16a34a' }),
+    validationInvalid: NovaAssets.svg(validationInvalidIconSource, { width: 24, height: 24, color: '#dc2626' }),
     send: NovaAssets.svg(sendIconSource, { width: 24, height: 24, color: '#3f3f46' }),
     message: NovaAssets.svg(messageIconSource, { width: 24, height: 24, color: '#3f3f46' }),
     timer: NovaAssets.svg(timerIconSource, { width: 24, height: 24, color: '#3f3f46' }),

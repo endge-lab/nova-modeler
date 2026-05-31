@@ -14,6 +14,15 @@ export interface ModelerEdgeWaypointHandleDescriptor extends ModelerPoint {
   waypointIndex: number
   size: number
   cursor?: string
+  virtual?: boolean
+}
+
+export interface ModelerEdgeSegmentHandleDescriptor extends ModelerPoint {
+  elementId: string
+  segmentIndex: number
+  size: number
+  cursor?: string
+  virtual: true
 }
 
 export interface ModelerEdgeElement<TData extends Record<string, unknown> = Record<string, unknown>>

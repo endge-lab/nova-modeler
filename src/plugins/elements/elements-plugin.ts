@@ -24,7 +24,7 @@ export class ElementsPlugin extends PluginBase {
   private createCounter = 0
   private readonly handleWindowKeyDown = (event: KeyboardEvent): void => {
     if (event.key !== 'Escape') return
-    if (this.context.tools.getActiveId() !== 'connect' || !this.runtime.connection.get()) return
+    if (this.context.tools.getActiveId() !== 'connect') return
     event.preventDefault()
     this.runtime.connectionFlow.clear()
     this.context.tools.deactivate('connect')
