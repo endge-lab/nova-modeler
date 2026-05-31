@@ -1,6 +1,7 @@
 import type { NovaSchemaRegistry } from '@endge/nova'
 import { registerNovaUIKit } from '@endge/nova-ui-kit'
 import { Root } from '@/ui/Root'
+import { Palette } from '@/ui/controls/Palette'
 import { ZoomControls } from '@/ui/controls/ZoomControls'
 import { Background } from '@/ui/layers/Background'
 import { Grid } from '@/ui/layers/Grid'
@@ -25,6 +26,7 @@ export function registerModeler(registry: NovaSchemaRegistry): void {
   registry.registerDecorated(RotateHandleView as never, { override: true })
   registry.registerDecorated(MiniMap as never, { override: true })
   registry.registerDecorated(MarqueeSelection as never, { override: true })
+  registry.registerDecorated(Palette as never, { override: true })
   registry.registerDecorated(ZoomControls as never, { override: true })
   registry.register(MODELER_SETTINGS_DIALOG_DESCRIPTOR, { override: true })
   registry.register(MODELER_SETTINGS_CATEGORY_DESCRIPTOR, { override: true })

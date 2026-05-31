@@ -316,9 +316,9 @@ describe('nova modeler minimal kernel', () => {
     expect(app.canvas.element.style.cursor).toBe('grabbing')
     app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 180, clientY: 72, button: 0 }))
 
-    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 24, clientY: 24, button: 0 }))
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 88, clientY: 24, button: 0 }))
     expect(root.getApi().getModel().selection).toEqual([])
-    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 24, clientY: 24, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 88, clientY: 24, button: 0 }))
 
     app.destroy()
   })
@@ -421,10 +421,45 @@ describe('nova modeler minimal kernel', () => {
 
     const controls = app.surfaces.find(item => item.name === 'partial-slots-root:controls')
     expect(controls?.children.map(child => (child as { componentId?: string }).componentId)).toContain('partial-slots-root:default-controls')
+    expect(controls?.children.map(child => (child as { componentId?: string }).componentId)).toContain('partial-slots-root:default-palette-host')
     expect(app.events.hitTest(606, 34)?.componentId).toContain('partial-slots-root:zoom-controls')
 
     app.setHitTestMode('spatial')
     expect(app.events.hitTest(606, 34)?.componentId).toContain('partial-slots-root:zoom-controls')
+    app.destroy()
+  })
+
+  it('creates a basic rect from the default control palette', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    const root = app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'palette-root',
+      props: {
+        model: createModelerModel(),
+        width: 640,
+        height: 420,
+      },
+    }) as Root
+    app.raph.run()
+    app.raph.run()
+
+    expect(app.events.hitTest(44, 44)?.componentId).toBe('palette-root:palette')
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 44, clientY: 44, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 44, clientY: 44, button: 0 }))
+
+    const model = root.getApi().getModel()
+    expect(model.elements).toHaveLength(1)
+    expect(model.elements[0]?.type).toBe('basic.rect')
+    expect(model.selection).toEqual([model.elements[0]?.id])
     app.destroy()
   })
 

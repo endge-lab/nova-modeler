@@ -413,6 +413,25 @@ export class Root<E extends EventList = Record<string, any>>
       return [
         {
           type: NovaUIKit.Flex,
+          id: `${this.componentId}:default-palette-host`,
+          props: {
+            alignItems: 'center',
+            position: 'fixed',
+            inset: { top: 16, left: 16 },
+            width: 56,
+            height: 56,
+            zIndex: 3000,
+          },
+          children: [
+            {
+              type: Modeler.Palette,
+              id: `${this.componentId}:palette`,
+              props: { controller: this.controllerInstance },
+            },
+          ],
+        },
+        {
+          type: NovaUIKit.Flex,
           id: `${this.componentId}:default-controls`,
           props: {
             alignItems: 'center',

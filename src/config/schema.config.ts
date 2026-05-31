@@ -11,6 +11,7 @@ export const Modeler = {
   RotateHandleView: 'Modeler.RotateHandleView',
   MiniMap: 'Modeler.MiniMap',
   MarqueeSelection: 'Modeler.MarqueeSelection',
+  Palette: 'Modeler.Palette',
   ZoomControls: 'Modeler.ZoomControls',
   SettingsDialog: 'Modeler.SettingsDialog',
   SettingsCategory: 'Modeler.SettingsCategory',
