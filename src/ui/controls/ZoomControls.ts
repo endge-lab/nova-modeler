@@ -1,5 +1,5 @@
 import type { EventList } from '@endge/utils'
-import { NovaComponent, NovaComponentNode, Prop, createNovaDecoratedComponentDescriptor, type NovaApp, type NovaComponentDescriptor, type NovaSurface } from '@endge/nova'
+import { NovaComponent, NovaComponentNode, NovaTemplateRuntime, Prop, createNovaDecoratedComponentDescriptor, type NovaApp, type NovaComponentDescriptor, type NovaSurface } from '@endge/nova'
 import {
   NOVA_UI_LAYOUT_TARGET,
   NovaUIKit,
@@ -16,12 +16,19 @@ import {
   MODELER_CONTEXT,
   MODELER_STORE,
 } from '@/config/context.config'
+import type { ModelerController } from '@/domain/types/index'
 import { clamp } from '@/tools/number'
 
-export interface ZoomControlsProps extends Omit<UIKitZoomControlsProps, 'value' | 'onChange'> {}
+export interface ZoomControlsProps extends Omit<UIKitZoomControlsProps, 'value' | 'onChange'> {
+  controller?: ModelerController
+}
+
+export interface ModelerZoomControlsResolvedProps extends ZoomControlsResolvedProps {
+  controller?: ModelerController
+}
 
 export type ZoomControlsDescriptor = NovaComponentDescriptor<
-  ZoomControlsResolvedProps,
+  ModelerZoomControlsResolvedProps,
   ZoomControlsApi,
   Record<string, never>,
   ZoomControlsProps
@@ -36,35 +43,42 @@ export type ZoomControlsDescriptor = NovaComponentDescriptor<
   },
 })
 export class ZoomControls<E extends EventList = Record<string, any>>
-  extends NovaComponentNode<ZoomControlsResolvedProps, ZoomControlsApi, Record<string, never>, ZoomControlsProps, E> {
+  extends NovaComponentNode<ModelerZoomControlsResolvedProps, ZoomControlsApi, Record<string, never>, ZoomControlsProps, E> {
   readonly [NOVA_UI_LAYOUT_TARGET] = true as const
 
-  private childId = `${this.id}:zoom`
+  private readonly childRuntime: NovaTemplateRuntime<E>
   private externalLayout = false
 
   @Prop.number({ default: 0.2 })
   declare step: number
 
+  @Prop.object<ModelerController>()
+  declare controller?: ModelerController
+
   constructor(
     app: NovaApp<E>,
     surface: NovaSurface<E>,
     descriptor: ZoomControlsDescriptor,
-    props: ZoomControlsResolvedProps,
+    props: ModelerZoomControlsResolvedProps,
     options: { componentId?: string } = {},
   ) {
     super(app, surface, descriptor, props, options)
+    this.childRuntime = new NovaTemplateRuntime(this)
     this.options({ width: props.width, height: props.height, interactive: false })
   }
 
-  static normalizeProps(props: ZoomControlsProps = {}): ZoomControlsResolvedProps {
-    return normalizeZoomControlsProps(props)
+  static normalizeProps(props: ZoomControlsProps = {}): ModelerZoomControlsResolvedProps {
+    return {
+      ...normalizeZoomControlsProps(props),
+      controller: props.controller,
+    }
   }
 
   override getApi(): ZoomControlsApi {
     return {
       zoomIn: () => this.zoomBy(1),
       zoomOut: () => this.zoomBy(-1),
-      setValue: value => this.inject(MODELER_CONTEXT)?.setViewport({ scale: value }),
+      setValue: value => this.resolveViewportController()?.setViewport({ scale: value }),
       setProps: patch => this.setProps(patch),
       getProps: () => this.props,
     }
@@ -76,6 +90,11 @@ export class ZoomControls<E extends EventList = Record<string, any>>
       this.options({ width: this.props.width, height: this.props.height, interactive: false })
     }
     return this
+  }
+
+  update(): void {
+    super.update()
+    this.syncChild()
   }
 
   applyLayoutRect(rect: NovaUiLayoutRect): boolean {
@@ -102,31 +121,49 @@ export class ZoomControls<E extends EventList = Record<string, any>>
   }
 
   render(): void {
-    const context = this.inject(MODELER_CONTEXT)
+    this.syncChild()
+  }
+
+  protected override onUnmount(): void {
+    this.childRuntime.dispose()
+    super.onUnmount()
+  }
+
+  private syncChild(): void {
+    const viewportController = this.resolveViewportController()
     const store = this.injectOptional(MODELER_STORE)
-    this.renderer.schema([{
+    this.childRuntime.reconcile([{
       type: NovaUIKit.ZoomControls,
-      id: this.childId,
+      id: `${this.componentId}:zoom`,
       props: {
         ...this.props,
-        value: store?.viewport.scale ?? context?.getViewport().scale ?? 1,
-        onChange: (value: number) => context?.setViewport({ scale: value }),
+        x: 0,
+        y: 0,
+        width: this.width,
+        height: this.height,
+        position: 'static',
+        value: store?.viewport.scale ?? viewportController?.getViewport().scale ?? 1,
+        onChange: (value: number) => viewportController?.setViewport({ scale: value }),
       },
     }])
   }
 
   private zoomBy(direction: -1 | 1): void {
-    const context = this.inject(MODELER_CONTEXT)
-    if (!context) return
-    const viewport = context.getViewport()
-    context.setViewport({
+    const viewportController = this.resolveViewportController()
+    if (!viewportController) return
+    const viewport = viewportController.getViewport()
+    viewportController.setViewport({
       scale: clamp(viewport.scale + this.props.step * direction, this.props.minZoom, this.props.maxZoom),
     })
+  }
+
+  private resolveViewportController(): Pick<ModelerController, 'getViewport' | 'setViewport'> | undefined {
+    return this.props.controller ?? this.injectOptional(MODELER_CONTEXT)
   }
 }
 
 export const MODELER_ZOOM_CONTROLS_DESCRIPTOR = createNovaDecoratedComponentDescriptor<
-  ZoomControlsResolvedProps,
+  ModelerZoomControlsResolvedProps,
   ZoomControlsApi,
   Record<string, never>,
   ZoomControlsProps

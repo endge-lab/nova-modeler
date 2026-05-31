@@ -217,6 +217,45 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
+  it('keeps default controls when only other named layer slots are provided', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'partial-slots-root',
+      props: {
+        model: createModelerModel(),
+        width: 640,
+        height: 420,
+      },
+      slots: {
+        background: () => [
+          { type: Modeler.Background, id: 'partial-background' },
+          { type: Modeler.Grid, id: 'partial-grid' },
+        ],
+        overlay: () => [],
+      },
+    })
+    app.raph.run()
+    app.raph.run()
+
+    const controls = app.surfaces.find(item => item.name === 'partial-slots-root:controls')
+    expect(controls?.children.map(child => (child as { componentId?: string }).componentId)).toContain('partial-slots-root:default-controls')
+    expect(app.events.hitTest(606, 34)?.componentId).toContain('partial-slots-root:zoom-controls')
+
+    app.setHitTestMode('spatial')
+    expect(app.events.hitTest(606, 34)?.componentId).toContain('partial-slots-root:zoom-controls')
+    app.destroy()
+  })
+
   it('routes pointer events to buttons mounted inside the controls layer slot', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
@@ -230,7 +269,7 @@ describe('nova modeler minimal kernel', () => {
     const surface = app.createSurface('modeler')
     const settingsPress = vi.fn()
     const panelPress = vi.fn()
-    app.schema.createNode(surface, {
+    const root = app.schema.createNode(surface, {
       type: Modeler.Root,
       id: 'controls-click-root',
       props: {
@@ -291,16 +330,28 @@ describe('nova modeler minimal kernel', () => {
           }],
         }],
       },
-    })
+    }) as { setProps: (patch: Record<string, unknown>) => void }
     app.raph.run()
     app.raph.run()
 
-    expect(app.events.hitTest(606, 34)?.componentId).toBe('toolbar-settings')
+    const toolbarTarget = app.events.hitTest(606, 34)
+    expect(toolbarTarget?.componentId).toBe('toolbar-settings')
+    app.cursors.syncPointer({ x: 606, y: 34, target: toolbarTarget })
+    expect(app.canvas.element.style.cursor).toBe('pointer')
+    root.setProps({ width: 640, height: 420 })
+    app.raph.run()
+    expect(app.events.hitTest(606, 34)).toBe(toolbarTarget)
+    expect(app.canvas.element.style.cursor).toBe('pointer')
     app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 606, clientY: 34, button: 0 }))
+    expect(app.canvas.element.style.cursor).toBe('pointer')
     app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 606, clientY: 34, button: 0 }))
+    expect(app.canvas.element.style.cursor).toBe('pointer')
     expect(settingsPress).toHaveBeenCalledTimes(1)
 
-    expect(app.events.hitTest(500, 113)?.componentId).toBe('panel-fps')
+    const panelTarget = app.events.hitTest(500, 113)
+    expect(panelTarget?.componentId).toBe('panel-fps')
+    app.cursors.syncPointer({ x: 500, y: 113, target: panelTarget })
+    expect(app.canvas.element.style.cursor).toBe('pointer')
     app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 500, clientY: 113, button: 0 }))
     app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 500, clientY: 113, button: 0 }))
     expect(panelPress).toHaveBeenCalledTimes(1)

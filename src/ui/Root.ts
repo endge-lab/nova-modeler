@@ -6,16 +6,18 @@ import {
   NovaComponent,
   NovaComponentNode,
   NovaPhase,
+  NovaTemplateRuntime,
   Prop,
   Watch,
   createNovaDecoratedComponentDescriptor,
   type NovaApp,
   type NovaComponentDescriptor,
+  type NovaElementSlots,
   type NovaNode,
   type NovaSurface,
+  type NovaTemplateChildSchema,
 } from '@endge/nova'
-import type { NovaElementSlots } from '@endge/nova'
-import { NovaTemplateRuntime, type NovaTemplateChildSchema } from '@endge/nova'
+import { NovaUIKit } from '@endge/nova-ui-kit'
 import type { EventList } from '@endge/utils'
 import { Modeler } from '@/config/schema.config'
 import {
@@ -375,9 +377,22 @@ export class Root<E extends EventList = Record<string, any>>
     if (name === 'controls') {
       return [
         {
-          type: Modeler.ZoomControls,
-          id: `${this.componentId}:zoom-controls`,
-          props: { position: 'fixed', inset: { top: 16, right: 16 } },
+          type: NovaUIKit.Flex,
+          id: `${this.componentId}:default-controls`,
+          props: {
+            alignItems: 'center',
+            position: 'fixed',
+            inset: { top: 16, right: 16 },
+            height: 36,
+            zIndex: 3000,
+          },
+          children: [
+            {
+              type: Modeler.ZoomControls,
+              id: `${this.componentId}:zoom-controls`,
+              props: { position: 'static', controller: this.controllerInstance },
+            },
+          ],
         },
       ]
     }
