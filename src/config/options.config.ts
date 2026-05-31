@@ -15,6 +15,10 @@ export const DEFAULT_MODELER_OPTIONS: ModelerOptions = {
   interaction: {
     readonly: false,
     gridSize: 32,
+    snap: {
+      enabled: true,
+      disableModifier: 'alt',
+    },
   },
 }
 

@@ -28,16 +28,13 @@ import { Store } from '@/model/Store'
 import { createModelerElementRegistry } from '@/model/ElementRegistry'
 import { createPluginRuntime } from '@/model/plugin-runtime/PluginRuntime'
 import {
-  ElementsPlugin,
   MODELER_PORT_RADIUS,
   MODELER_ROTATE_HANDLE_SIZE,
   MODELER_RESIZE_HANDLE_SIZE,
   MODELER_ELEMENTS_PLUGIN_ID,
-  createElementPorts,
-  createRotateHandle,
-  createResizeHandles,
-  unrotateElementPoint,
-} from '@/plugins/elements/elements-plugin'
+} from '@/plugins/elements/elements.constants'
+import { ElementsPlugin } from '@/plugins/elements/elements-plugin'
+import { MODEL_ELEMENTS_RUNTIME } from '@/plugins/elements/model/ElementsRuntime'
 
 export class Controller implements ModelerController {
   readonly store: ModelerStore
@@ -358,7 +355,7 @@ export class Controller implements ModelerController {
       if (!element) continue
       const definition = this.elementRegistry.get(element.type)
       if (!definition || !selected.has(element.id)) continue
-      const handle = createRotateHandle(element, definition)
+      const handle = MODEL_ELEMENTS_RUNTIME.handles.createRotateHandle(element, definition)
       if (!handle) continue
       const screen = this.worldToScreen(handle)
       const size = MODELER_ROTATE_HANDLE_SIZE
@@ -372,7 +369,7 @@ export class Controller implements ModelerController {
       if (!element) continue
       const definition = this.elementRegistry.get(element.type)
       if (!definition || !selected.has(element.id)) continue
-      for (const handle of createResizeHandles(element, definition)) {
+      for (const handle of MODEL_ELEMENTS_RUNTIME.handles.createResizeHandles(element, definition)) {
         const screen = this.worldToScreen(handle)
         const size = MODELER_RESIZE_HANDLE_SIZE
         if (point.x >= screen.x - size / 2 && point.x <= screen.x + size / 2
@@ -386,7 +383,7 @@ export class Controller implements ModelerController {
       if (!element) continue
       const definition = this.elementRegistry.get(element.type)
       if (!definition || !selected.has(element.id)) continue
-      for (const port of createElementPorts(element, definition.getPorts?.(this.pluginContext, element) ?? [])) {
+      for (const port of MODEL_ELEMENTS_RUNTIME.ports.createElementPorts(element, definition.getPorts?.(this.pluginContext, element) ?? [])) {
         const screen = this.worldToScreen(port)
         const radius = port.radius ?? MODELER_PORT_RADIUS
         const dx = point.x - screen.x
@@ -401,7 +398,7 @@ export class Controller implements ModelerController {
       const element = ordered[index]
       if (!element) continue
       const world = this.screenToWorld(point)
-      const local = unrotateElementPoint(element, world)
+      const local = MODEL_ELEMENTS_RUNTIME.geometry.unrotatePoint(element, world)
       if (local.x >= element.x && local.x <= element.x + element.width
         && local.y >= element.y && local.y <= element.y + element.height) {
         return { type: 'element', id: element.id }

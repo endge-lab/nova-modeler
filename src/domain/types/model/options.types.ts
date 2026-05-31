@@ -1,3 +1,5 @@
+import type { ModelerSnapOptions } from '@/domain/types/interaction/snap.types'
+
 export interface ModelerViewportOptions {
   minZoom?: number
   maxZoom?: number
@@ -9,6 +11,7 @@ export interface ModelerViewportOptions {
 export interface ModelerInteractionOptions {
   readonly?: boolean
   gridSize?: number
+  snap?: false | ModelerSnapOptions
 }
 
 export interface ModelerOptions {

@@ -3,9 +3,11 @@ import { Nova, RaphSchedulerType, RendererType, boundsContainsPoint, type NovaSc
 import { NovaUIKit } from '@endge/nova-ui-kit'
 import {
   Modeler,
+  GridSnapStrategy,
   MarqueeSelectionPlugin,
   MiniMapPlugin,
   Root,
+  SnapRuntime,
   applyModelerCommand,
   appendGridSchema,
   createBasicRectElement,
@@ -16,6 +18,7 @@ import {
   MODELER_LAYER_NAMES,
   PluginBase,
   normalizeModelerModel,
+  normalizeModelerOptions,
   registerModeler,
 } from '@/index'
 
@@ -107,6 +110,60 @@ describe('nova modeler minimal kernel', () => {
     controller.applyCommand({ type: 'select', ids: ['next'] })
     expect(controller.store.selection.ids).toEqual(['next'])
     expect(controller.getModel().selection).toEqual(['next'])
+  })
+
+  it('snaps move and resize to world grid independently from zoom', () => {
+    const element = createBasicRectElement({ id: 'rect-1', x: 100, y: 120, width: 160, height: 96 })
+    const strategy = new GridSnapStrategy()
+
+    expect(strategy.snapPoint({
+      point: { x: 117, y: 143 },
+      gridSize: 32,
+      element,
+    })).toEqual({ x: 128, y: 128 })
+
+    expect(strategy.snapResize({
+      element,
+      source: element,
+      handle: 'e',
+      gridSize: 32,
+      minSize: { minWidth: 24, minHeight: 24 },
+      bounds: { x: 100, y: 120, width: 177, height: 96 },
+    })).toMatchObject({ x: 100, y: 120, width: 188, height: 96 })
+
+    expect(strategy.snapResize({
+      element,
+      source: element,
+      handle: 'w',
+      gridSize: 32,
+      minSize: { minWidth: 24, minHeight: 24 },
+      bounds: { x: 77, y: 120, width: 183, height: 96 },
+    })).toMatchObject({ x: 64, y: 120, width: 196, height: 96 })
+  })
+
+  it('uses interaction snap options and modifier override through SnapRuntime', () => {
+    const element = createBasicRectElement({ id: 'rect-1', x: 100, y: 120 })
+    const context = {
+      getOptions: () => normalizeModelerOptions({
+        interaction: {
+          gridSize: 32,
+          snap: { enabled: true, disableModifier: 'alt' },
+        },
+      }).current,
+      getModel: () => createModelerModel({ canvas: { gridSize: 16 } }),
+    }
+    const runtime = new SnapRuntime(context as never)
+
+    expect(runtime.moveElement({
+      element,
+      raw: { x: 119, y: 141 },
+    })).toEqual({ x: 128, y: 128 })
+
+    expect(runtime.moveElement({
+      element,
+      raw: { x: 119, y: 141 },
+      event: new MouseEvent('mousemove', { altKey: true }),
+    })).toEqual({ x: 119, y: 141 })
   })
 
   it('keeps dot grid render plan bounded on tiny zoom', () => {
