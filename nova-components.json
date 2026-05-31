@@ -1,6 +1,6 @@
 {
   "packageName": "@endge/nova-modeler",
-  "version": "0.22.0",
+  "version": "0.24.0",
   "registrar": {
     "source": "@endge/nova-modeler",
     "import": "registerModeler"
@@ -86,6 +86,44 @@
           "snippet": "<Modeler.ZoomControls />",
           "props": [],
           "slots": []
+        },
+        {
+          "name": "Modeler.SettingsDialog",
+          "title": "Modeler.SettingsDialog",
+          "description": {
+            "ru": "Registry-компонент диалога настроек Modeler с категориями и DSL-секциями.",
+            "en": "Modeler settings dialog registry component with categories and DSL sections."
+          },
+          "source": "packages/@endge-nova-modeler/src/ui/settings/SettingsDialog.ts",
+          "snippet": "<Modeler.SettingsDialog />",
+          "props": [],
+          "slots": []
+        },
+        {
+          "name": "Modeler.SettingsCategory",
+          "title": "Modeler.SettingsCategory",
+          "description": {
+            "ru": "Marker-компонент категории настроек внутри Modeler.SettingsDialog.",
+            "en": "Settings category marker inside Modeler.SettingsDialog."
+          },
+          "source": "packages/@endge-nova-modeler/src/ui/settings/SettingsCategory.ts",
+          "snippet": "<Modeler.SettingsCategory id=\"canvas\" title=\"Холст\" />",
+          "props": [],
+          "slots": []
+        },
+        {
+          "name": "Modeler.SettingsSection",
+          "title": "Modeler.SettingsSection",
+          "description": {
+            "ru": "Marker-компонент секции настроек с default slot для пользовательской верстки.",
+            "en": "Settings section marker with a default slot for custom content."
+          },
+          "source": "packages/@endge-nova-modeler/src/ui/settings/SettingsSection.ts",
+          "snippet": "<Modeler.SettingsSection id=\"canvas.grid\" category=\"canvas\" title=\"Grid\" />",
+          "props": [],
+          "slots": [
+            { "name": "default" }
+          ]
         }
       ]
     }

@@ -3,7 +3,7 @@ import type {
   ModelerElementDefinition,
   ModelerRect,
   ModelerResizeHandle,
-} from '@/domain/types/index'
+} from '@/domain/types'
 
 /**
  * Считает bounds элементов при resize.

@@ -13,6 +13,7 @@ import {
   createBasicRectElement,
   createGridRenderPlan,
   createModelerController,
+  createModelerSettingsController,
   createModelerModel,
   createPluginRuntime,
   MODELER_LAYER_NAMES,
@@ -20,6 +21,7 @@ import {
   normalizeModelerModel,
   normalizeModelerOptions,
   registerModeler,
+  type ModelerSettingsDialogApi,
 } from '@/index'
 
 describe('nova modeler minimal kernel', () => {
@@ -426,6 +428,126 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
+  it('registers modeler settings dialog categories and DSL sections', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('settings')
+    app.schema.createNode(surface, {
+      type: NovaUIKit.Root,
+      id: 'settings-root',
+      props: {
+        width: 640,
+        height: 420,
+      },
+      children: [{
+        type: Modeler.SettingsDialog,
+        id: 'settings-dialog',
+        children: [{
+          type: Modeler.SettingsSection,
+          props: {
+            id: 'canvas.grid',
+            category: 'canvas',
+            title: 'Grid',
+            order: 10,
+          },
+          slots: {
+            default: slot => [{
+              type: NovaUIKit.TextBlock,
+              id: `settings-section:${slot.section.id}`,
+              props: {
+                text: String(slot.settings.grid),
+                width: 120,
+                height: 24,
+              },
+            }],
+          },
+        }],
+        slots: {
+          default: () => [{
+            type: Modeler.SettingsSection,
+            props: {
+              id: 'view.debug',
+              category: 'view',
+              title: 'Debug',
+              order: 10,
+            },
+          }],
+        },
+      }],
+    })
+    app.raph.run()
+
+    const settingsApi = app.components.requireApi<ModelerSettingsDialogApi>('settings-dialog')
+    expect(settingsApi.getProps().width).toBe(760)
+    expect(settingsApi.getProps().height).toBe(520)
+    expect(settingsApi.getRegistry().getCategories().map(category => category.id)).toEqual([
+      'canvas',
+      'interaction',
+      'view',
+      'theme',
+    ])
+    expect(settingsApi.getRegistry().getSections('canvas').map(section => section.id)).toEqual(['canvas.grid'])
+    expect(settingsApi.getRegistry().getSections('view').map(section => section.id)).toEqual(['view.debug'])
+
+    const rootApi = app.components.requireApi<{ openDialog: (type: string, payload?: Record<string, unknown>) => string }>('settings-root')
+    expect(rootApi.openDialog('modeler-settings', { settings: { grid: true } })).toBe('dialog-1')
+    app.raph.run()
+    app.raph.run()
+    expect(app.components.get('settings-section:canvas.grid')).toBeTruthy()
+    const viewCategoryApi = app.components.requireApi<{
+      press: () => void
+      getProps: () => { textAlign?: string }
+    }>('dialog-1:settings-category:view')
+    expect(viewCategoryApi.getProps().textAlign).toBe('left')
+    viewCategoryApi.press()
+    app.raph.run()
+    app.raph.run()
+    expect(app.components.get('dialog-1:settings-section-title:view.debug')).toBeTruthy()
+    app.destroy()
+  })
+
+  it('opens, updates and closes settings dialog through controller', () => {
+    const root = {
+      ids: [] as Array<string>,
+      patches: [] as Array<Record<string, unknown>>,
+      openDialog(input: { id?: string; type?: string } & Record<string, unknown>) {
+        this.ids = [input.id ?? 'dialog']
+        return this.ids[0]
+      },
+      closeDialog(id?: string) {
+        this.ids = this.ids.filter(item => item !== id)
+      },
+      updateDialog(_id: string, patch: Record<string, unknown>) {
+        this.patches.push(patch)
+      },
+      getOpenDialogIds() {
+        return this.ids
+      },
+    }
+    const controller = createModelerSettingsController({ root: () => root })
+
+    expect(controller.open({ settings: { grid: true } })).toBe('modeler-settings')
+    expect(controller.isOpen()).toBe(true)
+    controller.update({ activeCategoryId: 'interaction' })
+    expect(root.patches).toEqual([{ activeCategoryId: 'interaction' }])
+    expect(controller.toggle()).toBeNull()
+    expect(controller.isOpen()).toBe(false)
+    expect(controller.toggle({ activeCategoryId: 'view' })).toBe('modeler-settings')
+    controller.close()
+    expect(controller.isOpen()).toBe(false)
+
+    const detached = createModelerSettingsController({ root: () => null })
+    expect(detached.open()).toBeNull()
+    expect(detached.isOpen()).toBe(false)
+  })
+
   it('routes pointer events to buttons mounted inside the controls layer slot', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
@@ -527,6 +649,77 @@ describe('nova modeler minimal kernel', () => {
     expect(panelPress).toHaveBeenCalledTimes(1)
 
     expect(['toolbar', 'settings-panel', 'panel-fps']).not.toContain(app.events.hitTest(64, 113)?.componentId)
+    app.destroy()
+  })
+
+  it('keeps modeler controls above the modeler root after UI Kit dialog registry mounts', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    const settingsPress = vi.fn()
+
+    app.schema.createNode(surface, {
+      type: NovaUIKit.Root,
+      id: 'controls-dialog-ui-root',
+      props: { width: 640, height: 420 },
+      children: [
+        {
+          type: NovaUIKit.Dialogs,
+          id: 'controls-dialog-registry',
+          props: {
+            definitions: [{ type: 'settings', props: { width: 320, height: 200 } }],
+          },
+        },
+        {
+          type: Modeler.Root,
+          id: 'controls-dialog-modeler-root',
+          props: {
+            model: createModelerModel(),
+            width: 640,
+            height: 420,
+          },
+          slots: {
+            controls: () => [{
+              type: NovaUIKit.Flex,
+              id: 'controls-dialog-toolbar',
+              props: {
+                position: 'fixed',
+                inset: { top: 16, right: 16 },
+                height: 36,
+                zIndex: 3000,
+              },
+              children: [{
+                type: NovaUIKit.Button,
+                id: 'controls-dialog-settings',
+                props: {
+                  width: 36,
+                  height: 36,
+                  position: 'static',
+                  onPress: settingsPress,
+                },
+              }],
+            }],
+          },
+        },
+      ],
+    })
+    app.raph.run()
+    app.raph.run()
+
+    expect(surface.weight).toBe(0)
+    expect(app.surfaces.find(item => item.name === 'controls-dialog-ui-root:nova-ui-dialog-portal')?.weight).toBe(30_000)
+    expect(app.events.hitTest(606, 34)?.componentId).toBe('controls-dialog-settings')
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 606, clientY: 34, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 606, clientY: 34, button: 0 }))
+    expect(settingsPress).toHaveBeenCalledTimes(1)
+
     app.destroy()
   })
 

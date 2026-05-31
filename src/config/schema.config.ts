@@ -12,4 +12,7 @@ export const Modeler = {
   MiniMap: 'Modeler.MiniMap',
   MarqueeSelection: 'Modeler.MarqueeSelection',
   ZoomControls: 'Modeler.ZoomControls',
+  SettingsDialog: 'Modeler.SettingsDialog',
+  SettingsCategory: 'Modeler.SettingsCategory',
+  SettingsSection: 'Modeler.SettingsSection',
 } as const

@@ -10,6 +10,9 @@ import { BasicRectView } from '@/ui/elements/basic/BasicRectView'
 import { PortView } from '@/ui/handles/PortView'
 import { ResizeHandleView } from '@/ui/handles/ResizeHandleView'
 import { RotateHandleView } from '@/ui/handles/RotateHandleView'
+import { MODELER_SETTINGS_DIALOG_DESCRIPTOR } from '@/ui/settings/SettingsDialog'
+import { MODELER_SETTINGS_CATEGORY_DESCRIPTOR } from '@/ui/settings/SettingsCategory'
+import { MODELER_SETTINGS_SECTION_DESCRIPTOR } from '@/ui/settings/SettingsSection'
 
 export function registerModeler(registry: NovaSchemaRegistry): void {
   registerNovaUIKit(registry)
@@ -23,4 +26,7 @@ export function registerModeler(registry: NovaSchemaRegistry): void {
   registry.registerDecorated(MiniMap as never, { override: true })
   registry.registerDecorated(MarqueeSelection as never, { override: true })
   registry.registerDecorated(ZoomControls as never, { override: true })
+  registry.register(MODELER_SETTINGS_DIALOG_DESCRIPTOR, { override: true })
+  registry.register(MODELER_SETTINGS_CATEGORY_DESCRIPTOR, { override: true })
+  registry.register(MODELER_SETTINGS_SECTION_DESCRIPTOR, { override: true })
 }

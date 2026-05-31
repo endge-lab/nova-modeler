@@ -1,7 +1,7 @@
 import type {
   ModelerElement,
   ModelerPoint,
-} from '@/domain/types/index'
+} from '@/domain/types'
 
 /**
  * Выполняет geometry-операции для graph elements.
