@@ -1,5 +1,6 @@
 import { NovaAssets } from '@endge/nova'
 import toolIconSource from '@/assets/icons/tool.svg?raw'
+import brushIconSource from '@/assets/icons/brush.svg?raw'
 import trashIconSource from '@/assets/icons/trash.svg?raw'
 import settingsIconSource from '@/assets/icons/settings.svg?raw'
 import messageIconSource from '@/assets/icons/message.svg?raw'
@@ -18,6 +19,7 @@ import parallelMultipleIconSource from '@/assets/icons/parallel-multiple.svg?raw
 export const MODELER_ASSETS = NovaAssets.define('nova-modeler', {
   icons: {
     tool: NovaAssets.svg(toolIconSource, { width: 24, height: 24, color: '#3f3f46' }),
+    brush: NovaAssets.svg(brushIconSource, { width: 24, height: 24, color: '#3f3f46' }),
     trash: NovaAssets.svg(trashIconSource, { width: 24, height: 24, color: '#dc2626' }),
     settings: NovaAssets.svg(settingsIconSource, { width: 24, height: 24, color: '#111827' }),
     message: NovaAssets.svg(messageIconSource, { width: 24, height: 24, color: '#3f3f46' }),

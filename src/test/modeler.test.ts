@@ -652,6 +652,49 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
+  it('opens color menu from the default context pad and applies preset fill', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    const root = app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'color-menu-root',
+      props: {
+        model: createModelerModel({
+          elements: [createBasicRectElement({ id: 'rect-1', x: 100, y: 100, width: 160, height: 96 })],
+          selection: ['rect-1'],
+        }),
+        width: 640,
+        height: 420,
+      },
+    }) as Root
+    app.raph.run()
+    app.raph.run()
+
+    expect(app.events.hitTest(336, 120)?.componentId).toBe('color-menu-root:context-pad')
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 336, clientY: 120, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 336, clientY: 120, button: 0 }))
+    app.raph.run()
+
+    expect(app.events.hitTest(350, 176)?.componentId).toBe('color-menu-root:context-pad:color-menu')
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 350, clientY: 176, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 350, clientY: 176, button: 0 }))
+    app.raph.run()
+
+    expect(root.getApi().getModel().elements[0]?.style).toMatchObject({
+      fill: '#bfdbfe',
+      stroke: '#1d4ed8',
+    })
+    app.destroy()
+  })
+
   it('routes pointer events to the element variant menu from context pad', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
@@ -1049,6 +1092,38 @@ describe('nova modeler minimal kernel', () => {
     root.setProps({ options: { version: 1 } })
     app.raph.run()
     expect(controller.getPluginContext().tools.getActiveId()).toBe('marqueeSelection')
+    app.destroy()
+  })
+
+  it('uses pointer cursor when hovering palette item buttons', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'palette-cursor-root',
+      props: {
+        model: createModelerModel(),
+        width: 640,
+        height: 420,
+      },
+    })
+    app.raph.run()
+    app.raph.run()
+
+    const target = app.events.hitTest(44, 44)
+    expect(target?.componentId).toBe('palette-cursor-root:palette')
+    target?.eventHandlers.mousemove?.(new MouseEvent('mousemove', { clientX: 44, clientY: 44, button: 0 }))
+    app.cursors.syncPointer({ x: 44, y: 44, target })
+    expect(app.canvas.element.style.cursor).toBe('pointer')
+
     app.destroy()
   })
 

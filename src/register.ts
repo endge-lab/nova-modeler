@@ -3,6 +3,7 @@ import { registerNovaUIKit } from '@endge/nova-ui-kit'
 import '@/assets/modeler-assets'
 import { Root } from '@/ui/Root'
 import { ContextPad } from '@/ui/controls/ContextPad'
+import { ElementColorMenu } from '@/ui/controls/ElementColorMenu'
 import { ElementVariantMenu } from '@/ui/controls/ElementVariantMenu'
 import { Palette } from '@/ui/controls/Palette'
 import { ZoomControls } from '@/ui/controls/ZoomControls'
@@ -33,6 +34,7 @@ export function registerModeler(registry: NovaSchemaRegistry): void {
   registry.registerDecorated(MiniMap as never, { override: true })
   registry.registerDecorated(MarqueeSelection as never, { override: true })
   registry.registerDecorated(ContextPad as never, { override: true })
+  registry.registerDecorated(ElementColorMenu as never, { override: true })
   registry.registerDecorated(ElementVariantMenu as never, { override: true })
   registry.registerDecorated(Palette as never, { override: true })
   registry.registerDecorated(ZoomControls as never, { override: true })

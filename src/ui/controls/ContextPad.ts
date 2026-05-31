@@ -56,15 +56,17 @@ export class ContextPad<E extends EventList = Record<string, any>>
   private hoveredEntryId: string | null = null
   private pressedEntryId: string | null = null
   private variantMenuOpen = false
+  private colorMenuOpen = false
   private disposeVariantMenuLayer?: () => void
+  private disposeColorMenuLayer?: () => void
   private readonly handleWindowMouseDown = (event: MouseEvent): void => {
     this.closeVariantMenuFromWindowPointer(event)
   }
 
   private readonly handleWindowKeyDown = (event: KeyboardEvent): void => {
-    if (!this.variantMenuOpen || event.key !== 'Escape') return
+    if ((!this.variantMenuOpen && !this.colorMenuOpen) || event.key !== 'Escape') return
     event.preventDefault()
-    this.closeVariantMenu()
+    this.closeOpenMenus()
   }
 
   @Prop.object<ModelerController>()
@@ -163,6 +165,7 @@ export class ContextPad<E extends EventList = Record<string, any>>
   protected override onUnmount(): void {
     this.teardownWindowEvents()
     this.clearDefaultVariantMenu()
+    this.clearDefaultColorMenu()
     this.childRuntime.dispose()
     super.onUnmount()
   }
@@ -220,7 +223,7 @@ export class ContextPad<E extends EventList = Record<string, any>>
   }
 
   private resolvePosition(target: ContextPadTarget): ContextPadPosition {
-    const width = 92
+    const width = 136
     const height = 40
     const preferredX = target.screenBounds.x + target.screenBounds.width + this.props.offset
     const preferredY = target.screenBounds.y
@@ -247,6 +250,13 @@ export class ContextPad<E extends EventList = Record<string, any>>
       title: 'Delete',
       tone: 'danger',
     })
+    if (this.isColorable(context, target.element)) {
+      entries.push({
+        id: 'color',
+        title: 'Fill color',
+        tone: 'default',
+      })
+    }
     return entries
   }
 
@@ -307,7 +317,7 @@ export class ContextPad<E extends EventList = Record<string, any>>
         width: 40,
         height: 40,
         variant: 'ghost',
-        icon: entry.id === 'variants' ? MODELER_ASSETS.icons.tool : MODELER_ASSETS.icons.trash,
+        icon: this.resolveEntryIcon(entry),
         iconPlacement: 'only',
         background: 'rgba(0,0,0,0)',
         hoverBackground: entry.tone === 'danger'
@@ -316,7 +326,7 @@ export class ContextPad<E extends EventList = Record<string, any>>
         pressedBackground: entry.tone === 'danger'
           ? this.resolveColor('contextPadDangerPressedBackground')
           : 'rgba(15, 23, 42, 0.12)',
-        selected: entry.id === 'variants' && this.variantMenuOpen,
+        selected: this.isEntrySelected(entry),
         tooltip: { text: entry.title },
         onPress: () => slotProps.run(entry),
       },
@@ -349,7 +359,7 @@ export class ContextPad<E extends EventList = Record<string, any>>
     ]
     entries.forEach((entry, index) => {
       const rect = this.resolveEntryRect(layout, index)
-      const selected = entry.id === 'variants' && this.variantMenuOpen
+      const selected = this.isEntrySelected(entry)
       const pressed = this.pressedEntryId === entry.id
       const hovered = this.hoveredEntryId === entry.id || (this.hovered && entries.length === 1)
       schema.push({
@@ -371,7 +381,7 @@ export class ContextPad<E extends EventList = Record<string, any>>
       })
       schema.push({
         type: 'icon',
-        icon: entry.id === 'variants' ? MODELER_ASSETS.icons.tool : MODELER_ASSETS.icons.trash,
+        icon: this.resolveEntryIcon(entry),
         x: rect.x + 8,
         y: rect.y + 8,
         width: 24,
@@ -406,6 +416,21 @@ export class ContextPad<E extends EventList = Record<string, any>>
     }
   }
 
+  private resolveEntryIcon(entry: ContextPadEntry) {
+    if (entry.id === 'variants') return MODELER_ASSETS.icons.tool
+    if (entry.id === 'color') return MODELER_ASSETS.icons.brush
+    return MODELER_ASSETS.icons.trash
+  }
+
+  private isEntrySelected(entry: ContextPadEntry): boolean {
+    return (entry.id === 'variants' && this.variantMenuOpen) || (entry.id === 'color' && this.colorMenuOpen)
+  }
+
+  private isColorable(context: ModelerController | ModelerPluginContext, element: ModelerElement): boolean {
+    const definition = resolvePluginContext(context).getElementRegistry().get(element.type)
+    return definition?.capabilities?.colorable !== false
+  }
+
   private runEntry(
     context: ModelerController | ModelerPluginContext,
     target: ContextPadTarget,
@@ -413,8 +438,22 @@ export class ContextPad<E extends EventList = Record<string, any>>
   ): void {
     if (entry.id === 'variants') {
       this.variantMenuOpen = !this.variantMenuOpen
-      if (this.variantMenuOpen) this.syncDefaultVariantMenu()
+      if (this.variantMenuOpen) {
+        this.closeColorMenu()
+        this.syncDefaultVariantMenu()
+      }
       else this.clearDefaultVariantMenu()
+      this.syncChild()
+      this.dirty({ render: true })
+      return
+    }
+    if (entry.id === 'color') {
+      this.colorMenuOpen = !this.colorMenuOpen
+      if (this.colorMenuOpen) {
+        this.closeVariantMenu()
+        this.syncDefaultColorMenu()
+      }
+      else this.clearDefaultColorMenu()
       this.syncChild()
       this.dirty({ render: true })
       return
@@ -431,7 +470,9 @@ export class ContextPad<E extends EventList = Record<string, any>>
       ? `${model.id}:${model.selectionVersion}:${model.selection[0]}`
       : null
     this.variantMenuOpen = false
+    this.colorMenuOpen = false
     this.clearDefaultVariantMenu()
+    this.clearDefaultColorMenu()
     this.childRuntime.reconcile([])
     this.dirty({ render: true })
   }
@@ -462,6 +503,32 @@ export class ContextPad<E extends EventList = Record<string, any>>
     }])
   }
 
+  private syncDefaultColorMenu(): void {
+    if (this.hasCustomSlots()) return
+    const context = this.props.controller ?? this.injectOptional(MODELER_CONTEXT)
+    const target = context ? this.resolveTarget(context) : null
+    if (!this.colorMenuOpen || !context || !target) {
+      this.clearDefaultColorMenu()
+      return
+    }
+    const position = this.resolvePosition(target)
+    this.clearDefaultColorMenu()
+    this.disposeColorMenuLayer = resolvePluginContext(context).layers.reconcile('controls', `${this.componentId}:color-menu`, [{
+      type: Modeler.ElementColorMenu,
+      id: `${this.componentId}:color-menu`,
+      props: {
+        controller: context,
+        elementId: target.element.id,
+        anchor: position,
+        visible: true,
+        zIndex: this.props.zIndex + 1,
+        onClose: () => {
+          this.closeColorMenu()
+        },
+      },
+    }])
+  }
+
   private closeVariantMenu(): void {
     if (!this.variantMenuOpen && !this.disposeVariantMenuLayer) return
     this.variantMenuOpen = false
@@ -470,9 +537,27 @@ export class ContextPad<E extends EventList = Record<string, any>>
     this.dirty({ render: true })
   }
 
+  private closeColorMenu(): void {
+    if (!this.colorMenuOpen && !this.disposeColorMenuLayer) return
+    this.colorMenuOpen = false
+    this.clearDefaultColorMenu()
+    this.syncChild()
+    this.dirty({ render: true })
+  }
+
+  private closeOpenMenus(): void {
+    this.closeVariantMenu()
+    this.closeColorMenu()
+  }
+
   private clearDefaultVariantMenu(): void {
     this.disposeVariantMenuLayer?.()
     this.disposeVariantMenuLayer = undefined
+  }
+
+  private clearDefaultColorMenu(): void {
+    this.disposeColorMenuLayer?.()
+    this.disposeColorMenuLayer = undefined
   }
 
   private setupWindowEvents(): void {
@@ -488,12 +573,12 @@ export class ContextPad<E extends EventList = Record<string, any>>
   }
 
   private closeVariantMenuFromWindowPointer(event: MouseEvent): void {
-    if (!this.variantMenuOpen) return
+    if (!this.variantMenuOpen && !this.colorMenuOpen) return
     const { x, y } = this.nova.events.getCanvasMousePosition(event)
     const target = this.nova.events.hitTest(x, y)
     const targetId = target ? String((target as { componentId?: string }).componentId ?? target.id) : ''
     if (targetId === this.componentId || targetId.startsWith(`${this.componentId}:`)) return
-    this.closeVariantMenu()
+    this.closeOpenMenus()
   }
 
   private setupEvents(): void {

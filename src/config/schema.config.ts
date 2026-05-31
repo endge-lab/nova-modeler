@@ -13,6 +13,7 @@ export const Modeler = {
   MiniMap: 'Modeler.MiniMap',
   MarqueeSelection: 'Modeler.MarqueeSelection',
   ContextPad: 'Modeler.ContextPad',
+  ElementColorMenu: 'Modeler.ElementColorMenu',
   ElementVariantMenu: 'Modeler.ElementVariantMenu',
   Palette: 'Modeler.Palette',
   ZoomControls: 'Modeler.ZoomControls',

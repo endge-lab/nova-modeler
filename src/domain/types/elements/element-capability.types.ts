@@ -29,6 +29,11 @@ export interface ModelerElementRotateCapability {
   snapDegrees?: number
 }
 
+export interface ModelerElementColorCapability {
+  fill?: boolean
+  custom?: boolean
+}
+
 export interface ModelerElementCapabilities {
   selectable?: boolean
   draggable?: boolean
@@ -36,5 +41,6 @@ export interface ModelerElementCapabilities {
   rotatable?: false | ModelerElementRotateCapability
   ports?: false | ModelerElementPortCapability
   connectable?: false | ModelerElementConnectableCapability
+  colorable?: false | ModelerElementColorCapability
   cursor?: ModelerElementCursorCapability
 }

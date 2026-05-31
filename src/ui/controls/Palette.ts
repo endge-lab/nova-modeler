@@ -64,6 +64,7 @@ interface PaletteLayoutPlan {
 const PALETTE_CURSOR_RULES: NovaCursorDeclaration = [
   { when: { state: ['pressed', 'dragging'], paletteCursor: 'grip' }, use: 'grabbing' },
   { when: { paletteCursor: 'grip' }, use: 'grab' },
+  { when: { paletteCursor: 'item' }, use: 'pointer' },
   { use: 'default' },
 ]
 
@@ -465,10 +466,14 @@ export class Palette<E extends EventList = Record<string, any>>
   }
 
   private setPaletteCursorFromEvent(event: MouseEvent): void {
-    this.setPaletteCursor(this.resolveGripAtEvent(event) ? 'grip' : null)
+    if (this.resolveGripAtEvent(event)) {
+      this.setPaletteCursor('grip')
+      return
+    }
+    this.setPaletteCursor(this.resolveItemAtEvent(event) ? 'item' : null)
   }
 
-  private setPaletteCursor(cursor: 'grip' | null): void {
+  private setPaletteCursor(cursor: 'grip' | 'item' | null): void {
     this.options({ cursorContext: { paletteCursor: cursor ?? 'none' } })
   }
 
