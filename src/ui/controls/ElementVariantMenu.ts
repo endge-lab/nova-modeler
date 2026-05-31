@@ -35,7 +35,10 @@ const TITLE_HEIGHT = 30
 const CHOICE_CARD_HEIGHT = 64
 const CHOICE_CARD_GAP = 8
 const LIST_ROW_HEIGHT = 44
+const LIST_ROW_ICON_SIZE = 32
+const LIST_ROW_TEXT_HEIGHT = 20
 const LIST_VISIBLE_HEIGHT = 220
+const LIST_SCROLLBAR_INSET = 4
 const CONTROL_LABEL_HEIGHT = 22
 const CONTROL_BOTTOM_GAP = 12
 
@@ -233,8 +236,10 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
     }
     const maxScroll = this.resolveMaxScroll(control)
     if (maxScroll > 0) {
-      const thumbHeight = Math.max(28, listHeight * (listHeight / (control.options.length * LIST_ROW_HEIGHT)))
-      const thumbY = y + (listHeight - thumbHeight) * (scrollY / maxScroll)
+      const contentHeight = control.options.length * LIST_ROW_HEIGHT
+      const trackHeight = Math.max(1, listHeight - LIST_SCROLLBAR_INSET * 2)
+      const thumbHeight = Math.min(trackHeight, Math.max(28, trackHeight * (listHeight / contentHeight)))
+      const thumbY = y + LIST_SCROLLBAR_INSET + (trackHeight - thumbHeight) * (scrollY / maxScroll)
       schema.push({
         type: 'rect',
         x: x + width - 6,
@@ -247,18 +252,6 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
         },
       })
     }
-    schema.push({
-      type: 'border',
-      x,
-      y,
-      width,
-      height: listHeight,
-      styles: {
-        color: '#e5e7eb',
-        width: 1,
-        radius: 6,
-      },
-    })
   }
 
   private appendListRow(
@@ -285,8 +278,8 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
         border: { color: 'rgba(0,0,0,0)', width: 0, radius: 6 },
       },
     })
-    this.appendEventPreview(schema, element, option, x + 10, y + (height - 32) / 2, 32)
-    this.appendText(schema, option.title, x + 52, y, width - 62, height, {
+    this.appendEventPreview(schema, element, option, x + 10, y + (height - LIST_ROW_ICON_SIZE) / 2, LIST_ROW_ICON_SIZE)
+    this.appendText(schema, option.title, x + 52, y + (height - LIST_ROW_TEXT_HEIGHT) / 2, width - 62, LIST_ROW_TEXT_HEIGHT, {
       size: 15,
       weight: selected ? '700' : '500',
       color: '#3f3f46',
@@ -414,7 +407,7 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
   private resolveControlHeight(control: ModelerElementVariantControl): number {
     const label = control.title ? CONTROL_LABEL_HEIGHT : 0
     if (control.kind === 'choice') return label + CHOICE_CARD_HEIGHT + CONTROL_BOTTOM_GAP
-    return label + LIST_VISIBLE_HEIGHT + 8
+    return label + LIST_VISIBLE_HEIGHT
   }
 
   private setupEvents(): void {

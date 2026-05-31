@@ -57,6 +57,15 @@ export class ContextPad<E extends EventList = Record<string, any>>
   private pressedEntryId: string | null = null
   private variantMenuOpen = false
   private disposeVariantMenuLayer?: () => void
+  private readonly handleWindowMouseDown = (event: MouseEvent): void => {
+    this.closeVariantMenuFromWindowPointer(event)
+  }
+
+  private readonly handleWindowKeyDown = (event: KeyboardEvent): void => {
+    if (!this.variantMenuOpen || event.key !== 'Escape') return
+    event.preventDefault()
+    this.closeVariantMenu()
+  }
 
   @Prop.object<ModelerController>()
   declare controller?: ModelerController
@@ -78,6 +87,7 @@ export class ContextPad<E extends EventList = Record<string, any>>
       zIndex: props.zIndex,
     })
     this.setupEvents()
+    this.setupWindowEvents()
   }
 
   static normalizeProps(props: ContextPadProps = {}): ContextPadResolvedProps {
@@ -151,6 +161,7 @@ export class ContextPad<E extends EventList = Record<string, any>>
   }
 
   protected override onUnmount(): void {
+    this.teardownWindowEvents()
     this.clearDefaultVariantMenu()
     this.childRuntime.dispose()
     super.onUnmount()
@@ -445,17 +456,44 @@ export class ContextPad<E extends EventList = Record<string, any>>
         visible: true,
         zIndex: this.props.zIndex + 1,
         onClose: () => {
-          this.variantMenuOpen = false
-          this.clearDefaultVariantMenu()
-          this.dirty({ render: true })
+          this.closeVariantMenu()
         },
       },
     }])
   }
 
+  private closeVariantMenu(): void {
+    if (!this.variantMenuOpen && !this.disposeVariantMenuLayer) return
+    this.variantMenuOpen = false
+    this.clearDefaultVariantMenu()
+    this.syncChild()
+    this.dirty({ render: true })
+  }
+
   private clearDefaultVariantMenu(): void {
     this.disposeVariantMenuLayer?.()
     this.disposeVariantMenuLayer = undefined
+  }
+
+  private setupWindowEvents(): void {
+    if (typeof window === 'undefined') return
+    window.addEventListener('mousedown', this.handleWindowMouseDown, true)
+    window.addEventListener('keydown', this.handleWindowKeyDown, true)
+  }
+
+  private teardownWindowEvents(): void {
+    if (typeof window === 'undefined') return
+    window.removeEventListener('mousedown', this.handleWindowMouseDown, true)
+    window.removeEventListener('keydown', this.handleWindowKeyDown, true)
+  }
+
+  private closeVariantMenuFromWindowPointer(event: MouseEvent): void {
+    if (!this.variantMenuOpen) return
+    const { x, y } = this.nova.events.getCanvasMousePosition(event)
+    const target = this.nova.events.hitTest(x, y)
+    const targetId = target ? String((target as { componentId?: string }).componentId ?? target.id) : ''
+    if (targetId === this.componentId || targetId.startsWith(`${this.componentId}:`)) return
+    this.closeVariantMenu()
   }
 
   private setupEvents(): void {

@@ -748,6 +748,52 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
+  it('closes the element variant menu on outside pointer down and Escape', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'variant-menu-close-root',
+      props: {
+        model: createModelerModel({
+          elements: [createBpmnEventElement({ id: 'event-1', x: 220, y: 100 })],
+          selection: ['event-1'],
+        }),
+        width: 640,
+        height: 420,
+      },
+    }) as Root
+    app.raph.run()
+    app.raph.run()
+
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 292, clientY: 120, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 292, clientY: 120, button: 0 }))
+    app.raph.run()
+    expect(app.events.hitTest(448, 112)?.componentId).toBe('variant-menu-close-root:context-pad:variant-menu')
+
+    window.dispatchEvent(new MouseEvent('mousedown', { clientX: 120, clientY: 320, button: 0 }))
+    app.raph.run()
+    expect(app.events.hitTest(448, 112)?.componentId).not.toBe('variant-menu-close-root:context-pad:variant-menu')
+
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 292, clientY: 120, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 292, clientY: 120, button: 0 }))
+    app.raph.run()
+    expect(app.events.hitTest(448, 112)?.componentId).toBe('variant-menu-close-root:context-pad:variant-menu')
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    app.raph.run()
+    expect(app.events.hitTest(448, 112)?.componentId).not.toBe('variant-menu-close-root:context-pad:variant-menu')
+    app.destroy()
+  })
+
   it('deletes selected elements with configurable keyboard shortcuts', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
