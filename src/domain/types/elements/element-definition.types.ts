@@ -1,4 +1,5 @@
 import type { NovaTemplateChildSchema } from '@endge/nova'
+import type { TooltipInput } from '@endge/nova-ui-kit'
 import type { ModelerElementCapabilities } from '@/domain/types/elements/element-capability.types'
 import type {
   ModelerElement,
@@ -24,6 +25,7 @@ export interface ModelerElementCreateToolDefinition<TElement extends ModelerElem
   actionId?: string
   shortcutId?: string
   title?: string
+  tooltip?: TooltipInput
   palette?: Partial<ModelerPaletteItemDefinition>
   shortcuts?: Array<ModelerKeyboardShortcut>
   create(input: ModelerElementInput): TElement
@@ -32,6 +34,7 @@ export interface ModelerElementCreateToolDefinition<TElement extends ModelerElem
 export interface ModelerElementDefinition<TElement extends ModelerElement = ModelerElement> {
   type: string
   kind: 'node'
+  title?: string
   defaults?: Partial<TElement>
   capabilities?: ModelerElementCapabilities
   createTool?: ModelerElementCreateToolDefinition<TElement>
@@ -41,4 +44,5 @@ export interface ModelerElementDefinition<TElement extends ModelerElement = Mode
   render(context: ModelerElementRenderContext, element: TElement): NovaTemplateChildSchema
   getPorts?(context: ModelerElementPortContext, element: TElement): Array<ModelerPort>
   hitTest?(context: ModelerElementHitTestContext, element: TElement, localPoint: ModelerPoint): boolean
+  getTooltip?(context: ModelerElementHitTestContext, element: TElement): TooltipInput | null | undefined
 }

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { Nova, RaphSchedulerType, RendererType, boundsContainsPoint, type NovaSchema } from '@endge/nova'
-import { NovaUIKit } from '@endge/nova-ui-kit'
+import { NovaUIKit, type ColorPickerApi, type InputApi } from '@endge/nova-ui-kit'
 import {
   Modeler,
   GridSnapStrategy,
@@ -12,6 +12,8 @@ import {
   applyModelerCommand,
   appendGridSchema,
   createBpmnEventElement,
+  createBpmnGatewayElement,
+  createBpmnTaskElement,
   createBasicRectElement,
   createGridRenderPlan,
   createModelerController,
@@ -215,6 +217,193 @@ describe('nova modeler minimal kernel', () => {
     controller.unmount()
   })
 
+  it('normalizes BPMN task data, variants, ports and fixed bounds', () => {
+    const task = createBpmnTaskElement({
+      id: 'task-1',
+      x: 160,
+      y: 120,
+      width: 180,
+      height: 120,
+      taskType: 'broken' as never,
+      loopType: 'broken' as never,
+      instantiate: true,
+    })
+    expect(task).toMatchObject({
+      type: 'bpmn.task',
+      width: 120,
+      height: 80,
+      data: {
+        name: 'Task',
+        taskType: 'none',
+        loopType: 'none',
+        isForCompensation: false,
+        instantiate: undefined,
+      },
+    })
+
+    const controller = createModelerController({
+      model: createModelerModel({
+        elements: [task],
+        selection: [task.id],
+      }),
+    })
+    controller.mount(createControllerHost(640, 420))
+    const context = controller.getPluginContext()
+    const provider = context.elementVariants.getProvider(task)
+    expect(provider?.id).toBe('bpmn.task.variants')
+    expect(context.palette.get('bpmn.task.create')).toMatchObject({ icon: 'bpmn-task' })
+
+    const ports = controller.getElementRegistry().require('bpmn.task').getPorts?.(context, task) ?? []
+    expect(ports.map(port => port.id)).toEqual(['top', 'right', 'bottom', 'left'])
+
+    const draft = provider?.createDraft?.(context, task) ?? {}
+    const descriptor = provider?.getDescriptor(context, task, draft)
+    const typeControl = descriptor?.controls.find(control => control.id === 'taskType')
+    const loopControl = descriptor?.headerControls?.find(control => control.id === 'loopType')
+    expect(descriptor?.controls.some(control => control.id === 'name')).toBe(false)
+    expect(descriptor?.controls.some(control => control.kind === 'toggle')).toBe(false)
+    expect(loopControl?.kind).toBe('iconToggle')
+    expect(typeControl?.options.map(option => option.id)).toEqual([
+      'none',
+      'user',
+      'manual',
+      'service',
+      'script',
+      'businessRule',
+      'send',
+      'receive',
+    ])
+    expect(loopControl?.options.map(option => option.id)).toEqual([
+      'multiInstanceParallel',
+      'multiInstanceSequential',
+      'standard',
+    ])
+
+    provider?.apply({
+      context,
+      element: controller.getModel().elements[0]!,
+      draft,
+      control: typeControl!,
+      option: typeControl!.options.find(option => option.id === 'receive')!,
+    })
+    const receive = controller.getModel().elements[0]!
+    expect(receive).toMatchObject({
+      id: 'task-1',
+      x: 160,
+      y: 120,
+      data: {
+        name: 'Task',
+        taskType: 'receive',
+        loopType: 'none',
+        isForCompensation: false,
+      },
+    })
+    const receiveDescriptor = provider?.getDescriptor(context, receive, provider.createDraft?.(context, receive) ?? {})
+    const receiveLoopControl = receiveDescriptor?.headerControls?.find(control => control.id === 'loopType')
+    expect(receiveDescriptor?.controls.some(control => control.id === 'instantiate')).toBe(false)
+    provider?.apply({
+      context,
+      element: receive,
+      draft: provider.createDraft?.(context, receive) ?? {},
+      control: receiveLoopControl!,
+      option: receiveLoopControl!.options.find(option => option.id === 'multiInstanceParallel')!,
+    })
+    expect(controller.getModel().elements[0]).toMatchObject({
+      width: 120,
+      height: 80,
+      data: {
+        loopType: 'multiInstanceParallel',
+        isForCompensation: false,
+        instantiate: false,
+      },
+    })
+    controller.applyCommand({
+      type: 'element.resize',
+      id: 'task-1',
+      bounds: { x: 100, y: 100, width: 240, height: 160 },
+    })
+    expect(controller.getModel().elements[0]).toMatchObject({ x: 160, y: 120, width: 120, height: 80 })
+    expect(controller.hitTest(controller.worldToScreen({ x: 180, y: 140 }))).toEqual({ type: 'element', id: 'task-1' })
+    expect(controller.getModel().selection).toEqual(['task-1'])
+    controller.unmount()
+  })
+
+  it('normalizes BPMN gateway data, variants, ports and diamond hit area', () => {
+    expect(createBpmnGatewayElement({ id: 'gateway-default' })).toMatchObject({
+      type: 'bpmn.gateway',
+      width: 56,
+      height: 56,
+      data: {
+        gatewayType: 'exclusive',
+      },
+    })
+    const gateway = createBpmnGatewayElement({
+      id: 'gateway-1',
+      x: 160,
+      y: 120,
+      width: 96,
+      height: 96,
+      gatewayType: 'broken' as never,
+    })
+    expect(gateway).toMatchObject({
+      type: 'bpmn.gateway',
+      width: 96,
+      height: 96,
+      data: {
+        gatewayType: 'exclusive',
+      },
+    })
+
+    const controller = createModelerController()
+    controller.mount(createControllerHost(640, 420))
+    controller.applyCommand({ type: 'element.add', element: gateway })
+    controller.applyCommand({ type: 'select', ids: [gateway.id] })
+    expect(controller.getModel()).toMatchObject({
+      version: 2,
+      elementsVersion: 1,
+      selectionVersion: 1,
+    })
+
+    const context = controller.getPluginContext()
+    const current = controller.getModel().elements[0]!
+    const provider = context.elementVariants.getProvider(current)
+    expect(provider?.id).toBe('bpmn.gateway.variants')
+    expect(context.palette.get('bpmn.gateway.create')).toMatchObject({ icon: 'bpmn-gateway' })
+    expect(context.shortcuts.resolve(new KeyboardEvent('keydown', { key: 'g' }))?.definition.toolId).toBe('create:bpmn.gateway')
+
+    const ports = controller.getElementRegistry().require('bpmn.gateway').getPorts?.(context, current) ?? []
+    expect(ports.map(port => port.id)).toEqual(['top', 'right', 'bottom', 'left'])
+
+    const draft = provider?.createDraft?.(context, current) ?? {}
+    const descriptor = provider?.getDescriptor(context, current, draft)
+    const typeControl = descriptor?.controls.find(control => control.id === 'gatewayType')
+    expect(typeControl?.options.map(option => option.id)).toEqual([
+      'exclusive',
+      'parallel',
+      'inclusive',
+      'complex',
+      'eventBased',
+      'parallelEventBased',
+    ])
+    expect(typeControl?.options.every(option => Boolean(option.icon))).toBe(true)
+
+    for (const option of typeControl?.options ?? []) {
+      provider?.apply({
+        context,
+        element: controller.getModel().elements[0]!,
+        draft: provider.createDraft?.(context, controller.getModel().elements[0]!) ?? {},
+        control: typeControl!,
+        option,
+      })
+      expect(controller.getModel().elements[0]?.data?.gatewayType).toBe(option.id)
+    }
+
+    expect(controller.hitTest(controller.worldToScreen({ x: 208, y: 168 }))).toEqual({ type: 'element', id: 'gateway-1' })
+    expect(controller.hitTest(controller.worldToScreen({ x: 162, y: 122 }))).toEqual({ type: 'canvas' })
+    expect(controller.getModel().selection).toEqual(['gateway-1'])
+    controller.unmount()
+  })
+
   it('computes layout, hit-test and viewport clamp', () => {
     const model = createModelerModel({ canvas: { x: -100, y: -100, width: 200, height: 200 }, viewport: { x: 0, y: 0, scale: 1 } })
     const controller = createModelerController({ model })
@@ -404,7 +593,7 @@ describe('nova modeler minimal kernel', () => {
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
       target: canvas,
-      size: { width: 640, height: 420, dpr: 1 },
+      size: { width: 640, height: 760, dpr: 1 },
       renderer: { main: RendererType.Web2D },
       scheduler: { type: RaphSchedulerType.Sync, loop: false },
     })
@@ -415,7 +604,7 @@ describe('nova modeler minimal kernel', () => {
       props: {
         model: createModelerModel(),
         width: 640,
-        height: 420,
+        height: 760,
         plugins: [MiniMapPlugin.create(), MarqueeSelectionPlugin.create()],
       },
     }) as Root
@@ -426,12 +615,12 @@ describe('nova modeler minimal kernel', () => {
     expect(root.getApi().fitView().scale).toBeGreaterThan(0)
   })
 
-  it('registers and renders basic rect and BPMN event elements', () => {
+  it('registers and renders basic rect and BPMN node elements', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
       target: canvas,
-      size: { width: 640, height: 420, dpr: 1 },
+      size: { width: 640, height: 760, dpr: 1 },
       renderer: { main: RendererType.Web2D },
       scheduler: { type: RaphSchedulerType.Sync, loop: false },
     })
@@ -445,21 +634,175 @@ describe('nova modeler minimal kernel', () => {
           elements: [
             createBasicRectElement({ id: 'rect-1', x: 100, y: 100 }),
             createBpmnEventElement({ id: 'start-1', x: 320, y: 120 }),
+            createBpmnGatewayElement({ id: 'gateway-1', x: 420, y: 120, gatewayType: 'parallel' }),
           ],
-          selection: ['rect-1', 'start-1'],
+          selection: ['rect-1', 'start-1', 'gateway-1'],
         }),
         width: 640,
-        height: 420,
+        height: 760,
       },
     })
     app.raph.run()
     const interaction = app.surfaces.find(item => item.name === 'elements-root:interaction')
     expect(interaction?.children.some(child => (child as { componentId?: string }).componentId === 'rect-1:view')).toBe(true)
     expect(interaction?.children.some(child => (child as { componentId?: string }).componentId === 'start-1:view')).toBe(true)
+    expect(interaction?.children.some(child => (child as { componentId?: string }).componentId === 'gateway-1:view')).toBe(true)
     expect(interaction?.children.some(child => (child as { componentId?: string }).componentId === 'rect-1:rotate')).toBe(true)
     expect(interaction?.children.some(child => (child as { componentId?: string }).componentId === 'rect-1:resize:nw')).toBe(true)
     expect(interaction?.children.some(child => (child as { componentId?: string }).componentId === 'rect-1:port:top')).toBe(true)
     expect(interaction?.children.some(child => (child as { componentId?: string }).componentId === 'start-1:port:top')).toBe(true)
+    expect(interaction?.children.some(child => (child as { componentId?: string }).componentId === 'gateway-1:port:top')).toBe(true)
+    app.destroy()
+  })
+
+  it('registers and renders BPMN task icons, markers, ports and fixed hit areas', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 760, height: 520, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    const root = app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'task-render-root',
+      props: {
+        model: createModelerModel({
+          elements: [
+            createBpmnTaskElement({ id: 'task-none', x: 80, y: 80, name: 'Plain task' }),
+            createBpmnTaskElement({ id: 'task-user', x: 240, y: 80, name: 'User approval', taskType: 'user' }),
+            createBpmnTaskElement({ id: 'task-service', x: 400, y: 80, name: 'Service call', taskType: 'service', loopType: 'multiInstanceParallel' }),
+            createBpmnTaskElement({ id: 'task-receive', x: 560, y: 80, name: 'Receive start', taskType: 'receive', instantiate: true, isForCompensation: true }),
+            createBpmnTaskElement({ id: 'task-fixed', x: 220, y: 240, width: 180, height: 120, name: 'Fixed task', loopType: 'multiInstanceSequential' }),
+          ],
+          selection: ['task-fixed'],
+        }),
+        width: 760,
+        height: 520,
+      },
+    }) as Root
+    app.raph.run()
+
+    const interaction = app.surfaces.find(item => item.name === 'task-render-root:interaction')
+    expect(interaction?.children.some(child => (child as { componentId?: string }).componentId === 'task-user:view')).toBe(true)
+    expect(interaction?.children.some(child => (child as { componentId?: string }).componentId === 'task-fixed:port:top')).toBe(true)
+    expect(interaction?.children.some(child => String((child as { componentId?: string }).componentId).includes(':resize:'))).toBe(false)
+    expect(root.getApi().getModel().elements.find(element => element.id === 'task-fixed')).toMatchObject({ width: 120, height: 80 })
+    expect(root.hitTest({ x: 260, y: 280 })).toEqual({ type: 'element', id: 'task-fixed' })
+    expect(root.hitTest({ x: 220, y: 240 })).toEqual({ type: 'element', id: 'task-fixed' })
+    expect(root.resolveNovaTooltipTarget({ x: 260, y: 100 })?.tooltip).toMatchObject({ value: 'User task' })
+    expect(root.resolveNovaTooltipTarget({ x: 620, y: 100 })?.tooltip).toMatchObject({ value: 'Receive task' })
+
+    const schemaItems = interaction?.compileRenderFrame().items.map(item => item.schemaItem).filter(Boolean) ?? []
+    const userTaskItems = schemaItems.filter(item => item.type === 'icon' || item.text === 'User approval')
+    const serviceTaskItems = schemaItems.filter(item => item.type === 'icon' || item.type === 'line')
+    const receiveTaskItems = schemaItems.filter(item => item.type === 'circle' || item.type === 'polygon' || item.text === 'Receive start')
+
+    expect(schemaItems.some(item => item.type === 'text' && item.text === 'Plain task')).toBe(true)
+    expect(userTaskItems.some(item => item.type === 'icon')).toBe(true)
+    expect(serviceTaskItems.some(item => item.type === 'line')).toBe(true)
+    expect(receiveTaskItems.some(item => item.type === 'circle')).toBe(true)
+    expect(receiveTaskItems.some(item => item.type === 'polygon')).toBe(true)
+    app.destroy()
+  })
+
+  it('edits BPMN task name inline from a double click on the text area', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    const root = app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'task-name-edit-root',
+      props: {
+        model: createModelerModel({
+          elements: [createBpmnTaskElement({ id: 'task-1', x: 220, y: 100, name: 'Review task' })],
+          selection: ['task-1'],
+        }),
+        width: 640,
+        height: 420,
+      },
+    }) as Root
+    app.raph.run()
+    app.raph.run()
+    const openEditor = (): void => {
+      ;(root as unknown as { openTaskNameEditorFromPoint(point: { x: number; y: number }): boolean })
+        .openTaskNameEditorFromPoint({ x: 280, y: 140 })
+      app.raph.run()
+    }
+
+    app.handleEvent('mousedown', offsetMouseEvent('mousedown', 280, 140))
+    app.handleEvent('mouseup', offsetMouseEvent('mouseup', 280, 140))
+    app.handleEvent('mousedown', offsetMouseEvent('mousedown', 280, 140))
+    app.handleEvent('mouseup', offsetMouseEvent('mouseup', 280, 140))
+    app.raph.run()
+    const inputId = 'task-name-edit-root:task-name-editor:input'
+    const input = app.components.requireApi<InputApi>(inputId)
+
+    input.setValue('Approve invoice')
+    input.commit()
+    app.raph.run()
+    expect(root.getApi().getModel().elements[0]?.data?.name).toBe('Approve invoice')
+    expect(app.components.get(inputId)).toBeFalsy()
+
+    openEditor()
+    app.components.requireApi<InputApi>(inputId).setValue('Cancelled name')
+    app.handleEvent('keydown', new KeyboardEvent('keydown', { key: 'Escape' }))
+    app.raph.run()
+    expect(root.getApi().getModel().elements[0]?.data?.name).toBe('Approve invoice')
+    expect(app.components.get(inputId)).toBeFalsy()
+
+    openEditor()
+    app.components.requireApi<InputApi>(inputId).setValue('Committed outside')
+    app.handleEvent('mousedown', offsetMouseEvent('mousedown', 560, 320))
+    app.handleEvent('mouseup', offsetMouseEvent('mouseup', 560, 320))
+    app.raph.run()
+    expect(root.getApi().getModel().elements[0]?.data?.name).toBe('Committed outside')
+    expect(app.components.get(inputId)).toBeFalsy()
+    app.destroy()
+  })
+
+  it('resolves palette item tooltips from virtual palette targets', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'palette-tooltip-root',
+      props: {
+        model: createModelerModel(),
+        width: 640,
+        height: 420,
+      },
+    })
+    app.raph.run()
+    app.raph.run()
+
+    const palette = app.components.require('palette-tooltip-root:palette') as unknown as {
+      resolveNovaTooltipTarget(input: { x: number; y: number }): { tooltip?: unknown; rect?: { x: number; y: number; width: number; height: number } } | null
+    }
+    const rectTooltip = palette.resolveNovaTooltipTarget({ x: 44, y: 44 })
+    const eventTooltip = palette.resolveNovaTooltipTarget({ x: 44, y: 92 })
+    expect(rectTooltip?.tooltip).toMatchObject({ value: 'Create Rectangle' })
+    expect(rectTooltip?.rect).toMatchObject({ x: 24, y: 24, width: 40, height: 40 })
+    expect(eventTooltip?.tooltip).toMatchObject({ value: 'Create Start event' })
+    expect(eventTooltip?.rect).toMatchObject({ x: 24, y: 72, width: 40, height: 40 })
     app.destroy()
   })
 
@@ -683,14 +1026,119 @@ describe('nova modeler minimal kernel', () => {
     app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 336, clientY: 120, button: 0 }))
     app.raph.run()
 
-    expect(app.events.hitTest(350, 176)?.componentId).toBe('color-menu-root:context-pad:color-menu')
-    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 350, clientY: 176, button: 0 }))
-    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 350, clientY: 176, button: 0 }))
+    expect(app.events.hitTest(350, 216)?.componentId).toBe('color-menu-root:context-pad:color-menu:picker')
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 350, clientY: 216, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 350, clientY: 216, button: 0 }))
     app.raph.run()
 
     expect(root.getApi().getModel().elements[0]?.style).toMatchObject({
       fill: '#bfdbfe',
       stroke: '#1d4ed8',
+    })
+    app.destroy()
+  })
+
+  it('opens custom color controls from the fill color menu and applies hex fill without changing stroke', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    const root = app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'color-menu-custom-root',
+      props: {
+        model: createModelerModel({
+          elements: [createBasicRectElement({
+            id: 'rect-1',
+            x: 100,
+            y: 100,
+            width: 160,
+            height: 96,
+            style: { fill: '#ffffff', stroke: '#1f2937' },
+          })],
+          selection: ['rect-1'],
+        }),
+        width: 640,
+        height: 420,
+      },
+    }) as Root
+    app.raph.run()
+    app.raph.run()
+
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 336, clientY: 120, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 336, clientY: 120, button: 0 }))
+    app.raph.run()
+
+    expect(app.events.hitTest(308, 338)?.componentId).not.toBe('color-menu-custom-root:context-pad:color-menu:picker')
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 308, clientY: 306, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 308, clientY: 306, button: 0 }))
+    app.raph.run()
+    expect(app.events.hitTest(348, 392)?.componentId).toBe('color-menu-custom-root:context-pad:color-menu:picker')
+
+    const picker = app.components.requireApi<ColorPickerApi>('color-menu-custom-root:context-pad:color-menu:picker')
+    picker.getProps().onCommit?.('#112233', { source: 'input' })
+    app.raph.run()
+
+    expect(root.getApi().getModel().elements[0]?.style).toMatchObject({
+      fill: '#112233',
+      stroke: '#1f2937',
+    })
+    app.destroy()
+  })
+
+  it('applies rgba custom fill from the fill color menu', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    const root = app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'color-menu-rgba-root',
+      props: {
+        model: createModelerModel({
+          elements: [createBasicRectElement({
+            id: 'rect-1',
+            x: 100,
+            y: 100,
+            width: 160,
+            height: 96,
+            style: { fill: '#ffffff', stroke: '#1f2937' },
+          })],
+          selection: ['rect-1'],
+        }),
+        width: 640,
+        height: 420,
+      },
+    }) as Root
+    app.raph.run()
+    app.raph.run()
+
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 336, clientY: 120, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 336, clientY: 120, button: 0 }))
+    app.raph.run()
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 308, clientY: 306, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 308, clientY: 306, button: 0 }))
+    app.raph.run()
+
+    const picker = app.components.requireApi<ColorPickerApi>('color-menu-rgba-root:context-pad:color-menu:picker')
+    picker.getProps().onCommit?.('rgba(255, 255, 255, 0.4)', { source: 'input' })
+    app.raph.run()
+
+    expect(root.getApi().getModel().elements[0]?.style).toMatchObject({
+      fill: 'rgba(255, 255, 255, 0.4)',
+      stroke: '#1f2937',
     })
     app.destroy()
   })
@@ -834,6 +1282,132 @@ describe('nova modeler minimal kernel', () => {
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
     app.raph.run()
     expect(app.events.hitTest(448, 112)?.componentId).not.toBe('variant-menu-close-root:context-pad:variant-menu')
+    app.destroy()
+  })
+
+  it('closes the fill color menu when viewport pan starts from wheel input', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'color-menu-pan-close-root',
+      props: {
+        model: createModelerModel({
+          elements: [createBasicRectElement({ id: 'rect-1', x: 100, y: 100, width: 160, height: 96 })],
+          selection: ['rect-1'],
+        }),
+        width: 640,
+        height: 420,
+      },
+    }) as Root
+    app.raph.run()
+    app.raph.run()
+
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 336, clientY: 120, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 336, clientY: 120, button: 0 }))
+    app.raph.run()
+    expect(app.components.get('color-menu-pan-close-root:context-pad:color-menu:picker')).toBeTruthy()
+
+    app.handleEvent('wheel', new WheelEvent('wheel', { clientX: 560, clientY: 320, deltaX: 16, deltaY: 24 }))
+    app.raph.run()
+    expect(app.components.get('color-menu-pan-close-root:context-pad:color-menu:picker')).toBeFalsy()
+    expect(app.components.get('color-menu-pan-close-root:context-pad:color-menu')).toBeFalsy()
+    app.destroy()
+  })
+
+  it('closes menus from slotted context pads when viewport pan starts', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    const controller = createModelerController({
+      model: createModelerModel({
+        elements: [createBasicRectElement({ id: 'rect-1', x: 100, y: 100, width: 160, height: 96 })],
+        selection: ['rect-1'],
+      }),
+    })
+    app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'slotted-menu-pan-close-root',
+      props: {
+        model: controller.getModel(),
+        controller,
+        width: 640,
+        height: 420,
+      },
+      slots: {
+        controls: () => [
+          {
+            type: Modeler.ContextPad,
+            id: 'external-context-pad',
+            props: { controller },
+          },
+        ],
+      },
+    }) as Root
+    app.raph.run()
+    app.raph.run()
+
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 336, clientY: 120, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 336, clientY: 120, button: 0 }))
+    app.raph.run()
+    expect(app.components.get('external-context-pad:color-menu:picker')).toBeTruthy()
+
+    app.handleEvent('wheel', new WheelEvent('wheel', { clientX: 560, clientY: 320, deltaX: 16, deltaY: 24 }))
+    app.raph.run()
+    expect(app.components.get('external-context-pad:color-menu:picker')).toBeFalsy()
+    expect(app.components.get('external-context-pad:color-menu')).toBeFalsy()
+    app.destroy()
+  })
+
+  it('closes the element variant menu when viewport zoom starts', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'variant-menu-zoom-close-root',
+      props: {
+        model: createModelerModel({
+          elements: [createBpmnEventElement({ id: 'event-1', x: 220, y: 100 })],
+          selection: ['event-1'],
+        }),
+        width: 640,
+        height: 420,
+      },
+    }) as Root
+    app.raph.run()
+    app.raph.run()
+
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 292, clientY: 120, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 292, clientY: 120, button: 0 }))
+    app.raph.run()
+    expect(app.components.get('variant-menu-zoom-close-root:context-pad:variant-menu')).toBeTruthy()
+
+    app.handleEvent('wheel', new WheelEvent('wheel', { clientX: 140, clientY: 400, deltaY: -120, ctrlKey: true }))
+    app.raph.run()
+    expect(app.components.get('variant-menu-zoom-close-root:context-pad:variant-menu')).toBeFalsy()
     app.destroy()
   })
 
@@ -1193,8 +1767,14 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('creates basic rect and BPMN event by dragging from the default control palette', () => {
+  it('creates basic rect, BPMN event and BPMN gateway by dragging from the default control palette', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const requestAnimationFrameSpy = vi
+      .spyOn(globalThis, 'requestAnimationFrame')
+      .mockImplementation(callback => {
+        callback(0)
+        return 1
+      })
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
       target: canvas,
@@ -1227,16 +1807,29 @@ describe('nova modeler minimal kernel', () => {
     app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 44, clientY: 92, button: 0 }))
     app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 360, clientY: 260, button: 0 }))
     app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 360, clientY: 260, button: 0 }))
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 44, clientY: 236, button: 0 }))
+    app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 420, clientY: 300, button: 0 }))
+    app.raph.run()
+    const previewItems = app.surfaces
+      .flatMap(surface => surface.compileRenderFrame().items)
+      .map(item => item.schemaItem)
+      .filter(Boolean)
+    expect(previewItems.some(item => item.type === 'polygon' && item.styles?.opacity !== undefined)).toBe(true)
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 420, clientY: 300, button: 0 }))
 
     const model = root.getApi().getModel()
-    expect(model.elements).toHaveLength(2)
+    expect(model.elements).toHaveLength(3)
     expect(model.elements[0]?.type).toBe('basic.rect')
     expect(model.elements[0]).toMatchObject({ x: 160, y: 172 })
     expect(model.elements[1]?.type).toBe('bpmn.event')
     expect(model.elements[1]).toMatchObject({ x: 336, y: 236 })
     expect(model.elements[1]?.data).toMatchObject({ eventPosition: 'start', trigger: 'none' })
-    expect(model.selection).toEqual([model.elements[1]?.id])
+    expect(model.elements[2]?.type).toBe('bpmn.gateway')
+    expect(model.elements[2]).toMatchObject({ x: 392, y: 272 })
+    expect(model.elements[2]?.data).toMatchObject({ gatewayType: 'exclusive' })
+    expect(model.selection).toEqual([model.elements[2]?.id])
     app.destroy()
+    requestAnimationFrameSpy.mockRestore()
   })
 
   it('docks palette by placement and switches between vertical and horizontal layouts', () => {
@@ -1327,23 +1920,23 @@ describe('nova modeler minimal kernel', () => {
     app.raph.run()
     app.raph.run()
 
-    expect(app.events.hitTest(44, 216)?.componentId).toBe('palette-drag-root:palette')
-    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 44, clientY: 216, button: 0 }))
+    expect(app.events.hitTest(44, 316)?.componentId).toBe('palette-drag-root:palette')
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 44, clientY: 316, button: 0 }))
     expect(app.canvas.element.style.cursor).toBe('grabbing')
-    app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 140, clientY: 252, button: 0 }))
-    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 140, clientY: 252, button: 0 }))
+    app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 140, clientY: 352, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 140, clientY: 352, button: 0 }))
     app.raph.run()
 
-    expect(app.events.hitTest(140, 252)?.componentId).toBe('palette-drag-root:palette')
-    expect(app.events.hitTest(44, 216)?.componentId).not.toBe('palette-drag-root:palette')
+    expect(app.events.hitTest(140, 352)?.componentId).toBe('palette-drag-root:palette')
+    expect(app.events.hitTest(44, 316)?.componentId).not.toBe('palette-drag-root:palette')
 
-    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 140, clientY: 252, button: 0 }))
-    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 140, clientY: 252, button: 0 }))
-    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 140, clientY: 252, button: 0 }))
-    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 140, clientY: 252, button: 0 }))
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 140, clientY: 352, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 140, clientY: 352, button: 0 }))
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 140, clientY: 352, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 140, clientY: 352, button: 0 }))
     app.raph.run()
 
-    expect(app.events.hitTest(44, 216)?.componentId).toBe('palette-drag-root:palette')
+    expect(app.events.hitTest(44, 316)?.componentId).toBe('palette-drag-root:palette')
     app.destroy()
   })
 
@@ -1376,10 +1969,10 @@ describe('nova modeler minimal kernel', () => {
     app.raph.run()
 
     expect(app.events.hitTest(44, 44)?.componentId).toBe('palette-no-drag-root:palette')
-    expect(app.events.hitTest(44, 260)?.componentId).not.toBe('palette-no-drag-root:palette')
-    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 44, clientY: 260, button: 0 }))
-    app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 140, clientY: 296, button: 0 }))
-    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 140, clientY: 296, button: 0 }))
+    expect(app.events.hitTest(44, 348)?.componentId).not.toBe('palette-no-drag-root:palette')
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 44, clientY: 348, button: 0 }))
+    app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 140, clientY: 384, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 140, clientY: 384, button: 0 }))
     app.raph.run()
 
     expect(app.events.hitTest(140, 180)?.componentId).not.toBe('palette-no-drag-root:palette')
@@ -1877,7 +2470,7 @@ function createControllerHost(width: number, height: number) {
 }
 
 function offsetMouseEvent(type: string, x: number, y: number): MouseEvent {
-  const event = new MouseEvent(type, { button: 0 })
+  const event = new MouseEvent(type, { button: 0, clientX: x, clientY: y })
   Object.defineProperties(event, {
     offsetX: { value: x },
     offsetY: { value: y },

@@ -2,7 +2,7 @@ import type { NovaAssetRef } from '@endge/nova'
 import type { ModelerElement } from '@/domain/types/elements/element.types'
 import type { ModelerPluginContext } from '@/domain/types/plugins/plugin.types'
 
-export type ModelerElementVariantControlKind = 'choice' | 'list'
+export type ModelerElementVariantControlKind = 'choice' | 'list' | 'input' | 'toggle' | 'iconToggle'
 
 export interface ModelerElementVariantDraft extends Record<string, unknown> {}
 
@@ -20,12 +20,14 @@ export interface ModelerElementVariantControl {
   id: string
   kind: ModelerElementVariantControlKind
   title?: string
-  value?: string
+  value?: unknown
+  placeholder?: string
   options: Array<ModelerElementVariantOption>
 }
 
 export interface ModelerElementVariantDescriptor {
   title?: string
+  headerControls?: Array<ModelerElementVariantControl>
   controls: Array<ModelerElementVariantControl>
 }
 

@@ -15,6 +15,18 @@ import signalIconSource from '@/assets/icons/signal.svg?raw'
 import terminateIconSource from '@/assets/icons/terminate.svg?raw'
 import multipleIconSource from '@/assets/icons/multiple.svg?raw'
 import parallelMultipleIconSource from '@/assets/icons/parallel-multiple.svg?raw'
+import userIconSource from '@/assets/icons/user.svg?raw'
+import handFingerIconSource from '@/assets/icons/hand-finger.svg?raw'
+import fileCodeIconSource from '@/assets/icons/file-code.svg?raw'
+import tableIconSource from '@/assets/icons/table.svg?raw'
+import sendIconSource from '@/assets/icons/send.svg?raw'
+import inboxIconSource from '@/assets/icons/inbox.svg?raw'
+import gatewayExclusiveIconSource from '@/assets/icons/gateway-exclusive.svg?raw'
+import gatewayParallelIconSource from '@/assets/icons/gateway-parallel.svg?raw'
+import gatewayInclusiveIconSource from '@/assets/icons/gateway-inclusive.svg?raw'
+import gatewayComplexIconSource from '@/assets/icons/gateway-complex.svg?raw'
+import gatewayEventBasedIconSource from '@/assets/icons/gateway-event-based.svg?raw'
+import gatewayParallelEventBasedIconSource from '@/assets/icons/gateway-parallel-event-based.svg?raw'
 
 export const MODELER_ASSETS = NovaAssets.define('nova-modeler', {
   icons: {
@@ -34,6 +46,19 @@ export const MODELER_ASSETS = NovaAssets.define('nova-modeler', {
     terminate: NovaAssets.svg(terminateIconSource, { width: 24, height: 24, color: '#3f3f46' }),
     multiple: NovaAssets.svg(multipleIconSource, { width: 24, height: 24, color: '#3f3f46' }),
     parallelMultiple: NovaAssets.svg(parallelMultipleIconSource, { width: 24, height: 24, color: '#3f3f46' }),
+    taskUser: NovaAssets.svg(userIconSource, { width: 24, height: 24, color: '#3f3f46' }),
+    taskManual: NovaAssets.svg(handFingerIconSource, { width: 24, height: 24, color: '#3f3f46' }),
+    taskService: NovaAssets.svg(settingsIconSource, { width: 24, height: 24, color: '#3f3f46' }),
+    taskScript: NovaAssets.svg(fileCodeIconSource, { width: 24, height: 24, color: '#3f3f46' }),
+    taskBusinessRule: NovaAssets.svg(tableIconSource, { width: 24, height: 24, color: '#3f3f46' }),
+    taskSend: NovaAssets.svg(sendIconSource, { width: 24, height: 24, color: '#3f3f46' }),
+    taskReceive: NovaAssets.svg(inboxIconSource, { width: 24, height: 24, color: '#3f3f46' }),
+    gatewayExclusive: NovaAssets.svg(gatewayExclusiveIconSource, { width: 24, height: 24, color: '#3f3f46' }),
+    gatewayParallel: NovaAssets.svg(gatewayParallelIconSource, { width: 24, height: 24, color: '#3f3f46' }),
+    gatewayInclusive: NovaAssets.svg(gatewayInclusiveIconSource, { width: 24, height: 24, color: '#3f3f46' }),
+    gatewayComplex: NovaAssets.svg(gatewayComplexIconSource, { width: 24, height: 24, color: '#3f3f46' }),
+    gatewayEventBased: NovaAssets.svg(gatewayEventBasedIconSource, { width: 24, height: 24, color: '#3f3f46' }),
+    gatewayParallelEventBased: NovaAssets.svg(gatewayParallelEventBasedIconSource, { width: 24, height: 24, color: '#3f3f46' }),
   },
 })
 

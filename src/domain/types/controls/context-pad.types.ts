@@ -60,6 +60,7 @@ export interface ContextPadResolvedProps {
 
 export interface ContextPadApi {
   close(): void
+  closeMenus(): void
   setProps(patch: ContextPadProps): void
   getProps(): Readonly<ContextPadResolvedProps>
 }

@@ -11,6 +11,9 @@ import {
 import type { EventList } from '@endge/utils'
 import {
   NOVA_UI_LAYOUT_TARGET,
+  type NovaTooltipTargetResolver,
+  type TooltipInput,
+  type TooltipTargetResolution,
   type NovaUiLayoutConstraints,
   type NovaUiLayoutMeasure,
   type NovaUiLayoutRect,
@@ -43,6 +46,7 @@ import type {
 
 type PaletteOrientation = 'vertical' | 'horizontal'
 type PaletteDockMode = 'docked' | 'floating'
+type PaletteDragPreviewShape = 'basic-rect' | 'bpmn-event' | 'bpmn-task' | 'bpmn-gateway'
 
 interface PaletteResolvedLayoutOptions {
   placement: ModelerPalettePlacement
@@ -79,7 +83,8 @@ const PALETTE_CURSOR_RULES: NovaCursorDeclaration = [
   },
 })
 export class Palette<E extends EventList = Record<string, any>>
-  extends NovaComponentNode<PaletteResolvedProps, PaletteApi, Record<string, never>, PaletteProps, E> {
+  extends NovaComponentNode<PaletteResolvedProps, PaletteApi, Record<string, never>, PaletteProps, E>
+  implements NovaTooltipTargetResolver {
   readonly [NOVA_UI_LAYOUT_TARGET] = true as const
 
   private pressed = false
@@ -178,6 +183,55 @@ export class Palette<E extends EventList = Record<string, any>>
     else this.restoreLocalRenderBounds()
     if (changed) this.dirty({ matrix: true, update: sizeChanged, render: true })
     return changed
+  }
+
+  resolveNovaTooltipTarget(input: { x: number; y: number }): TooltipTargetResolution | null {
+    if (!this.props.visible) return null
+    const point = this.toLocal(input.x, input.y)
+    for (const entry of this.createLayoutPlan(this.resolvePaletteLayoutOptions()).entries) {
+      if (entry.type !== 'item') continue
+      if (point[0] < entry.x || point[0] > entry.x + entry.size || point[1] < entry.y || point[1] > entry.y + entry.size) continue
+      const tooltip = entry.item.tooltip ?? this.resolvePaletteItemTooltip(entry.item)
+      if (!tooltip) return null
+      return {
+        tooltip: typeof tooltip === 'string'
+          ? {
+              value: tooltip,
+              placement: this.resolveTooltipPlacement(),
+              delay: 350,
+            } as TooltipInput
+          : tooltip,
+        rect: this.localRectToWorldRect(entry.x, entry.y, entry.size, entry.size),
+        targetId: entry.item.id,
+        targetType: 'modeler.palette.item',
+        targetProps: { ...entry.item },
+      }
+    }
+    return null
+  }
+
+  private localRectToWorldRect(x: number, y: number, width: number, height: number): { x: number; y: number; width: number; height: number } {
+    const matrix = this.matrix
+    const corners: Array<[number, number]> = [
+      [x, y],
+      [x + width, y],
+      [x, y + height],
+      [x + width, y + height],
+    ]
+    const points = corners.map(([px, py]) => ({
+      x: matrix[0] * px + matrix[3] * py + matrix[6],
+      y: matrix[1] * px + matrix[4] * py + matrix[7],
+    }))
+    const minX = Math.min(...points.map(item => item.x))
+    const maxX = Math.max(...points.map(item => item.x))
+    const minY = Math.min(...points.map(item => item.y))
+    const maxY = Math.max(...points.map(item => item.y))
+    return {
+      x: minX,
+      y: minY,
+      width: maxX - minX,
+      height: maxY - minY,
+    }
   }
 
   measureLayout(_constraints: NovaUiLayoutConstraints): NovaUiLayoutMeasure {
@@ -301,6 +355,7 @@ export class Palette<E extends EventList = Record<string, any>>
         this.activeGrip = true
         this.paletteDragStart = { x: point.x, y: point.y, paletteX: this.x, paletteY: this.y }
         this.setPaletteCursor('grip')
+        this.nova.cursors.syncPointer({ x: point.x, y: point.y, target: this, pressed: true })
         this.dirty({ render: true })
         return false
       }
@@ -598,6 +653,20 @@ export class Palette<E extends EventList = Record<string, any>>
     }
   }
 
+  private resolvePaletteItemTooltip(item: ModelerPaletteItemDefinition): string | null {
+    if (!item.title) return null
+    if (item.kind === 'tool' && item.toolId && this.isCreateToolItem(item.id)) return `Create ${item.title}`
+    return item.title
+  }
+
+  private resolveTooltipPlacement(): 'top' | 'right' | 'bottom' | 'left' {
+    const placement = this.resolvePaletteLayoutOptions().placement
+    if (placement === 'right') return 'left'
+    if (placement === 'top') return 'bottom'
+    if (placement === 'bottom') return 'top'
+    return 'right'
+  }
+
   private resolvePaletteNumberOption(prop: number | undefined, option: number | undefined, fallback: number): number {
     return Math.max(0, finiteNumber(prop, finiteNumber(option, fallback)))
   }
@@ -825,6 +894,14 @@ export class Palette<E extends EventList = Record<string, any>>
       this.appendBpmnEventIcon(schema, x, y, size, item.icon)
       return
     }
+    if (item.icon === 'bpmn-task') {
+      this.appendBpmnTaskIcon(schema, x, y, size)
+      return
+    }
+    if (item.icon === 'bpmn-gateway') {
+      this.appendBpmnGatewayIcon(schema, x, y, size)
+      return
+    }
     this.appendRectIcon(schema, x, y, size)
   }
 
@@ -880,6 +957,46 @@ export class Palette<E extends EventList = Record<string, any>>
     })
   }
 
+  private appendBpmnTaskIcon(schema: NovaSchema, x: number, y: number, size: number): void {
+    const iconWidth = Math.round(size * 0.64)
+    const iconHeight = Math.round(size * 0.42)
+    schema.push({
+      type: 'rect',
+      x: x + (size - iconWidth) / 2,
+      y: y + (size - iconHeight) / 2,
+      width: iconWidth,
+      height: iconHeight,
+      styles: {
+        background: this.resolvePaletteColor('paletteIconFill'),
+        border: {
+          color: this.resolvePaletteColor('paletteIconStroke'),
+          width: 2,
+          radius: 6,
+        },
+      },
+    })
+  }
+
+  private appendBpmnGatewayIcon(schema: NovaSchema, x: number, y: number, size: number): void {
+    const radius = Math.round(size * 0.28)
+    const centerX = x + size / 2
+    const centerY = y + size / 2
+    schema.push({
+      type: 'polygon',
+      points: [
+        { x: centerX, y: centerY - radius },
+        { x: centerX + radius, y: centerY },
+        { x: centerX, y: centerY + radius },
+        { x: centerX - radius, y: centerY },
+      ],
+      styles: {
+        background: this.resolvePaletteColor('paletteIconFill'),
+        stroke: this.resolvePaletteColor('paletteIconStroke'),
+        lineWidth: 2,
+      },
+    })
+  }
+
   private appendMarqueeIcon(schema: NovaSchema, x: number, y: number, size: number): void {
     const left = x + size * 0.24
     const top = y + size * 0.24
@@ -914,7 +1031,32 @@ export class Palette<E extends EventList = Record<string, any>>
     const context = this.resolveContext()
     const scale = context?.getViewport().scale ?? 1
     const item = context?.palette.get(this.draggingItem)
-    if (item?.icon !== 'bpmn-event') {
+    const shape = this.resolveDragPreviewShape(item)
+
+    if (shape === 'bpmn-gateway') {
+      const size = 56 * scale
+      const half = size / 2
+      const centerX = this.dragPreviewPoint.x
+      const centerY = this.dragPreviewPoint.y
+      schema.push({
+        type: 'polygon',
+        points: [
+          { x: centerX, y: centerY - half },
+          { x: centerX + half, y: centerY },
+          { x: centerX, y: centerY + half },
+          { x: centerX - half, y: centerY },
+        ],
+        styles: {
+          background: this.resolvePaletteColor('palettePreviewFill'),
+          stroke: this.resolvePaletteColor('palettePreviewStroke'),
+          lineWidth: 1.5,
+          opacity: this.resolvePaletteNumber('palettePreviewOpacity'),
+        },
+      })
+      return
+    }
+
+    if (shape === 'basic-rect') {
       const width = 160 * scale
       const height = 96 * scale
       schema.push({
@@ -929,6 +1071,28 @@ export class Palette<E extends EventList = Record<string, any>>
             color: this.resolvePaletteColor('palettePreviewStroke'),
             width: 1.5,
             radius: 6,
+          },
+          opacity: this.resolvePaletteNumber('palettePreviewOpacity'),
+        },
+      })
+      return
+    }
+
+    if (shape === 'bpmn-task') {
+      const width = 120 * scale
+      const height = 80 * scale
+      schema.push({
+        type: 'rect',
+        x: this.dragPreviewPoint.x - width / 2,
+        y: this.dragPreviewPoint.y - height / 2,
+        width,
+        height,
+        styles: {
+          background: this.resolvePaletteColor('palettePreviewFill'),
+          border: {
+            color: this.resolvePaletteColor('palettePreviewStroke'),
+            width: 1.5,
+            radius: 10,
           },
           opacity: this.resolvePaletteNumber('palettePreviewOpacity'),
         },
@@ -951,6 +1115,18 @@ export class Palette<E extends EventList = Record<string, any>>
         opacity: this.resolvePaletteNumber('palettePreviewOpacity'),
       },
     })
+  }
+
+  private resolveDragPreviewShape(item: ModelerPaletteItemDefinition | undefined): PaletteDragPreviewShape {
+    const id = this.draggingItem ?? item?.id ?? ''
+    const icon = item?.icon ?? ''
+    const toolId = item?.toolId ?? ''
+    const actionId = item?.actionId ?? ''
+    const signature = `${id} ${icon} ${toolId} ${actionId}`
+    if (signature.includes('bpmn.gateway') || icon === 'bpmn-gateway') return 'bpmn-gateway'
+    if (signature.includes('bpmn.task') || icon === 'bpmn-task') return 'bpmn-task'
+    if (signature.includes('bpmn.event') || icon.startsWith('bpmn-event')) return 'bpmn-event'
+    return 'basic-rect'
   }
 
   private resolvePaletteColor(token: keyof typeof MODELER_THEME_FALLBACKS): string {

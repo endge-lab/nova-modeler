@@ -1,3 +1,5 @@
+import type { TooltipInput } from '@endge/nova-ui-kit'
+
 export type ModelerPaletteItemKind = 'action' | 'tool'
 
 export interface ModelerPaletteItemDefinition {
@@ -7,6 +9,7 @@ export interface ModelerPaletteItemDefinition {
   order?: number
   title?: string
   icon?: string
+  tooltip?: TooltipInput
   actionId?: string
   toolId?: string
 }

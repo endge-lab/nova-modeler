@@ -262,6 +262,7 @@ export class Store implements ModelerStore {
       this.elements.set(this.elements.items.map(element => {
         if (element.id !== id) return element
         const resize = this.elementRegistry.get(element.type)?.capabilities?.resizable
+        if (!resize) return element
         const minWidth = resize ? resize.minWidth ?? 1 : 1
         const minHeight = resize ? resize.minHeight ?? 1 : 1
         return this.normalizeElement({

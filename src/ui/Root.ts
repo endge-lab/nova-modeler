@@ -18,7 +18,13 @@ import {
   type NovaSurface,
   type NovaTemplateChildSchema,
 } from '@endge/nova'
-import { NovaUIKit } from '@endge/nova-ui-kit'
+import {
+  NovaUIKit,
+  type InputApi,
+  type NovaTooltipTargetResolver,
+  type TooltipInput,
+  type TooltipTargetResolution,
+} from '@endge/nova-ui-kit'
 import type { EventList } from '@endge/utils'
 import { Modeler } from '@/config/schema.config'
 import {
@@ -49,11 +55,13 @@ import type {
   ModelerPlugin,
   ModelerPluginRuntime,
   ModelerPoint,
+  ModelerRect,
   ModelerRootApi as RootApi,
   ModelerRootProps as RootProps,
   ModelerRootResolvedProps as RootResolvedProps,
   ModelerViewport,
 } from '@/domain/types/index'
+import type { ContextPadApi } from '@/domain/types/controls/context-pad.types'
 import {
   MODELER_CONTEXT,
   MODELER_CONTROLLER,
@@ -63,6 +71,10 @@ import {
   MODELER_LAYER_NAMES,
   MODELER_SURFACE_CONFIG,
 } from '@/config/surface.config'
+import {
+  BPMN_TASK_TYPE,
+} from '@/elements/bpmn/task/bpmn-task.factory'
+import type { BpmnTaskElement } from '@/elements/bpmn/task/bpmn-task.types'
 
 type RootDescriptor = NovaComponentDescriptor<
   RootResolvedProps,
@@ -96,7 +108,8 @@ const MODELER_CURSOR_RULES: NovaCursorDeclaration = [
   },
 })
 export class Root<E extends EventList = Record<string, any>>
-  extends NovaComponentNode<RootResolvedProps, RootApi, Record<string, never>, RootProps, E> {
+  extends NovaComponentNode<RootResolvedProps, RootApi, Record<string, never>, RootProps, E>
+  implements NovaTooltipTargetResolver {
   @Prop.model({ required: true })
   declare model: ModelerModel
 
@@ -156,6 +169,9 @@ export class Root<E extends EventList = Record<string, any>>
   private currentModelerCursor = 'default'
   private spacePressed = false
   private temporaryToolId: string | null = null
+  private taskNameEditor: { elementId: string } | null = null
+  private disposeTaskNameEditorLayer?: () => void
+  private lastTaskNamePointerDown: { elementId: string; x: number; y: number; time: number } | null = null
 
   constructor(
     app: NovaApp<E>,
@@ -230,6 +246,7 @@ export class Root<E extends EventList = Record<string, any>>
   }
 
   protected override onUnmount(): void {
+    this.clearTaskNameEditorLayer()
     this.controllerInstance.unmount()
     this.destroyLayerSurfaces()
     super.onUnmount()
@@ -295,6 +312,7 @@ export class Root<E extends EventList = Record<string, any>>
   @Api()
   @Command('modeler.set-viewport')
   setViewport(viewport: Partial<ModelerViewport>): ModelerModel {
+    this.closeTaskNameEditor({ commit: true })
     return this.controllerInstance.setViewport(viewport)
   }
 
@@ -331,6 +349,36 @@ export class Root<E extends EventList = Record<string, any>>
   invalidate(phase: 'update' | 'render' | 'both' = 'both'): void {
     this.dirty({ update: phase === 'update' || phase === 'both', render: phase === 'render' || phase === 'both' })
     this.dirtyLayerSurfaces(phase)
+  }
+
+  resolveNovaTooltipTarget(input: { x: number; y: number; event?: MouseEvent }): TooltipTargetResolution | null {
+    const target = this.controllerInstance.hitTest({ x: input.x, y: input.y })
+    if (target.type !== 'element') return null
+    const element = this.controllerInstance.getModel().elements.find(item => item.id === target.id)
+    if (!element) return null
+    const definition = this.controllerInstance.getElementRegistry().get(element.type)
+    const tooltip = definition?.getTooltip?.(this.controllerInstance.getPluginContext(), element)
+      ?? definition?.title
+    if (!tooltip) return null
+    const topLeft = this.controllerInstance.worldToScreen({ x: element.x, y: element.y })
+    const bottomRight = this.controllerInstance.worldToScreen({
+      x: element.x + element.width,
+      y: element.y + element.height,
+    })
+    return {
+      tooltip: typeof tooltip === 'string'
+        ? { value: tooltip, placement: 'top', delay: 350 } as TooltipInput
+        : tooltip,
+      rect: {
+        x: Math.min(topLeft.x, bottomRight.x),
+        y: Math.min(topLeft.y, bottomRight.y),
+        width: Math.abs(bottomRight.x - topLeft.x),
+        height: Math.abs(bottomRight.y - topLeft.y),
+      },
+      targetId: element.id,
+      targetType: element.type,
+      targetProps: { element },
+    }
   }
 
   private setupLayerSurfaces(): void {
@@ -571,7 +619,11 @@ export class Root<E extends EventList = Record<string, any>>
   private setupEvents(): void {
     this.on('mousedown', event => {
       const point = eventPoint(event)
+      if (this.taskNameEditor && !this.isTaskNameEditorPointer(point)) {
+        this.closeTaskNameEditor({ commit: true })
+      }
       const target = this.hitTest(point)
+      if (event.button === 0 && this.openTaskNameEditorOnDoublePointerDown(target, point)) return false
       this.setModelerCursorFromTarget(target)
       const context = this.controllerInstance.getPluginContext()
       for (const gesture of this.controllerInstance.getGestures()) {
@@ -593,6 +645,8 @@ export class Root<E extends EventList = Record<string, any>>
         this.clearSelection()
       }
       if (this.shouldStartPan(event)) {
+        this.closeContextPadMenus()
+        this.closeTaskNameEditor({ commit: true })
         this.dragState = { type: 'pan', x: point.x, y: point.y }
         this.activeModelerCursor = 'pan'
         this.setModelerCursor('pan')
@@ -641,9 +695,13 @@ export class Root<E extends EventList = Record<string, any>>
     })
     this.on('wheel', event => {
       if (event.ctrlKey || event.metaKey) {
+        this.closeContextPadMenus()
+        this.closeTaskNameEditor({ commit: true })
         this.zoomViewport(eventPoint(event), event.deltaY)
         return false
       }
+      this.closeContextPadMenus()
+      this.closeTaskNameEditor({ commit: true })
       const viewport = this.controllerInstance.getViewport()
       this.setViewport({
         x: viewport.x - (Number.isFinite(event.deltaX) ? event.deltaX : 0),
@@ -652,7 +710,13 @@ export class Root<E extends EventList = Record<string, any>>
       return false
     })
     this.on('zoom', event => {
+      this.closeContextPadMenus()
+      this.closeTaskNameEditor({ commit: true })
       this.zoomViewport(eventPoint(event), event.deltaY)
+      return false
+    })
+    this.on('dblclick', event => {
+      this.openTaskNameEditorFromPoint(eventPoint(event))
       return false
     })
     this.on('keydown', event => {
@@ -720,6 +784,168 @@ export class Root<E extends EventList = Record<string, any>>
     if (this.temporaryToolId !== toolId) return
     this.temporaryToolId = null
     this.controllerInstance.getPluginContext().tools.deactivate(toolId)
+  }
+
+  private openTaskNameEditorFromPoint(point: ModelerPoint): boolean {
+    const target = this.hitTest(point)
+    if (target.type !== 'element') return false
+    const element = this.controllerInstance.getModel().elements.find(item => item.id === target.id)
+    if (!element || element.type !== BPMN_TASK_TYPE) return false
+    const task = element as BpmnTaskElement
+    if (!this.containsTaskNamePoint(task, point)) return false
+    this.taskNameEditor = { elementId: task.id }
+    this.syncTaskNameEditor()
+    return true
+  }
+
+  private openTaskNameEditorOnDoublePointerDown(target: ModelerHitTarget, point: ModelerPoint): boolean {
+    if (target.type !== 'element') {
+      this.lastTaskNamePointerDown = null
+      return false
+    }
+    const element = this.controllerInstance.getModel().elements.find(item => item.id === target.id)
+    if (!element || element.type !== BPMN_TASK_TYPE || !this.containsTaskNamePoint(element as BpmnTaskElement, point)) {
+      this.lastTaskNamePointerDown = null
+      return false
+    }
+    const now = Date.now()
+    const previous = this.lastTaskNamePointerDown
+    const isDouble = previous?.elementId === element.id
+      && now - previous.time <= 500
+      && Math.abs(previous.x - point.x) <= 4
+      && Math.abs(previous.y - point.y) <= 4
+    this.lastTaskNamePointerDown = { elementId: element.id, x: point.x, y: point.y, time: now }
+    if (!isDouble) return false
+    this.lastTaskNamePointerDown = null
+    this.taskNameEditor = { elementId: element.id }
+    this.syncTaskNameEditor()
+    return true
+  }
+
+  private syncTaskNameEditor(): void {
+    if (!this.taskNameEditor) {
+      this.clearTaskNameEditorLayer()
+      return
+    }
+    const element = this.controllerInstance.getModel().elements.find(item => item.id === this.taskNameEditor?.elementId)
+    if (!element || element.type !== BPMN_TASK_TYPE) {
+      this.closeTaskNameEditor({ commit: false })
+      return
+    }
+    const task = element as BpmnTaskElement
+    const rect = this.resolveTaskNameEditorRect(task)
+    this.clearTaskNameEditorLayer()
+    this.disposeTaskNameEditorLayer = this.reconcileLayerOwner('controls', `${this.componentId}:task-name-editor`, [{
+      type: NovaUIKit.TextInput,
+      id: this.taskNameEditorInputId(),
+      props: {
+        x: rect.x,
+        y: rect.y,
+        width: rect.width,
+        height: rect.height,
+        value: task.data?.name ?? 'Task',
+        inputEngine: 'canvas',
+        size: 'sm',
+        variant: 'filled',
+        align: 'center',
+        autofocus: true,
+        selectOnFocus: true,
+        zIndex: 3100,
+        onCommit: (value: string) => {
+          this.applyTaskNameEditorValue(String(value ?? ''))
+          this.closeTaskNameEditor({ commit: false })
+        },
+        onCancel: () => {
+          this.closeTaskNameEditor({ commit: false })
+        },
+      },
+    }])
+  }
+
+  private closeTaskNameEditor(options: { commit: boolean }): void {
+    if (!this.taskNameEditor) return
+    if (options.commit) {
+      const draft = this.nova.components.api<InputApi>(this.taskNameEditorInputId())?.getState().draft
+      if (draft !== undefined) this.applyTaskNameEditorValue(draft)
+    }
+    this.taskNameEditor = null
+    this.clearTaskNameEditorLayer()
+  }
+
+  private clearTaskNameEditorLayer(): void {
+    this.disposeTaskNameEditorLayer?.()
+    this.disposeTaskNameEditorLayer = undefined
+  }
+
+  private applyTaskNameEditorValue(value: string): void {
+    const elementId = this.taskNameEditor?.elementId
+    if (!elementId) return
+    const element = this.controllerInstance.getModel().elements.find(item => item.id === elementId)
+    if (!element || element.type !== BPMN_TASK_TYPE) return
+    const nextName = normalizeTaskName(value)
+    if ((element.data?.name ?? 'Task') === nextName) return
+    this.controllerInstance.applyCommand({
+      type: 'element.patch',
+      id: element.id,
+      patch: {
+        data: {
+          ...element.data,
+          name: nextName,
+        },
+      },
+    })
+  }
+
+  private isTaskNameEditorPointer(point: ModelerPoint): boolean {
+    const target = this.nova.events.hitTest(point.x, point.y)
+    const targetId = target ? String((target as { componentId?: string }).componentId ?? target.id) : ''
+    return targetId === this.taskNameEditorInputId() || targetId.startsWith(`${this.taskNameEditorInputId()}:`)
+  }
+
+  private containsTaskNamePoint(element: BpmnTaskElement, point: ModelerPoint): boolean {
+    const rect = this.resolveTaskNameEditorRect(element)
+    return point.x >= rect.x
+      && point.x <= rect.x + rect.width
+      && point.y >= rect.y
+      && point.y <= rect.y + rect.height
+  }
+
+  private resolveTaskNameEditorRect(element: BpmnTaskElement): ModelerRect {
+    const topLeft = this.controllerInstance.worldToScreen({
+      x: element.x + 12,
+      y: element.y + 14,
+    })
+    const bottomRight = this.controllerInstance.worldToScreen({
+      x: element.x + element.width - 12,
+      y: element.y + element.height - 14,
+    })
+    const x = Math.min(topLeft.x, bottomRight.x)
+    const y = Math.min(topLeft.y, bottomRight.y)
+    return {
+      x,
+      y,
+      width: Math.max(40, Math.abs(bottomRight.x - topLeft.x)),
+      height: Math.max(28, Math.abs(bottomRight.y - topLeft.y)),
+    }
+  }
+
+  private taskNameEditorInputId(): string {
+    return `${this.componentId}:task-name-editor:input`
+  }
+
+  private closeContextPadMenus(): void {
+    const controls = this.layerSurfaces.get('controls')
+    if (!controls) return
+    const stack: Array<unknown> = [...controls.children]
+    while (stack.length > 0) {
+      const node = stack.shift()
+      const descriptorType = (node as { descriptor?: { type?: string } }).descriptor?.type
+      const componentId = (node as { componentId?: string }).componentId
+      const children = (node as { children?: Array<unknown> }).children
+      if (children?.length) stack.push(...children)
+      if (descriptorType !== Modeler.ContextPad || !componentId) continue
+      this.nova.components.api<ContextPadApi>(componentId)?.closeMenus()
+    }
   }
 
   private setModelerCursorFromTarget(target: ModelerHitTarget): void {
@@ -801,3 +1027,8 @@ export const MODELER_ROOT_DESCRIPTOR = createNovaDecoratedComponentDescriptor<
   Record<string, never>,
   RootProps
 >(Root as never) as RootDescriptor
+
+function normalizeTaskName(value: string): string {
+  const next = value.trim()
+  return next.length > 0 ? next : 'Task'
+}

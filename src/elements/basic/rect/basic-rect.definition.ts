@@ -16,6 +16,7 @@ import { createBasicRectPorts } from '@/elements/basic/rect/basic-rect.ports'
 export const BasicRectDefinition: ModelerElementDefinition = {
   type: BASIC_RECT_TYPE,
   kind: 'node',
+  title: 'Rectangle',
   defaults: {
     width: BASIC_RECT_DEFAULT_WIDTH,
     height: BASIC_RECT_DEFAULT_HEIGHT,
@@ -68,4 +69,5 @@ export const BasicRectDefinition: ModelerElementDefinition = {
     },
   }),
   getPorts: (_context, element) => createBasicRectPorts(element),
+  getTooltip: () => 'Rectangle',
 }

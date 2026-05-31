@@ -1,3 +1,4 @@
+import type { TooltipInput } from '@endge/nova-ui-kit'
 import type { ModelerElement } from '@/domain/types/elements/element.types'
 import type { ModelerPoint } from '@/domain/types/model/geometry.types'
 import type { ModelerPluginContext } from '@/domain/types/plugins/plugin.types'
@@ -8,6 +9,7 @@ export interface ModelerToolDefinition {
   id: string
   kind: ModelerToolKind
   title?: string
+  tooltip?: TooltipInput
   activate?(context: ModelerPluginContext): void
   deactivate?(context: ModelerPluginContext): void
   createAt?(context: ModelerPluginContext, point: ModelerPoint): ModelerElement | undefined

@@ -79,6 +79,7 @@ export class ElementsPlugin extends PluginBase {
       id: toolId,
       kind: 'create-element',
       title: createTool.title,
+      tooltip: createTool.tooltip ?? createTool.palette?.tooltip,
       oneShot: true,
       createAt: (_context, point) => this.createElementAt(definition, createTool, point),
     }))
@@ -88,6 +89,7 @@ export class ElementsPlugin extends PluginBase {
       group: createTool.palette?.group ?? 'elements',
       order: createTool.palette?.order ?? 100,
       title: createTool.palette?.title ?? createTool.title,
+      tooltip: createTool.palette?.tooltip ?? createTool.tooltip,
       icon: createTool.palette?.icon ?? definition.type,
       toolId,
     }))

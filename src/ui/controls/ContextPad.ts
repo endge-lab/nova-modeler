@@ -105,6 +105,7 @@ export class ContextPad<E extends EventList = Record<string, any>>
   override getApi(): ContextPadApi {
     return {
       close: () => this.close(),
+      closeMenus: () => this.closeOpenMenus(),
       setProps: patch => this.setProps(patch),
       getProps: () => this.props,
     }

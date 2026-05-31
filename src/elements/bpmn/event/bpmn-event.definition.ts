@@ -19,6 +19,7 @@ import type {
 export const BpmnEventDefinition: ModelerElementDefinition<BpmnEventElement> = {
   type: BPMN_EVENT_TYPE,
   kind: 'node',
+  title: 'Event',
   defaults: {
     width: BPMN_EVENT_DEFAULT_SIZE,
     height: BPMN_EVENT_DEFAULT_SIZE,
@@ -112,6 +113,13 @@ export const BpmnEventDefinition: ModelerElementDefinition<BpmnEventElement> = {
   }),
   getPorts: (_context, element) => createBpmnEventPorts(element),
   hitTest: (_context, element, localPoint) => containsBpmnEventPoint(element, localPoint),
+  getTooltip: (_context, element) => resolveBpmnEventTooltip(element),
+}
+
+function resolveBpmnEventTooltip(element: BpmnEventElement): string {
+  if (element.data?.eventPosition === 'end') return 'End event'
+  if (element.data?.eventPosition === 'intermediate') return 'Intermediate event'
+  return 'Start event'
 }
 
 function containsBpmnEventPoint(element: BpmnEventElement, point: ModelerPoint): boolean {
