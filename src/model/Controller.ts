@@ -3,6 +3,8 @@ import type {
   ControllerOptions,
   ModelerController,
   ModelerCommand,
+  ModelerElement,
+  ModelerElementRegistry,
   ModelerGesture,
   ModelerHitTarget,
   ModelerLayout,
@@ -15,6 +17,7 @@ import type {
   ModelerPluginLayer,
   ModelerPluginRuntime,
   ModelerPoint,
+  ModelerRect,
   ModelerStore,
   ModelerStoreKey,
   ModelerViewport,
@@ -23,11 +26,20 @@ import { Nova } from '@endge/nova'
 import { normalizeModelerOptions } from '@/config/options.config'
 import { clamp } from '@/tools/number'
 import { Store } from '@/model/Store'
+import { createModelerElementRegistry } from '@/model/ElementRegistry'
 import { createPluginRuntime } from '@/model/plugin-runtime/PluginRuntime'
+import {
+  ElementsPlugin,
+  MODELER_PORT_RADIUS,
+  MODELER_RESIZE_HANDLE_SIZE,
+  MODELER_ELEMENTS_PLUGIN_ID,
+  createResizeHandles,
+} from '@/plugins/elements/elements-plugin'
 
 export class Controller implements ModelerController {
   readonly store: ModelerStore
   private options: ModelerOptionsRef
+  private readonly elementRegistry: ModelerElementRegistry
   private host: ControllerHost | null = null
   private layout: ModelerLayout
   private pluginRuntime: ModelerPluginRuntime
@@ -40,9 +52,11 @@ export class Controller implements ModelerController {
   private onSelectionChange?: (selection: Array<string>) => void
 
   constructor(options: ControllerOptions = {}) {
-    this.store = options.store ?? new Store(options.model)
+    this.elementRegistry = options.elementRegistry ?? createModelerElementRegistry()
+    this.store = options.store ?? new Store(options.model, { elementRegistry: this.elementRegistry })
     this.options = normalizeModelerOptions(options.options)
-    this.pluginRuntime = options.pluginRuntime ?? createPluginRuntime({ plugins: options.plugins })
+    this.pluginRuntime = options.pluginRuntime ?? createPluginRuntime()
+    this.ensureDefaultPlugins(options.plugins)
     this.onModelChange = options.onModelChange
     this.onSelectionChange = options.onSelectionChange
     this.layout = this.createLayout()
@@ -142,6 +156,10 @@ export class Controller implements ModelerController {
     return this.options.current
   }
 
+  getElementRegistry(): ModelerElementRegistry {
+    return this.elementRegistry
+  }
+
   getPluginContext(): ModelerPluginContext {
     return this.pluginContext
   }
@@ -155,6 +173,8 @@ export class Controller implements ModelerController {
   }
 
   hitTest(point: ModelerPoint): ModelerHitTarget {
+    const elementTarget = this.hitTestElements(point)
+    if (elementTarget.type !== 'empty') return elementTarget
     const canvas = this.layout.canvas
     return point.x >= canvas.x
       && point.x <= canvas.x + canvas.width
@@ -197,6 +217,7 @@ export class Controller implements ModelerController {
     this.pluginLayers = []
     this.pluginGestures = []
     this.pluginRuntime = pluginRuntime
+    this.ensureDefaultPlugins()
     if (this.host) this.pluginRuntime.bindRoot(this.pluginContext)
   }
 
@@ -285,6 +306,7 @@ export class Controller implements ModelerController {
       getModel: () => this.getModel(),
       getLayout: () => this.getLayout(),
       getOptions: () => this.getOptions(),
+      getElementRegistry: () => this.getElementRegistry(),
       getViewport: () => this.getViewport(),
       setViewport: viewport => this.setViewport(viewport),
       applyCommand: command => this.applyCommand(command),
@@ -317,8 +339,74 @@ export class Controller implements ModelerController {
       || previous.canvas.height !== next.canvas.height
       || previous.canvas.gridSize !== next.canvas.gridSize
   }
+
+  private ensureDefaultPlugins(plugins: Array<ModelerPlugin> = []): void {
+    if (!this.pluginRuntime.getPlugins().some(plugin => plugin.id === MODELER_ELEMENTS_PLUGIN_ID)) {
+      this.pluginRuntime.use(ElementsPlugin.create())
+    }
+    plugins.forEach(plugin => this.pluginRuntime.use(plugin))
+  }
+
+  private hitTestElements(point: ModelerPoint): ModelerHitTarget {
+    const model = this.getModel()
+    const selected = new Set(model.selection)
+    for (let index = model.elements.length - 1; index >= 0; index -= 1) {
+      const element = model.elements[index]
+      if (!element) continue
+      const definition = this.elementRegistry.get(element.type)
+      if (!definition || !selected.has(element.id)) continue
+      for (const handle of createResizeHandles(element, definition)) {
+        const screen = this.worldToScreen(handle)
+        const size = MODELER_RESIZE_HANDLE_SIZE
+        if (point.x >= screen.x - size / 2 && point.x <= screen.x + size / 2
+          && point.y >= screen.y - size / 2 && point.y <= screen.y + size / 2) {
+          return { type: 'resize-handle', elementId: element.id, handle: handle.handle }
+        }
+      }
+    }
+    for (let index = model.elements.length - 1; index >= 0; index -= 1) {
+      const element = model.elements[index]
+      if (!element) continue
+      const definition = this.elementRegistry.get(element.type)
+      if (!definition || !selected.has(element.id)) continue
+      for (const port of definition.getPorts?.(this.pluginContext, element) ?? []) {
+        const screen = this.worldToScreen(port)
+        const radius = port.radius ?? MODELER_PORT_RADIUS
+        const dx = point.x - screen.x
+        const dy = point.y - screen.y
+        if (dx * dx + dy * dy <= radius * radius) {
+          return { type: 'port', elementId: element.id, portId: port.id }
+        }
+      }
+    }
+    const ordered = [...model.elements].sort(compareElementsByZIndex)
+    for (let index = ordered.length - 1; index >= 0; index -= 1) {
+      const element = ordered[index]
+      if (!element) continue
+      const rect = this.elementScreenRect(element)
+      if (point.x >= rect.x && point.x <= rect.x + rect.width
+        && point.y >= rect.y && point.y <= rect.y + rect.height) {
+        return { type: 'element', id: element.id }
+      }
+    }
+    return { type: 'empty' }
+  }
+
+  private elementScreenRect(element: ModelerElement): ModelerRect {
+    const point = this.worldToScreen(element)
+    return {
+      x: point.x,
+      y: point.y,
+      width: element.width * this.layout.viewport.scale,
+      height: element.height * this.layout.viewport.scale,
+    }
+  }
 }
 
 export function createModelerController(options: ControllerOptions = {}): Controller {
   return new Controller(options)
+}
+
+function compareElementsByZIndex(a: ModelerElement, b: ModelerElement): number {
+  return (a.zIndex ?? 0) - (b.zIndex ?? 0)
 }

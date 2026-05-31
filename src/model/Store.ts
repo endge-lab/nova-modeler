@@ -4,8 +4,10 @@ import {
   Store as NovaStore,
 } from '@endge/nova'
 import type {
+  ModelerElement,
   ModelerCanvas,
   ModelerCommand,
+  ModelerRect,
   ModelerStore,
   ModelerModel,
   ModelerModelInput,
@@ -15,6 +17,8 @@ import {
   DEFAULT_MODELER_CANVAS,
   DEFAULT_MODELER_VIEWPORT,
 } from '@/config/model.config'
+import type { ModelerElementRegistry } from '@/domain/types'
+import { createModelerElementRegistry } from '@/model/ElementRegistry'
 
 @NovaStore()
 export class ViewportStore {
@@ -93,12 +97,33 @@ export class SelectionStore {
 }
 
 @NovaStore()
+export class ElementsStore {
+  @Reactive({ phase: 'render' })
+  items: Array<ModelerElement> = []
+
+  load(input: Array<ModelerElement> = []): void {
+    this.items = input.map(element => cloneElement(element))
+  }
+
+  set(items: Array<ModelerElement>): void {
+    this.items = items.map(element => cloneElement(element))
+  }
+
+  toJSON(): Array<ModelerElement> {
+    return this.items.map(element => cloneElement(element))
+  }
+}
+
+@NovaStore()
 export class Store implements ModelerStore {
   @Reactive()
   viewport = new ViewportStore()
 
   @Reactive()
   canvas = new CanvasStore()
+
+  @Reactive()
+  elements = new ElementsStore()
 
   @Reactive()
   selection = new SelectionStore()
@@ -113,9 +138,18 @@ export class Store implements ModelerStore {
   viewportVersion = 0
 
   @Reactive({ phase: 'render' })
+  elementsVersion = 0
+
+  @Reactive({ phase: 'render' })
   selectionVersion = 0
 
-  constructor(input: ModelerModel | ModelerModelInput = {}) {
+  private readonly elementRegistry: ModelerElementRegistry
+
+  constructor(
+    input: ModelerModel | ModelerModelInput = {},
+    options: { elementRegistry?: ModelerElementRegistry } = {},
+  ) {
+    this.elementRegistry = options.elementRegistry ?? createModelerElementRegistry()
     this.load(input)
   }
 
@@ -131,6 +165,22 @@ export class Store implements ModelerStore {
   apply(command: ModelerCommand): ModelerModel {
     if (command.type === 'setViewport') {
       this.setViewport(command.viewport)
+      return this.toModel()
+    }
+    if (command.type === 'element.add') {
+      this.addElement(command.element)
+      return this.toModel()
+    }
+    if (command.type === 'element.patch') {
+      this.patchElement(command.id, command.patch)
+      return this.toModel()
+    }
+    if (command.type === 'element.resize') {
+      this.resizeElement(command.id, command.bounds)
+      return this.toModel()
+    }
+    if (command.type === 'element.move') {
+      this.moveElement(command.id, command.dx, command.dy)
       return this.toModel()
     }
     this.setSelection(command.ids)
@@ -155,15 +205,71 @@ export class Store implements ModelerStore {
     })
   }
 
+  addElement(element: ModelerElement): void {
+    Nova.batchStore(this, () => {
+      this.elements.set([...this.elements.items, this.normalizeElement(element)])
+      this.version += 1
+      this.elementsVersion += 1
+    })
+  }
+
+  patchElement(id: string, patch: Partial<ModelerElement>): void {
+    Nova.batchStore(this, () => {
+      this.elements.set(this.elements.items.map(element => {
+        if (element.id !== id) return element
+        return this.normalizeElement({
+          ...element,
+          ...patch,
+          data: patch.data ? { ...element.data, ...patch.data } : element.data,
+          style: patch.style ? { ...element.style, ...patch.style } : element.style,
+        } as ModelerElement)
+      }))
+      this.version += 1
+      this.elementsVersion += 1
+    })
+  }
+
+  resizeElement(id: string, bounds: Partial<ModelerRect>): void {
+    Nova.batchStore(this, () => {
+      this.elements.set(this.elements.items.map(element => {
+        if (element.id !== id) return element
+        const resize = this.elementRegistry.get(element.type)?.capabilities?.resizable
+        const minWidth = resize ? resize.minWidth ?? 1 : 1
+        const minHeight = resize ? resize.minHeight ?? 1 : 1
+        return this.normalizeElement({
+          ...element,
+          x: bounds.x ?? element.x,
+          y: bounds.y ?? element.y,
+          width: Math.max(minWidth, bounds.width ?? element.width),
+          height: Math.max(minHeight, bounds.height ?? element.height),
+        })
+      }))
+      this.version += 1
+      this.elementsVersion += 1
+    })
+  }
+
+  moveElement(id: string, dx: number, dy: number): void {
+    Nova.batchStore(this, () => {
+      this.elements.set(this.elements.items.map(element => element.id === id
+        ? this.normalizeElement({ ...element, x: element.x + dx, y: element.y + dy })
+        : element))
+      this.version += 1
+      this.elementsVersion += 1
+    })
+  }
+
   load(input: ModelerModel | ModelerModelInput = {}): void {
     const maybeModel = input as Partial<ModelerModel>
     Nova.batchStore(this, () => {
       this.id = input.id ?? 'modeler'
       this.viewport.load(input.viewport)
       this.canvas.load(input.canvas)
+      this.elements.load((input.elements ?? []).map(element => this.normalizeElement(element)))
       this.selection.set(input.selection ?? [])
       this.version = maybeModel.version ?? 0
       this.viewportVersion = maybeModel.viewportVersion ?? 0
+      this.elementsVersion = maybeModel.elementsVersion ?? 0
       this.selectionVersion = maybeModel.selectionVersion ?? 0
     })
   }
@@ -173,9 +279,11 @@ export class Store implements ModelerStore {
       id: this.id,
       viewport: this.viewport.toJSON(),
       canvas: this.canvas.toJSON(),
+      elements: this.elements.toJSON(),
       selection: this.selection.toJSON(),
       version: this.version,
       viewportVersion: this.viewportVersion,
+      elementsVersion: this.elementsVersion,
       selectionVersion: this.selectionVersion,
     }
   }
@@ -192,6 +300,16 @@ export class Store implements ModelerStore {
     const store = new Store(model)
     return store.apply(command)
   }
+
+  private normalizeElement(element: ModelerElement): ModelerElement {
+    const definition = this.elementRegistry.get(element.type)
+    const normalized = definition?.normalize?.(cloneElement(element)) ?? cloneElement(element)
+    return {
+      ...normalized,
+      data: normalized.data ?? {},
+      style: normalized.style ?? {},
+    }
+  }
 }
 
 export function createModelerStore(input: ModelerModel | ModelerModelInput = {}): Store {
@@ -201,3 +319,11 @@ export function createModelerStore(input: ModelerModel | ModelerModelInput = {})
 export const createModelerModel = Store.create
 export const normalizeModelerModel = Store.normalize
 export const applyModelerCommand = Store.applyCommand
+
+function cloneElement(element: ModelerElement): ModelerElement {
+  return {
+    ...element,
+    data: element.data ? { ...element.data } : {},
+    style: element.style ? { ...element.style } : {},
+  }
+}

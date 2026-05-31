@@ -8,6 +8,7 @@ import {
   Root,
   applyModelerCommand,
   appendGridSchema,
+  createBasicRectElement,
   createGridRenderPlan,
   createModelerController,
   createModelerModel,
@@ -35,10 +36,24 @@ describe('nova modeler minimal kernel', () => {
       selectionVersion: 12,
     })
     expect(normalizeModelerModel({ id: 'bare' })).toMatchObject({
+      elements: [],
       version: 0,
       viewportVersion: 0,
+      elementsVersion: 0,
       selectionVersion: 0,
     })
+    const withRect = applyModelerCommand(selected, {
+      type: 'element.add',
+      element: createBasicRectElement({ id: 'rect-1', x: 100, y: 120 }),
+    })
+    expect(withRect.elements).toHaveLength(1)
+    expect(withRect.elementsVersion).toBe(1)
+    const resized = applyModelerCommand(withRect, {
+      type: 'element.resize',
+      id: 'rect-1',
+      bounds: { width: 10, height: 8 },
+    })
+    expect(resized.elements[0]).toMatchObject({ width: 24, height: 24 })
   })
 
   it('computes layout, hit-test and viewport clamp', () => {
@@ -53,6 +68,20 @@ describe('nova modeler minimal kernel', () => {
     expect(controller.fitView().scale).toBeGreaterThan(0)
     expect(boundsContainsPoint({ x: 0, y: 0, width: 10, height: 10 }, 5, 5)).toBe(true)
     expect(boundsContainsPoint({ x: 0, y: 0, width: 10, height: 10 }, 15, 5)).toBe(false)
+  })
+
+  it('hit-tests basic rect body, resize handles and ports', () => {
+    const model = createModelerModel({
+      elements: [createBasicRectElement({ id: 'rect-1', x: 100, y: 100, width: 160, height: 96 })],
+      selection: ['rect-1'],
+    })
+    const controller = createModelerController({ model })
+    controller.mount(createControllerHost(640, 420))
+
+    expect(controller.hitTest({ x: 140, y: 130 })).toEqual({ type: 'element', id: 'rect-1' })
+    expect(controller.hitTest({ x: 100, y: 100 })).toEqual({ type: 'resize-handle', elementId: 'rect-1', handle: 'nw' })
+    expect(controller.hitTest({ x: 180, y: 95 })).toEqual({ type: 'port', elementId: 'rect-1', portId: 'top' })
+    expect(controller.hitTest({ x: 265, y: 148 })).toEqual({ type: 'port', elementId: 'rect-1', portId: 'right' })
   })
 
   it('keeps controller store as reactive source of truth', () => {
@@ -149,6 +178,37 @@ describe('nova modeler minimal kernel', () => {
     expect(root.getApi().getViewport().scale).toBe(1)
     expect(root.getApi().setViewport({ scale: 1.4 }).viewport.scale).toBe(1.4)
     expect(root.getApi().fitView().scale).toBeGreaterThan(0)
+  })
+
+  it('registers and renders basic rect elements', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'elements-root',
+      props: {
+        model: createModelerModel({
+          elements: [createBasicRectElement({ id: 'rect-1', x: 100, y: 100 })],
+          selection: ['rect-1'],
+        }),
+        width: 640,
+        height: 420,
+      },
+    })
+    app.raph.run()
+    const interaction = app.surfaces.find(item => item.name === 'elements-root:interaction')
+    expect(interaction?.children.some(child => (child as { componentId?: string }).componentId === 'rect-1:view')).toBe(true)
+    expect(interaction?.children.some(child => (child as { componentId?: string }).componentId === 'rect-1:resize:nw')).toBe(true)
+    expect(interaction?.children.some(child => (child as { componentId?: string }).componentId === 'rect-1:port:top')).toBe(true)
+    app.destroy()
   })
 
   it('creates modeler layer surfaces and cleans them up with root', () => {

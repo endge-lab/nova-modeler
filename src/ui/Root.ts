@@ -106,6 +106,9 @@ export class Root<E extends EventList = Record<string, any>>
   @Prop.object<ModelerController>()
   declare controller?: ModelerController
 
+  @Prop.object()
+  declare elementRegistry?: RootResolvedProps['elementRegistry']
+
   @Prop.object<ModelerPluginRuntime>()
   declare pluginRuntime?: ModelerPluginRuntime
 
@@ -160,6 +163,7 @@ export class Root<E extends EventList = Record<string, any>>
       height: props.height ?? 720,
       options: normalizeModelerOptions(props.options),
       controller: props.controller,
+      elementRegistry: props.elementRegistry,
       pluginRuntime: props.pluginRuntime,
       features: {
         marqueeSelection: props.features?.marqueeSelection ?? true,
@@ -474,6 +478,7 @@ export class Root<E extends EventList = Record<string, any>>
     return this.props.controller ?? createModelerController({
       model: this.props.model,
       options: this.props.options,
+      elementRegistry: this.props.elementRegistry,
       pluginRuntime: this.props.pluginRuntime,
       plugins: this.props.plugins,
       onModelChange: this.props.onModelChange,
@@ -499,6 +504,7 @@ export class Root<E extends EventList = Record<string, any>>
     this.controllerInstance.configure({
       model: Object.prototype.hasOwnProperty.call(patch, 'model') ? this.props.model : undefined,
       options: this.props.options,
+      elementRegistry: this.props.elementRegistry,
       pluginRuntime: hasPluginPatch ? this.props.pluginRuntime : undefined,
       plugins: hasPluginPatch ? this.props.plugins : undefined,
       onModelChange: this.props.onModelChange,
