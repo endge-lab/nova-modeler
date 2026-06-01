@@ -45,7 +45,7 @@ export type BasicRectViewDescriptor = NovaComponentDescriptor<
   version: '0.23.0',
   dirtyPolicy: {
     update: ['element', 'viewport'],
-    render: ['element', 'selected'],
+    render: ['element', 'viewport', 'selected'],
   },
 })
 export class BasicRectView<E extends EventList = Record<string, any>>

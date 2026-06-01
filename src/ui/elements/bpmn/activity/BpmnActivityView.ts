@@ -78,7 +78,7 @@ export function resolveBpmnActivityNameLayout(input: {
   version: '0.1.0',
   dirtyPolicy: {
     update: ['element', 'viewport'],
-    render: ['element', 'selected', 'hideName'],
+    render: ['element', 'viewport', 'selected', 'hideName'],
   },
 })
 export class BpmnActivityView<E extends EventList = Record<string, any>>
@@ -217,47 +217,49 @@ export class BpmnActivityView<E extends EventList = Record<string, any>>
   }
 
   private appendSubProcessMarkers(schema: NovaSchema, subProcessType: string): void {
-    const markerY = this.height / 2 - 16
+    const markerSize = Math.max(1, Math.min(ACTIVITY_MARKER_SIZE, this.height * 0.14))
+    const markerY = this.height / 2 - markerSize - this.height * 0.02
     if (subProcessType === 'adHoc') {
-      this.appendAdHocMarker(schema, -ACTIVITY_MARKER_SIZE - 4, markerY)
-      this.appendCollapsedMarker(schema, 4, markerY)
+      this.appendAdHocMarker(schema, -markerSize - markerSize * 0.3, markerY, markerSize)
+      this.appendCollapsedMarker(schema, markerSize * 0.3, markerY, markerSize)
       return
     }
-    this.appendCollapsedMarker(schema, -ACTIVITY_MARKER_SIZE / 2, markerY)
+    this.appendCollapsedMarker(schema, -markerSize / 2, markerY, markerSize)
   }
 
-  private appendCollapsedMarker(schema: NovaSchema, x: number, y: number): void {
+  private appendCollapsedMarker(schema: NovaSchema, x: number, y: number, size: number): void {
     const color = this.resolveThemeColor('bpmnTaskMarkerStroke')
-    const centerX = x + ACTIVITY_MARKER_SIZE / 2
-    const centerY = y + ACTIVITY_MARKER_SIZE / 2
+    const centerX = x + size / 2
+    const centerY = y + size / 2
+    const strokeWidth = Math.max(0.5, 1.4 * this.props.viewport.scale)
     schema.push({
       type: 'rect',
       x,
       y,
-      width: ACTIVITY_MARKER_SIZE,
-      height: ACTIVITY_MARKER_SIZE,
+      width: size,
+      height: size,
       styles: {
         background: 'rgba(0,0,0,0)',
-        border: { color, width: 1.4, radius: 2 },
+        border: { color, width: strokeWidth, radius: Math.max(0.5, 2 * this.props.viewport.scale) },
       },
     })
-    schema.push({ type: 'line', x1: centerX - 4, y1: centerY, x2: centerX + 4, y2: centerY, styles: { color, width: 1.4 } })
-    schema.push({ type: 'line', x1: centerX, y1: centerY - 4, x2: centerX, y2: centerY + 4, styles: { color, width: 1.4 } })
+    schema.push({ type: 'line', x1: centerX - size * 0.28, y1: centerY, x2: centerX + size * 0.28, y2: centerY, styles: { color, width: strokeWidth } })
+    schema.push({ type: 'line', x1: centerX, y1: centerY - size * 0.28, x2: centerX, y2: centerY + size * 0.28, styles: { color, width: strokeWidth } })
   }
 
-  private appendAdHocMarker(schema: NovaSchema, x: number, y: number): void {
+  private appendAdHocMarker(schema: NovaSchema, x: number, y: number, size: number): void {
     schema.push({
       type: 'text',
       text: '~',
       x,
-      y: y - 2,
-      width: ACTIVITY_MARKER_SIZE,
-      height: ACTIVITY_MARKER_SIZE,
+      y: y - size * 0.14,
+      width: size,
+      height: size,
       styles: {
         color: this.resolveThemeColor('bpmnTaskMarkerStroke'),
         font: {
           family: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-          size: 18,
+          size: Math.max(1, 18 * this.props.viewport.scale),
           weight: '600',
         },
         align: { horizontal: 'center', vertical: 'middle' },

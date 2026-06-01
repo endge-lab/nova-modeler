@@ -47,7 +47,7 @@ export type BpmnEventViewDescriptor = NovaComponentDescriptor<
   version: '0.25.0',
   dirtyPolicy: {
     update: ['element', 'viewport'],
-    render: ['element', 'selected'],
+    render: ['element', 'viewport', 'selected'],
   },
 })
 export class BpmnEventView<E extends EventList = Record<string, any>>
@@ -134,7 +134,7 @@ export class BpmnEventView<E extends EventList = Record<string, any>>
     const position = data.eventPosition ?? 'start'
     const direction = data.direction ?? (position === 'end' ? 'throw' : 'catch')
     const markerColor = String(this.props.element.style?.markerColor ?? this.resolveThemeColor('bpmnEventStroke', 'elementStroke'))
-    const size = Math.max(12, Math.min(this.width, this.height) * 0.48)
+    const size = Math.max(1, Math.min(this.width, this.height) * 0.48)
     const filled = trigger === 'terminate' || direction === 'throw'
     this.appendMarkerByTrigger(schema, trigger, direction, size, markerColor, filled)
   }
@@ -356,7 +356,7 @@ export class BpmnEventView<E extends EventList = Record<string, any>>
   }
 
   private resolveIntermediateGap(): number {
-    return Math.max(2, this.resolveThemeNumber('bpmnEventIntermediateGap') * this.props.viewport.scale)
+    return Math.max(0.5, this.resolveThemeNumber('bpmnEventIntermediateGap') * this.props.viewport.scale)
   }
 
   private resolveStyleNumber(value: unknown, token: ModelerThemeTokenKey, fallbackToken?: ModelerThemeTokenKey): number {

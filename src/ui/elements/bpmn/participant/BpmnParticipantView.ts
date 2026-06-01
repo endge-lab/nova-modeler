@@ -25,6 +25,7 @@ import {
 } from '@/elements/bpmn/participant/bpmn-participant.factory'
 import type {
   BpmnParticipantElement,
+  BpmnParticipantLayout,
   BpmnParticipantLayoutLane,
 } from '@/elements/bpmn/participant/bpmn-participant.types'
 import type { BpmnTaskNameLayout } from '@/ui/elements/bpmn/task/BpmnTaskView'
@@ -61,6 +62,7 @@ export function resolveBpmnParticipantNameLayout(input: {
   height: number
   partType?: string
   partId?: string
+  scale?: number
 }): BpmnTaskNameLayout {
   const layout = createBpmnParticipantLayout({
     ...input.element,
@@ -73,7 +75,7 @@ export function resolveBpmnParticipantNameLayout(input: {
   const lane = isLane ? layout.lanes.find(item => item.id === input.partId) : undefined
   const rect = lane?.headerRect ?? layout.participantHeaderRect
   const text = lane?.name ?? input.element.data?.name ?? 'Participant'
-  return createLabelLayout(text, rect, input.element.data?.orientation)
+  return createLabelLayout(text, rect, input.element.data?.orientation, input.scale)
 }
 
 @NovaComponent({
@@ -82,7 +84,7 @@ export function resolveBpmnParticipantNameLayout(input: {
   version: '0.1.0',
   dirtyPolicy: {
     update: ['element', 'viewport'],
-    render: ['element', 'selected', 'hideName'],
+    render: ['element', 'viewport', 'selected', 'hideName'],
   },
 })
 export class BpmnParticipantView<E extends EventList = Record<string, any>>
@@ -140,17 +142,17 @@ export class BpmnParticipantView<E extends EventList = Record<string, any>>
     const borderColor = selected
       ? String(style.selectedStroke ?? this.resolveThemeColor('elementSelectedStroke'))
       : String(style.stroke ?? this.resolveThemeColor('elementStroke'))
-    const strokeWidth = this.resolveStyleNumber(style.strokeWidth, 'elementStrokeWidth')
-    const layout = createBpmnParticipantLayout(element)
+    const strokeWidth = this.resolveStyleNumber(style.strokeWidth, 'elementStrokeWidth') * this.props.viewport.scale
+    const layout = this.createLocalLayout()
     const schema: NovaSchema = [{
       type: 'rect',
-      ...this.toLocalRect(layout.bounds),
+      ...layout.bounds,
       styles: {
         background: String(style.fill ?? this.resolveThemeColor('elementFill')),
         border: {
           color: borderColor,
           width: strokeWidth,
-          radius: Number(style.radius ?? 4),
+          radius: Number(style.radius ?? 4) * this.props.viewport.scale,
         },
         opacity: this.resolveStyleNumber(style.opacity, 'elementOpacity'),
       },
@@ -167,45 +169,50 @@ export class BpmnParticipantView<E extends EventList = Record<string, any>>
     const color = this.resolveThemeColor('elementStroke')
     schema.push({
       type: 'rect',
-      ...this.toLocalRect(participantHeader),
+      ...participantHeader,
       styles: { background: headerFill, border: { color, width: 0, radius: 0 } },
     })
     schema.push({
       type: 'rect',
-      ...this.toLocalRect(laneHeaderArea),
+      ...laneHeaderArea,
       styles: { background: headerFill, border: { color, width: 0, radius: 0 } },
     })
-    const participant = this.toLocalRect(participantHeader)
-    const laneHeader = this.toLocalRect(laneHeaderArea)
+    const participant = participantHeader
+    const laneHeader = laneHeaderArea
     if (normalizeBpmnParticipantOrientation(this.props.element.data?.orientation) === 'vertical') {
-      schema.push({ type: 'line', x1: participant.x, y1: participant.y + participant.height, x2: participant.x + participant.width, y2: participant.y + participant.height, styles: { color, width: 1 } })
-      schema.push({ type: 'line', x1: laneHeader.x, y1: laneHeader.y + laneHeader.height, x2: laneHeader.x + laneHeader.width, y2: laneHeader.y + laneHeader.height, styles: { color, width: 1 } })
+      schema.push({ type: 'line', x1: participant.x, y1: participant.y + participant.height, x2: participant.x + participant.width, y2: participant.y + participant.height, styles: { color, width: this.props.viewport.scale } })
+      schema.push({ type: 'line', x1: laneHeader.x, y1: laneHeader.y + laneHeader.height, x2: laneHeader.x + laneHeader.width, y2: laneHeader.y + laneHeader.height, styles: { color, width: this.props.viewport.scale } })
       return
     }
-    schema.push({ type: 'line', x1: participant.x + participant.width, y1: participant.y, x2: participant.x + participant.width, y2: participant.y + participant.height, styles: { color, width: 1 } })
-    schema.push({ type: 'line', x1: laneHeader.x + laneHeader.width, y1: laneHeader.y, x2: laneHeader.x + laneHeader.width, y2: laneHeader.y + laneHeader.height, styles: { color, width: 1 } })
+    schema.push({ type: 'line', x1: participant.x + participant.width, y1: participant.y, x2: participant.x + participant.width, y2: participant.y + participant.height, styles: { color, width: this.props.viewport.scale } })
+    schema.push({ type: 'line', x1: laneHeader.x + laneHeader.width, y1: laneHeader.y, x2: laneHeader.x + laneHeader.width, y2: laneHeader.y + laneHeader.height, styles: { color, width: this.props.viewport.scale } })
   }
 
   private appendLaneLines(schema: NovaSchema, lanes: Array<BpmnParticipantLayoutLane>): void {
     const color = this.resolveThemeColor('elementStroke')
     const orientation = normalizeBpmnParticipantOrientation(this.props.element.data?.orientation)
     lanes.slice(1).forEach(lane => {
-      const rect = this.toLocalRect(lane.rect)
+      const rect = lane.rect
       if (orientation === 'vertical') {
-        schema.push({ type: 'line', x1: rect.x, y1: rect.y, x2: rect.x, y2: rect.y + rect.height, styles: { color, width: 1 } })
+        schema.push({ type: 'line', x1: rect.x, y1: rect.y, x2: rect.x, y2: rect.y + rect.height, styles: { color, width: this.props.viewport.scale } })
       } else {
-        schema.push({ type: 'line', x1: rect.x, y1: rect.y, x2: rect.x + rect.width, y2: rect.y, styles: { color, width: 1 } })
+        schema.push({ type: 'line', x1: rect.x, y1: rect.y, x2: rect.x + rect.width, y2: rect.y, styles: { color, width: this.props.viewport.scale } })
       }
     })
   }
 
   private appendLabels(schema: NovaSchema): void {
     const element = this.props.element
-    const layout = createBpmnParticipantLayout(element)
-    const participant = createRenderLabelLayout(element.data?.name ?? 'Participant', this.toLocalRect(layout.participantHeaderRect), element.data?.orientation)
+    const layout = this.createLocalLayout()
+    const participant = createRenderLabelLayout(
+      element.data?.name ?? 'Participant',
+      layout.participantHeaderRect,
+      element.data?.orientation,
+      this.props.viewport.scale,
+    )
     this.appendLabel(schema, participant)
     layout.lanes.forEach(lane => {
-      const laneLayout = createRenderLabelLayout(lane.name, this.toLocalRect(lane.headerRect), element.data?.orientation)
+      const laneLayout = createRenderLabelLayout(lane.name, lane.headerRect, element.data?.orientation, this.props.viewport.scale)
       this.appendLabel(schema, laneLayout)
     })
   }
@@ -236,13 +243,30 @@ export class BpmnParticipantView<E extends EventList = Record<string, any>>
     }
   }
 
+  private createLocalLayout(): BpmnParticipantLayout {
+    const world = createBpmnParticipantLayout(this.props.element)
+    return {
+      bounds: this.toLocalRect(world.bounds),
+      participantHeaderRect: this.toLocalRect(world.participantHeaderRect),
+      laneHeaderAreaRect: this.toLocalRect(world.laneHeaderAreaRect),
+      contentRect: this.toLocalRect(world.contentRect),
+      lanes: world.lanes.map(lane => ({
+        ...lane,
+        rect: this.toLocalRect(lane.rect),
+        headerRect: this.toLocalRect(lane.headerRect),
+        contentRect: this.toLocalRect(lane.contentRect),
+      })),
+    }
+  }
+
   private toLocalRect(rect: ModelerRect): ModelerRect {
     const element = this.props.element
+    const scale = this.props.viewport.scale
     return {
-      x: rect.x - element.x - element.width / 2,
-      y: rect.y - element.y - element.height / 2,
-      width: rect.width,
-      height: rect.height,
+      x: (rect.x - element.x - element.width / 2) * scale,
+      y: (rect.y - element.y - element.height / 2) * scale,
+      width: rect.width * scale,
+      height: rect.height * scale,
     }
   }
 
@@ -268,23 +292,28 @@ function createLabelLayout(
   text: string,
   rect: ModelerRect,
   orientation: unknown,
+  scale = 1,
 ): BpmnTaskNameLayout {
   const normalizedText = typeof text === 'string' && text.trim().length > 0 ? text : 'Lane'
   const isHorizontal = normalizeBpmnParticipantOrientation(orientation) === 'horizontal'
+  const fontSize = Math.max(1, PARTICIPANT_LABEL_FONT_SIZE * scale)
+  const lineHeight = Math.max(1, PARTICIPANT_LABEL_LINE_HEIGHT * scale)
+  const insetX = 4 * scale
+  const verticalInset = 8 * scale
   const textRect = isHorizontal
     ? {
-        x: rect.x + 4,
-        y: rect.y + Math.max(0, (rect.height - PARTICIPANT_LABEL_LINE_HEIGHT) / 2),
-        width: Math.max(1, rect.width - 8),
-        height: PARTICIPANT_LABEL_LINE_HEIGHT,
+        x: rect.x + insetX,
+        y: rect.y + Math.max(0, (rect.height - lineHeight) / 2),
+        width: Math.max(1, rect.width - insetX * 2),
+        height: lineHeight,
       }
     : {
-        x: rect.x + 8,
-        y: rect.y + Math.max(0, (rect.height - PARTICIPANT_LABEL_LINE_HEIGHT) / 2),
-        width: Math.max(1, rect.width - 16),
-        height: PARTICIPANT_LABEL_LINE_HEIGHT,
+        x: rect.x + verticalInset,
+        y: rect.y + Math.max(0, (rect.height - lineHeight) / 2),
+        width: Math.max(1, rect.width - verticalInset * 2),
+        height: lineHeight,
       }
-  const textWidth = measureParticipantLabelText(normalizedText)
+  const textWidth = measureParticipantLabelText(normalizedText, fontSize)
   return {
     text: normalizedText,
     rect: textRect,
@@ -294,13 +323,13 @@ function createLabelLayout(
       y: textRect.y,
       width: textWidth,
       widthLimit: textRect.width,
-      height: PARTICIPANT_LABEL_LINE_HEIGHT,
+      height: lineHeight,
     }],
     clipped: textWidth > textRect.width,
     fontFamily: PARTICIPANT_LABEL_FONT_FAMILY,
-    fontSize: PARTICIPANT_LABEL_FONT_SIZE,
+    fontSize,
     fontWeight: PARTICIPANT_LABEL_FONT_WEIGHT,
-    lineHeight: PARTICIPANT_LABEL_LINE_HEIGHT,
+    lineHeight,
   }
 }
 
@@ -308,45 +337,49 @@ function createRenderLabelLayout(
   text: string,
   rect: ModelerRect,
   orientation: unknown,
+  scale = 1,
 ): BpmnTaskNameLayout {
   if (normalizeBpmnParticipantOrientation(orientation) !== 'horizontal') {
-    return createLabelLayout(text, rect, orientation)
+    return createLabelLayout(text, rect, orientation, scale)
   }
   const normalizedText = typeof text === 'string' && text.trim().length > 0 ? text : 'Lane'
   const characters = [...normalizedText.replace(/\s+/g, ' ')]
-  const maxLines = Math.max(1, Math.floor((rect.height - 8) / PARTICIPANT_LABEL_LINE_HEIGHT))
+  const fontSize = Math.max(1, PARTICIPANT_LABEL_FONT_SIZE * scale)
+  const lineHeight = Math.max(1, PARTICIPANT_LABEL_LINE_HEIGHT * scale)
+  const inset = 4 * scale
+  const maxLines = Math.max(1, Math.floor((rect.height - inset * 2) / lineHeight))
   const visible = characters.slice(0, maxLines)
   const clipped = characters.length > maxLines
   if (clipped && visible.length > 0) visible[visible.length - 1] = '.'
-  const contentHeight = visible.length * PARTICIPANT_LABEL_LINE_HEIGHT
-  const startY = rect.y + Math.max(4, (rect.height - contentHeight) / 2)
+  const contentHeight = visible.length * lineHeight
+  const startY = rect.y + Math.max(inset, (rect.height - contentHeight) / 2)
   return {
     text: normalizedText,
     rect,
     lines: visible.map((character, index) => ({
       text: character,
-      x: rect.x + 2,
-      y: startY + index * PARTICIPANT_LABEL_LINE_HEIGHT,
-      width: PARTICIPANT_LABEL_FONT_SIZE,
-      widthLimit: Math.max(1, rect.width - 4),
-      height: PARTICIPANT_LABEL_LINE_HEIGHT,
+      x: rect.x + 2 * scale,
+      y: startY + index * lineHeight,
+      width: fontSize,
+      widthLimit: Math.max(1, rect.width - 4 * scale),
+      height: lineHeight,
     })),
     clipped,
     fontFamily: PARTICIPANT_LABEL_FONT_FAMILY,
-    fontSize: PARTICIPANT_LABEL_FONT_SIZE,
+    fontSize,
     fontWeight: PARTICIPANT_LABEL_FONT_WEIGHT,
-    lineHeight: PARTICIPANT_LABEL_LINE_HEIGHT,
+    lineHeight,
   }
 }
 
 let participantLabelMeasureCanvas: HTMLCanvasElement | null = null
 
-function measureParticipantLabelText(text: string): number {
-  if (typeof document === 'undefined') return Math.ceil(text.length * PARTICIPANT_LABEL_FONT_SIZE * 0.6)
+function measureParticipantLabelText(text: string, fontSize = PARTICIPANT_LABEL_FONT_SIZE): number {
+  if (typeof document === 'undefined') return Math.ceil(text.length * fontSize * 0.6)
   participantLabelMeasureCanvas ??= document.createElement('canvas')
   const context = participantLabelMeasureCanvas.getContext('2d')
-  if (!context) return Math.ceil(text.length * PARTICIPANT_LABEL_FONT_SIZE * 0.6)
-  context.font = `normal ${PARTICIPANT_LABEL_FONT_WEIGHT} ${PARTICIPANT_LABEL_FONT_SIZE}px ${PARTICIPANT_LABEL_FONT_FAMILY}`
+  if (!context) return Math.ceil(text.length * fontSize * 0.6)
+  context.font = `normal ${PARTICIPANT_LABEL_FONT_WEIGHT} ${fontSize}px ${PARTICIPANT_LABEL_FONT_FAMILY}`
   return Math.ceil(context.measureText(text).width)
 }
 

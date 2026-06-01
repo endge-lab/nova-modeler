@@ -50,7 +50,7 @@ const DEFAULT_GATEWAY_DATA: BpmnGatewayElementData = {
   version: '0.1.0',
   dirtyPolicy: {
     update: ['element', 'viewport'],
-    render: ['element', 'selected'],
+    render: ['element', 'viewport', 'selected'],
   },
 })
 export class BpmnGatewayView<E extends EventList = Record<string, any>>

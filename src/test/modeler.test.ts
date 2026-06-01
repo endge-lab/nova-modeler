@@ -1461,6 +1461,96 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
+  it('renders BPMN participant geometry in viewport scale', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const participant = createBpmnParticipantElement({
+      id: 'pool-scaled',
+      x: 80,
+      y: 80,
+      width: 520,
+      height: 260,
+      lanes: [
+        { id: 'lane-a', name: 'A', size: 130 },
+        { id: 'lane-b', name: 'B', size: 130 },
+      ],
+    })
+    const app = Nova.createApp({
+      target: document.createElement('canvas'),
+      size: { width: 800, height: 520, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'swimlane-scaled-root',
+      props: {
+        model: createModelerModel({
+          viewport: { x: 0, y: 0, scale: 0.1 },
+          elements: [participant],
+        }),
+        width: 800,
+        height: 520,
+      },
+    })
+    app.raph.run()
+    app.raph.run()
+
+    const interaction = app.surfaces.find(item => item.name === 'swimlane-scaled-root:interaction')
+    const schemaItems = interaction?.compileRenderFrame().items.map(item => item.schemaItem).filter(Boolean) ?? []
+    expect(schemaItems.some(item => item.type === 'rect' && item.width === 52 && item.height === 26)).toBe(true)
+    expect(schemaItems.some(item => item.type === 'rect' && item.width === 520 && item.height === 260)).toBe(false)
+    app.destroy()
+  })
+
+  it('updates BPMN participant geometry when viewport scale changes', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const participant = createBpmnParticipantElement({
+      id: 'pool-dynamic-scale',
+      x: 80,
+      y: 80,
+      width: 520,
+      height: 260,
+      lanes: [
+        { id: 'lane-a', name: 'A', size: 130 },
+        { id: 'lane-b', name: 'B', size: 130 },
+      ],
+    })
+    const app = Nova.createApp({
+      target: document.createElement('canvas'),
+      size: { width: 800, height: 520, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    const root = app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'swimlane-dynamic-scale-root',
+      props: {
+        model: createModelerModel({
+          canvas: { x: -1000, y: -1000, width: 4000, height: 3000 },
+          viewport: { x: 0, y: 0, scale: 1 },
+          elements: [participant],
+        }),
+        width: 800,
+        height: 520,
+      },
+    }) as Root
+    app.raph.run()
+
+    root.getApi().setViewport({ scale: 0.1 })
+    app.raph.run()
+    app.raph.run()
+
+    const interaction = app.surfaces.find(item => item.name === 'swimlane-dynamic-scale-root:interaction')
+    const schemaItems = interaction?.compileRenderFrame().items.map(item => item.schemaItem).filter(Boolean) ?? []
+    expect(schemaItems.some(item => item.type === 'rect' && item.width === 52 && item.height === 26)).toBe(true)
+    expect(schemaItems.some(item => item.type === 'rect' && item.width === 520 && item.height === 260)).toBe(false)
+    app.destroy()
+  })
+
   it('switches BPMN data object and data store through one variant provider', () => {
     const dataObject = createBpmnDataObjectElement({
       id: 'data-1',

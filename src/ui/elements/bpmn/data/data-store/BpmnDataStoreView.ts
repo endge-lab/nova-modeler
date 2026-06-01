@@ -50,7 +50,7 @@ export type BpmnDataStoreViewDescriptor = NovaComponentDescriptor<
   version: '0.1.0',
   dirtyPolicy: {
     update: ['element', 'viewport'],
-    render: ['element', 'selected', 'hideName'],
+    render: ['element', 'viewport', 'selected', 'hideName'],
   },
 })
 export class BpmnDataStoreView<E extends EventList = Record<string, any>>
@@ -197,10 +197,10 @@ export interface BpmnDataStoreIconLayout {
 }
 
 export function resolveBpmnDataStoreIconLayout(width: number, height: number): BpmnDataStoreIconLayout {
-  const size = Math.max(34, Math.min(44, Math.min(width * 0.48, height * 0.4)))
+  const size = Math.max(1, Math.min(44, Math.min(width * 0.48, height * 0.4)))
   return {
     x: -size / 2,
-    y: -height / 2 + 4,
+    y: -height / 2 + Math.max(0, height * 0.04),
     width: size,
     height: size,
   }
@@ -212,16 +212,17 @@ export function resolveBpmnDataStoreNameLayout(input: {
   height: number
 }): BpmnTaskNameLayout {
   const icon = resolveBpmnDataStoreIconLayout(input.width, input.height)
-  const labelTop = icon.y + icon.height + 6
-  const labelHeight = Math.max(28, input.height / 2 - labelTop - 2)
+  const labelTop = icon.y + icon.height + input.height * 0.06
+  const labelHeight = Math.max(1, input.height / 2 - labelTop - input.height * 0.02)
+  const horizontalInset = input.width * 0.067
   const labelRect = {
-    x: -input.width / 2 + 8,
+    x: -input.width / 2 + horizontalInset,
     y: labelTop,
-    width: Math.max(1, input.width - 16),
+    width: Math.max(1, input.width - horizontalInset * 2),
     height: labelHeight,
   }
-  const virtualHeight = labelHeight + 28
-  const virtualWidth = input.width + 8
+  const virtualHeight = labelHeight + input.height * 0.29
+  const virtualWidth = input.width + input.width * 0.067
   const layout = resolveBpmnTaskNameLayout({
     name: input.name ?? 'Data store',
     width: virtualWidth,

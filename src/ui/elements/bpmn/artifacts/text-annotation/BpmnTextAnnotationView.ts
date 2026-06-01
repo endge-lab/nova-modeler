@@ -45,7 +45,7 @@ export type BpmnTextAnnotationViewDescriptor = NovaComponentDescriptor<
   version: '0.1.0',
   dirtyPolicy: {
     update: ['element', 'viewport'],
-    render: ['element', 'selected'],
+    render: ['element', 'viewport', 'selected'],
   },
 })
 export class BpmnTextAnnotationView<E extends EventList = Record<string, any>>
@@ -105,7 +105,8 @@ export class BpmnTextAnnotationView<E extends EventList = Record<string, any>>
     const opacity = this.resolveStyleNumber(style.opacity, 'elementOpacity')
     const side = normalizeBpmnTextAnnotationBracketSide(this.props.element.data?.bracketSide)
     const x = side === 'left' ? -this.width / 2 : this.width / 2
-    const innerX = side === 'left' ? x + 14 : x - 14
+    const bracketWidth = Math.min(14, Math.max(1, this.width * 0.0875))
+    const innerX = side === 'left' ? x + bracketWidth : x - bracketWidth
     const top = -this.height / 2
     const bottom = this.height / 2
     schema.push({ type: 'line', x1: x, y1: top, x2: x, y2: bottom, styles: { color: stroke, width: strokeWidth, opacity } })
@@ -117,7 +118,7 @@ export class BpmnTextAnnotationView<E extends EventList = Record<string, any>>
 
   private appendText(schema: NovaSchema): void {
     const side = normalizeBpmnTextAnnotationBracketSide(this.props.element.data?.bracketSide)
-    const reserve = 20
+    const reserve = Math.min(20, Math.max(1, this.width * 0.125))
     const layout = resolveBpmnTaskNameLayout({
       name: this.props.element.data?.text ?? 'Text annotation',
       width: Math.max(1, this.width - reserve),

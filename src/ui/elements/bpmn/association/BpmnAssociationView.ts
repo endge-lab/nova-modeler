@@ -51,7 +51,7 @@ export type BpmnAssociationViewDescriptor = NovaComponentDescriptor<
   version: '0.1.0',
   dirtyPolicy: {
     update: ['viewport'],
-    render: ['element', 'path', 'selected', 'preview'],
+    render: ['element', 'viewport', 'path', 'selected', 'preview'],
   },
 })
 export class BpmnAssociationView<E extends EventList = Record<string, any>>
@@ -142,7 +142,7 @@ export class BpmnAssociationView<E extends EventList = Record<string, any>>
     opacity: number,
   ): void {
     const angle = Math.atan2(point.y - previous.y, point.x - previous.x)
-    const length = 11
+    const length = 11 * this.props.viewport.scale
     const spread = Math.PI / 7
     schema.push({
       type: 'line',
@@ -209,7 +209,8 @@ export class BpmnAssociationView<E extends EventList = Record<string, any>>
 
   private resolveStrokeWidth(): number {
     const width = Number(this.props.element.style?.strokeWidth ?? this.resolveThemeNumber('bpmnFlowStrokeWidth'))
-    return Number.isFinite(width) && width > 0 ? width : this.resolveThemeNumber('bpmnFlowStrokeWidth')
+    const normalized = Number.isFinite(width) && width > 0 ? width : this.resolveThemeNumber('bpmnFlowStrokeWidth')
+    return normalized * this.props.viewport.scale
   }
 
   private resolveThemeColor(token: ModelerThemeTokenKey): string {

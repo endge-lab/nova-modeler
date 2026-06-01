@@ -164,7 +164,7 @@ export function resolveBpmnTaskNameLayout(input: {
   version: '0.1.0',
   dirtyPolicy: {
     update: ['element', 'viewport'],
-    render: ['element', 'selected', 'hideName'],
+    render: ['element', 'viewport', 'selected', 'hideName'],
   },
 })
 export class BpmnTaskView<E extends EventList = Record<string, any>>
@@ -249,12 +249,14 @@ export class BpmnTaskView<E extends EventList = Record<string, any>>
     const data = this.resolveTaskData()
     const icon = resolveBpmnTaskTypeIcon(data.taskType)
     if (!icon) return
-    const size = Math.max(14, Math.min(22, Math.min(this.width, this.height) * 0.24))
+    const size = Math.max(1, Math.min(22, Math.min(this.width, this.height) * 0.24))
+    const insetX = this.width * 0.083
+    const insetY = this.height * 0.112
     schema.push({
       type: 'icon',
       icon,
-      x: -this.width / 2 + 10,
-      y: -this.height / 2 + 9,
+      x: -this.width / 2 + insetX,
+      y: -this.height / 2 + insetY,
       width: size,
       height: size,
       styles: { opacity: 0.95 },
@@ -403,11 +405,11 @@ export class BpmnTaskView<E extends EventList = Record<string, any>>
 }
 
 function resolveBpmnTaskNameFontSize(height: number): number {
-  return Math.max(11, Math.min(14, height * 0.16))
+  return Math.max(1, Math.min(14, height * 0.16))
 }
 
 function resolveBpmnTaskNameLineHeight(height: number): number {
-  return Math.max(14, Math.min(20, height * 0.2))
+  return Math.max(1, Math.min(20, height * 0.2))
 }
 
 function buildTaskNameSourceLines(

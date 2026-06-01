@@ -438,6 +438,7 @@ export class Root<E extends EventList = Record<string, any>>
       return resolveBpmnFlowLabelLayout({
         name: flow.data?.name,
         path,
+        scale: this.controllerInstance.getViewport().scale,
       })
     }
     const viewport = this.controllerInstance.getViewport()
@@ -452,6 +453,7 @@ export class Root<E extends EventList = Record<string, any>>
         height,
         partType: part?.partType,
         partId: part?.partId,
+        scale: viewport.scale,
       })
     } else if (element.type === BPMN_DATA_STORE_TYPE) {
       layout = resolveBpmnDataStoreNameLayout({

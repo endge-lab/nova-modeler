@@ -45,7 +45,7 @@ export type BpmnDataObjectViewDescriptor = NovaComponentDescriptor<
   version: '0.1.0',
   dirtyPolicy: {
     update: ['element', 'viewport'],
-    render: ['element', 'selected'],
+    render: ['element', 'viewport', 'selected'],
   },
 })
 export class BpmnDataObjectView<E extends EventList = Record<string, any>>
@@ -103,7 +103,7 @@ export class BpmnDataObjectView<E extends EventList = Record<string, any>>
     const fill = String(style.fill ?? this.resolveThemeColor('elementFill'))
     const strokeWidth = this.resolveStyleNumber(style.strokeWidth, 'elementStrokeWidth')
     const opacity = this.resolveStyleNumber(style.opacity, 'elementOpacity')
-    const fold = Math.max(12, Math.min(20, this.width * 0.22))
+    const fold = Math.max(1, Math.min(20, this.width * 0.22))
     const left = -this.width / 2
     const top = -this.height / 2
     const right = this.width / 2
@@ -146,16 +146,20 @@ export class BpmnDataObjectView<E extends EventList = Record<string, any>>
   private appendDataDirectionMarker(schema: NovaSchema, color: string, width: number, opacity: number): void {
     const type = normalizeBpmnDataObjectType(this.props.element.data?.dataObjectType)
     if (type === 'object') return
-    const y = -this.height / 2 + 22
+    const left = -this.width / 2
+    const y = -this.height / 2 + this.height * 0.183
+    const start = left + this.width * 0.135
+    const end = left + this.width * 0.323
+    const arrow = Math.max(1, this.height * 0.042)
     if (type === 'input') {
-      schema.push({ type: 'line', x1: -this.width / 2 + 13, y1: y, x2: -this.width / 2 + 31, y2: y, styles: { color, width, opacity } })
-      schema.push({ type: 'line', x1: -this.width / 2 + 31, y1: y, x2: -this.width / 2 + 25, y2: y - 5, styles: { color, width, opacity } })
-      schema.push({ type: 'line', x1: -this.width / 2 + 31, y1: y, x2: -this.width / 2 + 25, y2: y + 5, styles: { color, width, opacity } })
+      schema.push({ type: 'line', x1: start, y1: y, x2: end, y2: y, styles: { color, width, opacity } })
+      schema.push({ type: 'line', x1: end, y1: y, x2: end - arrow * 1.2, y2: y - arrow, styles: { color, width, opacity } })
+      schema.push({ type: 'line', x1: end, y1: y, x2: end - arrow * 1.2, y2: y + arrow, styles: { color, width, opacity } })
       return
     }
-    schema.push({ type: 'line', x1: -this.width / 2 + 31, y1: y, x2: -this.width / 2 + 13, y2: y, styles: { color, width, opacity } })
-    schema.push({ type: 'line', x1: -this.width / 2 + 13, y1: y, x2: -this.width / 2 + 19, y2: y - 5, styles: { color, width, opacity } })
-    schema.push({ type: 'line', x1: -this.width / 2 + 13, y1: y, x2: -this.width / 2 + 19, y2: y + 5, styles: { color, width, opacity } })
+    schema.push({ type: 'line', x1: end, y1: y, x2: start, y2: y, styles: { color, width, opacity } })
+    schema.push({ type: 'line', x1: start, y1: y, x2: start + arrow * 1.2, y2: y - arrow, styles: { color, width, opacity } })
+    schema.push({ type: 'line', x1: start, y1: y, x2: start + arrow * 1.2, y2: y + arrow, styles: { color, width, opacity } })
   }
 
   private appendLabel(schema: NovaSchema): void {
@@ -196,16 +200,18 @@ export class BpmnDataObjectView<E extends EventList = Record<string, any>>
 
   private appendCollectionMarker(schema: NovaSchema, color: string, opacity: number): void {
     if (!this.props.element.data?.isCollection) return
-    const x = -8
-    const y = this.height / 2 - 15
+    const markerGap = Math.max(1, this.width * 0.083)
+    const markerHeight = Math.max(1, this.height * 0.083)
+    const x = -markerGap
+    const y = this.height / 2 - this.height * 0.125
     for (let index = 0; index < 3; index += 1) {
       schema.push({
         type: 'line',
-        x1: x + index * 8,
+        x1: x + index * markerGap,
         y1: y,
-        x2: x + index * 8,
-        y2: y + 10,
-        styles: { color, width: 1.6, opacity },
+        x2: x + index * markerGap,
+        y2: y + markerHeight,
+        styles: { color, width: 1.6 * this.props.viewport.scale, opacity },
       })
     }
   }

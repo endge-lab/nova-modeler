@@ -53,7 +53,7 @@ export type BpmnFlowViewDescriptor = NovaComponentDescriptor<
   version: '0.1.0',
   dirtyPolicy: {
     update: ['viewport'],
-    render: ['element', 'path', 'selected', 'preview', 'hideName'],
+    render: ['element', 'viewport', 'path', 'selected', 'preview', 'hideName'],
   },
 })
 export class BpmnFlowView<E extends EventList = Record<string, any>>
@@ -82,12 +82,12 @@ export class BpmnFlowView<E extends EventList = Record<string, any>>
     return {
       element: props.element,
       viewport: props.viewport,
-    path: props.path ?? [],
-    selected: props.selected ?? false,
-    preview: props.preview ?? false,
-    hideName: props.hideName ?? false,
+      path: props.path ?? [],
+      selected: props.selected ?? false,
+      preview: props.preview ?? false,
+      hideName: props.hideName ?? false,
+    }
   }
-}
 
   update(): void {
     super.update()
@@ -134,6 +134,7 @@ export class BpmnFlowView<E extends EventList = Record<string, any>>
     const layout = resolveBpmnFlowLabelLayout({
       name: this.props.element.data?.name,
       path,
+      scale: this.props.viewport.scale,
     })
     if (!layout.text) return
     schema.push({
@@ -218,7 +219,7 @@ export class BpmnFlowView<E extends EventList = Record<string, any>>
   }
 
   private resolveTargetArrowLength(): number {
-    return 12
+    return 12 * this.props.viewport.scale
   }
 
   private appendSourceMarker(schema: NovaSchema, path: Array<ModelerPoint>, color: string, width: number, opacity: number): void {
@@ -237,10 +238,10 @@ export class BpmnFlowView<E extends EventList = Record<string, any>>
 
   private appendConditionalMarker(schema: NovaSchema, start: ModelerPoint, angle: number, color: string, width: number, opacity: number): void {
     const center = {
-      x: start.x + Math.cos(angle) * 10,
-      y: start.y + Math.sin(angle) * 10,
+      x: start.x + Math.cos(angle) * 10 * this.props.viewport.scale,
+      y: start.y + Math.sin(angle) * 10 * this.props.viewport.scale,
     }
-    const size = 6
+    const size = 6 * this.props.viewport.scale
     const normal = angle + Math.PI / 2
     schema.push({
       type: 'polygon',
@@ -261,18 +262,19 @@ export class BpmnFlowView<E extends EventList = Record<string, any>>
 
   private appendDefaultMarker(schema: NovaSchema, start: ModelerPoint, angle: number, color: string, width: number, opacity: number): void {
     const center = {
-      x: start.x + Math.cos(angle) * 10,
-      y: start.y + Math.sin(angle) * 10,
+      x: start.x + Math.cos(angle) * 10 * this.props.viewport.scale,
+      y: start.y + Math.sin(angle) * 10 * this.props.viewport.scale,
     }
     const normal = angle + Math.PI / 2
     const tangent = angle
-    const offset = 6
+    const offset = 6 * this.props.viewport.scale
+    const length = 4 * this.props.viewport.scale
     schema.push({
       type: 'line',
-      x1: center.x - Math.cos(normal) * offset - Math.cos(tangent) * 4,
-      y1: center.y - Math.sin(normal) * offset - Math.sin(tangent) * 4,
-      x2: center.x + Math.cos(normal) * offset + Math.cos(tangent) * 4,
-      y2: center.y + Math.sin(normal) * offset + Math.sin(tangent) * 4,
+      x1: center.x - Math.cos(normal) * offset - Math.cos(tangent) * length,
+      y1: center.y - Math.sin(normal) * offset - Math.sin(tangent) * length,
+      x2: center.x + Math.cos(normal) * offset + Math.cos(tangent) * length,
+      y2: center.y + Math.sin(normal) * offset + Math.sin(tangent) * length,
       styles: { color, width, opacity },
     })
   }
@@ -324,7 +326,8 @@ export class BpmnFlowView<E extends EventList = Record<string, any>>
 
   private resolveStrokeWidth(): number {
     const width = Number(this.props.element.style?.strokeWidth ?? this.resolveThemeNumber('bpmnFlowStrokeWidth'))
-    return Number.isFinite(width) && width > 0 ? width : this.resolveThemeNumber('bpmnFlowStrokeWidth')
+    const normalized = Number.isFinite(width) && width > 0 ? width : this.resolveThemeNumber('bpmnFlowStrokeWidth')
+    return normalized * this.props.viewport.scale
   }
 
   private resolveThemeColor(token: ModelerThemeTokenKey, fallback?: string): string {
@@ -361,18 +364,20 @@ export interface BpmnFlowLabelLayout {
 export function resolveBpmnFlowLabelLayout(input: {
   name?: string
   path: Array<ModelerPoint>
+  scale?: number
 }): BpmnFlowLabelLayout {
   const text = typeof input.name === 'string' ? input.name.trim() : ''
+  const scale = Math.max(0.01, input.scale ?? 1)
   const fontFamily = 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
-  const fontSize = 12
+  const fontSize = Math.max(1, 12 * scale)
   const fontWeight = '500' as const
-  const lineHeight = 16
+  const lineHeight = Math.max(1, 16 * scale)
   const midpoint = resolvePathMidpoint(input.path) ?? { x: 0, y: 0 }
-  const width = Math.min(180, Math.max(56, Math.ceil(text.length * fontSize * 0.58) + 18))
-  const height = 22
+  const width = Math.min(180 * scale, Math.max(8 * scale, Math.ceil(text.length * fontSize * 0.58) + 18 * scale))
+  const height = Math.max(1, 22 * scale)
   const rect = {
     x: midpoint.x - width / 2,
-    y: midpoint.y - height / 2 - 10,
+    y: midpoint.y - height / 2 - 10 * scale,
     width,
     height,
   }
@@ -391,7 +396,7 @@ export function resolveBpmnFlowLabelLayout(input: {
     fontSize,
     fontWeight,
     lineHeight,
-    clipped: text.length * fontSize * 0.58 > width - 8,
+    clipped: text.length * fontSize * 0.58 > width - 8 * scale,
   }
 }
 

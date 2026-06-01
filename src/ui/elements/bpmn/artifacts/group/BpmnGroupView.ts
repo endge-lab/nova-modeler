@@ -45,7 +45,7 @@ export type BpmnGroupViewDescriptor = NovaComponentDescriptor<
   version: '0.1.0',
   dirtyPolicy: {
     update: ['element', 'viewport'],
-    render: ['element', 'selected', 'hideName'],
+    render: ['element', 'viewport', 'selected', 'hideName'],
   },
 })
 export class BpmnGroupView<E extends EventList = Record<string, any>>
@@ -195,7 +195,6 @@ export interface BpmnGroupNameLayout {
 const BPMN_GROUP_NAME_FONT_FAMILY = 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
 const BPMN_GROUP_NAME_FONT_SIZE = 12
 const BPMN_GROUP_NAME_FONT_WEIGHT = '500' as const
-const BPMN_GROUP_NAME_LINE_HEIGHT = 16
 
 export function resolveBpmnGroupNameLayout(input: {
   name?: string
@@ -203,13 +202,17 @@ export function resolveBpmnGroupNameLayout(input: {
   height: number
 }): BpmnGroupNameLayout {
   const text = typeof input.name === 'string' && input.name.trim().length > 0 ? input.name : 'Group'
+  const fontSize = Math.max(1, Math.min(BPMN_GROUP_NAME_FONT_SIZE, input.height * 0.075))
+  const lineHeight = Math.max(1, fontSize * 1.333)
+  const insetX = input.width * 0.042
+  const insetY = input.height * 0.05
   const rect = {
-    x: -input.width / 2 + 10,
-    y: -input.height / 2 + 8,
-    width: Math.max(1, input.width - 20),
-    height: 18,
+    x: -input.width / 2 + insetX,
+    y: -input.height / 2 + insetY,
+    width: Math.max(1, input.width - insetX * 2),
+    height: lineHeight * 1.125,
   }
-  const textWidth = measureBpmnGroupNameText(text)
+  const textWidth = measureBpmnGroupNameText(text, fontSize)
   return {
     text,
     rect,
@@ -219,24 +222,24 @@ export function resolveBpmnGroupNameLayout(input: {
       y: rect.y,
       width: textWidth,
       widthLimit: rect.width,
-      height: BPMN_GROUP_NAME_LINE_HEIGHT,
+      height: lineHeight,
     }],
     clipped: textWidth > rect.width,
     fontFamily: BPMN_GROUP_NAME_FONT_FAMILY,
-    fontSize: BPMN_GROUP_NAME_FONT_SIZE,
+    fontSize,
     fontWeight: BPMN_GROUP_NAME_FONT_WEIGHT,
-    lineHeight: BPMN_GROUP_NAME_LINE_HEIGHT,
+    lineHeight,
   }
 }
 
 let bpmnGroupNameMeasureCanvas: HTMLCanvasElement | null = null
 
-function measureBpmnGroupNameText(text: string): number {
-  if (typeof document === 'undefined') return Math.ceil(text.length * BPMN_GROUP_NAME_FONT_SIZE * 0.6)
+function measureBpmnGroupNameText(text: string, fontSize = BPMN_GROUP_NAME_FONT_SIZE): number {
+  if (typeof document === 'undefined') return Math.ceil(text.length * fontSize * 0.6)
   bpmnGroupNameMeasureCanvas ??= document.createElement('canvas')
   const context = bpmnGroupNameMeasureCanvas.getContext('2d')
-  if (!context) return Math.ceil(text.length * BPMN_GROUP_NAME_FONT_SIZE * 0.6)
-  context.font = `normal ${BPMN_GROUP_NAME_FONT_WEIGHT} ${BPMN_GROUP_NAME_FONT_SIZE}px ${BPMN_GROUP_NAME_FONT_FAMILY}`
+  if (!context) return Math.ceil(text.length * fontSize * 0.6)
+  context.font = `normal ${BPMN_GROUP_NAME_FONT_WEIGHT} ${fontSize}px ${BPMN_GROUP_NAME_FONT_FAMILY}`
   return Math.ceil(context.measureText(text).width)
 }
 
