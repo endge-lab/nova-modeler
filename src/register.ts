@@ -11,6 +11,7 @@ import { ElementVariantMenu } from '@/ui/controls/ElementVariantMenu'
 import { Palette } from '@/ui/controls/Palette'
 import { ZoomControls } from '@/ui/controls/ZoomControls'
 import { Background } from '@/ui/layers/Background'
+import { BpmnRecipeLayerView } from '@/ui/layers/BpmnRecipeLayer'
 import { Grid } from '@/ui/layers/Grid'
 import { MiniMap } from '@/plugins/mini-map/ui/MiniMap'
 import { MarqueeSelection } from '@/plugins/marquee-selection/ui/MarqueeSelection'
@@ -42,6 +43,7 @@ export function registerModeler(registry: NovaSchemaRegistry): void {
   registry.registerDecorated(Root as never, { override: true })
   registry.registerDecorated(Background as never, { override: true })
   registry.registerDecorated(Grid as never, { override: true })
+  registry.registerDecorated(BpmnRecipeLayerView as never, { override: true })
   registry.registerDecorated(BasicRectView as never, { override: true })
   registry.registerDecorated(BpmnAssociationView as never, { override: true })
   registry.registerDecorated(BpmnMessageFlowView as never, { override: true })

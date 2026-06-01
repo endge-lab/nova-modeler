@@ -10,6 +10,10 @@ import { isModelerEdgeElement } from '@/domain/types/index'
 import { BPMN_PARTICIPANT_TYPE } from '@/elements/bpmn/participant/bpmn-participant.factory'
 import { MODELER_PORT_RADIUS } from '@/plugins/elements/elements.constants'
 import type { ElementsRuntime } from '@/plugins/elements/model/ElementsRuntime'
+import {
+  isBpmnRecipeRenderableNode,
+  shouldUseBpmnRecipeRendering,
+} from '@/ui/layers/BpmnRecipeLayer'
 
 export class ElementsLayer {
   private disposeLinksLayer: (() => void) | undefined
@@ -35,10 +39,13 @@ export class ElementsLayer {
   sync(): void {
     const linkSchemas: Array<NovaTemplateChildSchema> = []
     const interactionSchemas: Array<NovaTemplateChildSchema> = []
+    const nodeSchemas: Array<NovaTemplateChildSchema> = []
     const nodeOverlaySchemas: Array<NovaTemplateChildSchema> = []
+    const bpmnRecipeElements: Array<ModelerElement> = []
     const model = this.context.getModel()
     const selected = new Set(model.selection)
     const connectionTargetId = this.runtime.connection.get()?.targetElementId
+    const useBpmnRecipes = shouldUseBpmnRecipeRendering(this.context.getOptions(), this.context.getViewport())
     for (const element of this.runtime.dragShadow.getElements()) {
       const definition = this.context.getElementRegistry().get(element.type)
       if (!definition) continue
@@ -56,8 +63,23 @@ export class ElementsLayer {
       this.appendEdgeInteractionSchema(interactionSchemas, element, selected)
     }
     for (const element of nodes) {
-      this.appendNodeSchema(interactionSchemas, nodeOverlaySchemas, element, selected, connectionTargetId)
+      if (useBpmnRecipes && this.shouldRenderNodeWithBpmnRecipe(element, selected, connectionTargetId)) {
+        bpmnRecipeElements.push(element)
+        continue
+      }
+      this.appendNodeSchema(nodeSchemas, nodeOverlaySchemas, element, selected, connectionTargetId)
     }
+    if (bpmnRecipeElements.length > 0) {
+      interactionSchemas.push({
+        type: Modeler.BpmnRecipeLayerView,
+        id: 'modeler-elements:bpmn-recipe-layer',
+        props: {
+          elements: bpmnRecipeElements,
+          viewport: this.context.getViewport(),
+        },
+      })
+    }
+    interactionSchemas.push(...nodeSchemas)
     interactionSchemas.push(...nodeOverlaySchemas)
     const preview = this.runtime.edgePreview.get()
     if (preview) {
@@ -73,6 +95,16 @@ export class ElementsLayer {
     this.disposeInteractionLayer = this.context.layers.reconcile('interaction', 'modeler-elements', interactionSchemas)
     this.syncConnectionWarning()
     this.context.invalidate('render')
+  }
+
+  private shouldRenderNodeWithBpmnRecipe(
+    element: ModelerElement,
+    selected: Set<string>,
+    connectionTargetId?: string,
+  ): boolean {
+    return !selected.has(element.id)
+      && connectionTargetId !== element.id
+      && isBpmnRecipeRenderableNode(element)
   }
 
   private appendEdgeSchema(

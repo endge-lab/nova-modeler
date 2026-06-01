@@ -25,9 +25,19 @@ export interface ModelerOptions {
   version?: number
   viewport?: ModelerViewportOptions
   interaction?: ModelerInteractionOptions
+  rendering?: ModelerRenderingOptions
   branding?: ModelerBrandingOptions
   palette?: ModelerPaletteOptions
   shortcuts?: ModelerShortcutOptions
+}
+
+export interface ModelerRenderingOptions {
+  bpmnRecipes?: ModelerBpmnRecipeRenderingOptions
+}
+
+export interface ModelerBpmnRecipeRenderingOptions {
+  enabled?: boolean
+  lodScale?: number
 }
 
 export interface ModelerBrandingOptions {

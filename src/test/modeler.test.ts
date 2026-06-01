@@ -1551,6 +1551,117 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
+  it('uses the BPMN recipe layer for unselected nodes at low zoom', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const task = createBpmnTaskElement({ id: 'recipe-task', x: 120, y: 120, name: 'Recipe task' })
+    const event = createBpmnEventElement({ id: 'recipe-event', x: 80, y: 136 })
+    const app = Nova.createApp({
+      target: document.createElement('canvas'),
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'recipe-root',
+      props: {
+        model: createModelerModel({
+          viewport: { x: 0, y: 0, scale: 0.1 },
+          elements: [event, task],
+        }),
+        width: 640,
+        height: 420,
+      },
+    })
+    app.raph.run()
+    app.raph.run()
+
+    const interaction = app.surfaces.find(item => item.name === 'recipe-root:interaction')
+    const childIds = interaction?.children.map(child => (child as { componentId?: string }).componentId) ?? []
+    expect(childIds).toContain('modeler-elements:bpmn-recipe-layer')
+    expect(childIds).not.toContain('recipe-task:view')
+    const frameItems = interaction?.compileRenderFrame().items ?? []
+    expect(frameItems.some(item => item.kind === 'rect-batch')).toBe(true)
+    expect(frameItems.some(item => item.kind === 'text-batch')).toBe(true)
+    app.destroy()
+  })
+
+  it('keeps selected BPMN nodes on the precise view path while recipe rendering is active', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const selectedTask = createBpmnTaskElement({ id: 'selected-recipe-task', x: 120, y: 120, name: 'Selected' })
+    const event = createBpmnEventElement({ id: 'unselected-recipe-event', x: 80, y: 136 })
+    const app = Nova.createApp({
+      target: document.createElement('canvas'),
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'recipe-selected-root',
+      props: {
+        model: createModelerModel({
+          viewport: { x: 0, y: 0, scale: 0.1 },
+          elements: [event, selectedTask],
+          selection: [selectedTask.id],
+        }),
+        width: 640,
+        height: 420,
+      },
+    })
+    app.raph.run()
+    app.raph.run()
+
+    const interaction = app.surfaces.find(item => item.name === 'recipe-selected-root:interaction')
+    const childIds = interaction?.children.map(child => (child as { componentId?: string }).componentId) ?? []
+    expect(childIds).toContain('modeler-elements:bpmn-recipe-layer')
+    expect(childIds).toContain('selected-recipe-task:view')
+    expect(childIds).not.toContain('unselected-recipe-event:view')
+    app.destroy()
+  })
+
+  it('can disable BPMN recipe rendering through modeler options', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const task = createBpmnTaskElement({ id: 'recipe-disabled-task', x: 120, y: 120 })
+    const app = Nova.createApp({
+      target: document.createElement('canvas'),
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'recipe-disabled-root',
+      props: {
+        model: createModelerModel({
+          viewport: { x: 0, y: 0, scale: 0.1 },
+          elements: [task],
+        }),
+        options: {
+          rendering: {
+            bpmnRecipes: { enabled: false },
+          },
+        },
+        width: 640,
+        height: 420,
+      },
+    })
+    app.raph.run()
+    app.raph.run()
+
+    const interaction = app.surfaces.find(item => item.name === 'recipe-disabled-root:interaction')
+    const childIds = interaction?.children.map(child => (child as { componentId?: string }).componentId) ?? []
+    expect(childIds).not.toContain('modeler-elements:bpmn-recipe-layer')
+    expect(childIds).toContain('recipe-disabled-task:view')
+    app.destroy()
+  })
+
   it('switches BPMN data object and data store through one variant provider', () => {
     const dataObject = createBpmnDataObjectElement({
       id: 'data-1',

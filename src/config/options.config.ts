@@ -35,6 +35,12 @@ export const DEFAULT_MODELER_OPTIONS: ModelerOptions = {
       activeToolId: null,
     },
   },
+  rendering: {
+    bpmnRecipes: {
+      enabled: true,
+      lodScale: 0.35,
+    },
+  },
   branding: {
     visible: true,
   },
@@ -70,6 +76,10 @@ export function createDefaultModelerOptions(): ModelerOptions {
         deleteShortcuts: [...(DEFAULT_MODELER_OPTIONS.interaction?.selection?.deleteShortcuts ?? [])],
       },
       tools: { ...DEFAULT_MODELER_OPTIONS.interaction?.tools },
+    },
+    rendering: {
+      ...DEFAULT_MODELER_OPTIONS.rendering,
+      bpmnRecipes: { ...(DEFAULT_MODELER_OPTIONS.rendering?.bpmnRecipes ?? {}) },
     },
     palette: {
       ...DEFAULT_MODELER_OPTIONS.palette,
@@ -140,6 +150,14 @@ function mergeModelerOptions(options?: ModelerOptions): ModelerOptions {
       tools: {
         ...(defaults.interaction?.tools ?? {}),
         ...(options?.interaction?.tools ?? {}),
+      },
+    },
+    rendering: {
+      ...(defaults.rendering ?? {}),
+      ...(options?.rendering ?? {}),
+      bpmnRecipes: {
+        ...(defaults.rendering?.bpmnRecipes ?? {}),
+        ...(options?.rendering?.bpmnRecipes ?? {}),
       },
     },
     palette: {
