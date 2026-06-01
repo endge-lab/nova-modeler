@@ -901,6 +901,10 @@ export class Palette<E extends EventList = Record<string, any>>
       this.appendAssetIcon(schema, MODELER_ASSETS.icons.activity, x, y, size)
       return
     }
+    if (item.icon === 'bpmn-event') {
+      this.appendAssetIcon(schema, MODELER_ASSETS.icons.event, x, y, size)
+      return
+    }
     if (item.icon === 'bpmn-swimlane') {
       this.appendAssetIcon(schema, MODELER_ASSETS.icons.swimlane, x, y, size)
       return

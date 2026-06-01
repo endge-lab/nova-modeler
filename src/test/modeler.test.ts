@@ -16,6 +16,7 @@ import {
   applyModelerCommand,
   appendGridSchema,
   createBpmnEventElement,
+  createBpmnEventVariantOptions,
   createBpmnFlowElement,
   createBpmnGatewayElement,
   createBpmnAssociationElement,
@@ -138,6 +139,36 @@ describe('nova modeler minimal kernel', () => {
     expect(xml).toContain('<di:waypoint x="88" y="114" />')
     expect(xml).toContain('<di:waypoint x="124" y="114" />')
     expect(xml).toContain('<di:waypoint x="160" y="114" />')
+  })
+
+  it('exports BPMN event definitions with catch and throw intermediate tags', () => {
+    const catchEvent = createBpmnEventElement({
+      id: 'catch-message',
+      eventPosition: 'intermediate',
+      trigger: 'message',
+      direction: 'catch',
+    })
+    const throwEvent = createBpmnEventElement({
+      id: 'throw-message',
+      eventPosition: 'intermediate',
+      trigger: 'message',
+      direction: 'throw',
+    })
+    const endEvent = createBpmnEventElement({
+      id: 'terminate-end',
+      eventPosition: 'end',
+      trigger: 'terminate',
+      direction: 'throw',
+    })
+    const xml = new BpmnExporter().export({
+      model: createModelerModel({ id: 'event-definitions', elements: [catchEvent, throwEvent, endEvent] }),
+    })
+
+    expect(xml).toContain('<intermediateCatchEvent id="Event_catch-message">')
+    expect(xml).toContain('<intermediateThrowEvent id="Event_throw-message">')
+    expect(xml).toContain('<messageEventDefinition />')
+    expect(xml).toContain('<endEvent id="Event_terminate-end">')
+    expect(xml).toContain('<terminateEventDefinition />')
   })
 
   it('exports PNG on a white tight canvas with padding', async () => {
@@ -278,16 +309,33 @@ describe('nova modeler minimal kernel', () => {
     const context = controller.getPluginContext()
     const provider = context.elementVariants.getProvider(event)
     expect(provider?.id).toBe('bpmn.event.variants')
-    expect(context.palette.get('bpmn.event.create')).toMatchObject({ icon: 'bpmn-event-start' })
-    expect(context.palette.get('bpmn.event.intermediate.create')).toMatchObject({ icon: 'bpmn-event-intermediate' })
-    expect(context.palette.get('bpmn.event.end.create')).toMatchObject({ icon: 'bpmn-event-end' })
+    expect(MODELER_ASSETS.icons.event).toBeTruthy()
+    expect(context.palette.get('bpmn.event.create')).toMatchObject({
+      title: 'Event',
+      icon: 'bpmn-event',
+      toolId: 'create:bpmn.event',
+    })
+    expect(context.palette.get('bpmn.event.intermediate.create')).toBeUndefined()
+    expect(context.palette.get('bpmn.event.end.create')).toBeUndefined()
+    expect(context.tools.createAt('create:bpmn.event', { x: 360, y: 220 })).toMatchObject({
+      type: 'bpmn.event',
+      data: {
+        eventPosition: 'start',
+        trigger: 'none',
+        direction: 'catch',
+      },
+    })
+    controller.applyCommand({ type: 'select', ids: ['event-1'] })
 
     const draft = provider?.createDraft?.(context, event) ?? {}
     const descriptor = provider?.getDescriptor(context, event, draft)
     const positionControl = descriptor?.controls.find(control => control.id === 'eventPosition')
     const triggerControl = descriptor?.controls.find(control => control.id === 'trigger')
+    expect(positionControl?.kind).toBe('choice')
+    expect(triggerControl?.title).toBe('Event definition')
     expect(positionControl?.options.map(option => option.id)).toEqual(['start', 'intermediate', 'end'])
     expect(triggerControl?.options.some(option => option.id === 'start:timer:catch')).toBe(true)
+    expect(triggerControl?.options.some(option => option.id === 'start:error:throw')).toBe(false)
     const timer = triggerControl?.options.find(option => option.id === 'start:timer:catch')
     expect(timer).toBeTruthy()
 
@@ -310,7 +358,83 @@ describe('nova modeler minimal kernel', () => {
       },
     })
     expect(next.selection).toEqual(['event-1'])
+
+    const timerDraft = provider?.createDraft?.(context, next.elements[0] as typeof event) ?? {}
+    const timerDescriptor = provider?.getDescriptor(context, next.elements[0] as typeof event, timerDraft)
+    const endOption = timerDescriptor?.controls.find(control => control.id === 'eventPosition')?.options.find(option => option.id === 'end')
+    const normalizedEndDraft = provider?.updateDraft?.(context, next.elements[0] as typeof event, timerDraft, positionControl!, endOption!)
+    expect(normalizedEndDraft).toMatchObject({
+      eventPosition: 'end',
+      trigger: 'none',
+      direction: 'throw',
+    })
+
+    const messageEvent = createBpmnEventElement({
+      id: 'message-event',
+      eventPosition: 'start',
+      trigger: 'message',
+      direction: 'catch',
+    })
+    const messageDraft = provider?.createDraft?.(context, messageEvent) ?? {}
+    const messageDescriptor = provider?.getDescriptor(context, messageEvent, messageDraft)
+    const messageEndOption = messageDescriptor?.controls.find(control => control.id === 'eventPosition')?.options.find(option => option.id === 'end')
+    expect(provider?.updateDraft?.(context, messageEvent, messageDraft, positionControl!, messageEndOption!)).toMatchObject({
+      eventPosition: 'end',
+      trigger: 'message',
+      direction: 'throw',
+    })
+
+    const intermediateOptions = createBpmnEventVariantOptions('intermediate', event)
+    expect(intermediateOptions.map(option => option.id)).toEqual(expect.arrayContaining([
+      'intermediate:message:catch',
+      'intermediate:message:throw',
+      'intermediate:link:catch',
+      'intermediate:link:throw',
+    ]))
     controller.unmount()
+  })
+
+  it('normalizes impossible BPMN event definitions to the nearest valid event', () => {
+    expect(createBpmnEventElement({
+      id: 'bad-start',
+      eventPosition: 'start',
+      trigger: 'error',
+      direction: 'throw',
+    }).data).toMatchObject({
+      eventPosition: 'start',
+      trigger: 'none',
+      direction: 'catch',
+    })
+    expect(createBpmnEventElement({
+      id: 'bad-end',
+      eventPosition: 'end',
+      trigger: 'timer',
+      direction: 'catch',
+    }).data).toMatchObject({
+      eventPosition: 'end',
+      trigger: 'none',
+      direction: 'throw',
+    })
+    expect(createBpmnEventElement({
+      id: 'message-end',
+      eventPosition: 'end',
+      trigger: 'message',
+      direction: 'catch',
+    }).data).toMatchObject({
+      eventPosition: 'end',
+      trigger: 'message',
+      direction: 'throw',
+    })
+    expect(createBpmnEventElement({
+      id: 'message-throw',
+      eventPosition: 'intermediate',
+      trigger: 'message',
+      direction: 'throw',
+    }).data).toMatchObject({
+      eventPosition: 'intermediate',
+      trigger: 'message',
+      direction: 'throw',
+    })
   })
 
   it('normalizes BPMN task data, variants, ports and fixed bounds', () => {
@@ -957,6 +1081,51 @@ describe('nova modeler minimal kernel', () => {
     controller.unmount()
   })
 
+  it('keeps BPMN participant behind enclosed nodes at the same z-index', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const participant = createBpmnParticipantElement({ id: 'pool-1', x: 80, y: 80, width: 520, height: 260 })
+    const task = createBpmnTaskElement({ id: 'task-inside-pool', x: 240, y: 120, name: 'Inside pool' })
+    const controller = createModelerController({
+      model: createModelerModel({
+        elements: [task, participant],
+      }),
+    })
+    controller.mount(createControllerHost(800, 520))
+    expect(controller.hitTest(controller.worldToScreen({ x: 260, y: 140 }))).toEqual({
+      type: 'element',
+      id: 'task-inside-pool',
+    })
+    controller.unmount()
+
+    const app = Nova.createApp({
+      target: document.createElement('canvas'),
+      size: { width: 800, height: 520, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'swimlane-order-root',
+      props: {
+        model: createModelerModel({
+          elements: [task, participant],
+        }),
+        width: 800,
+        height: 520,
+      },
+    })
+    app.raph.run()
+    app.raph.run()
+
+    const interaction = app.surfaces.find(item => item.name === 'swimlane-order-root:interaction')
+    const childIds = interaction?.children.map(child => (child as { componentId?: string }).componentId) ?? []
+    expect(childIds.indexOf('pool-1:view')).toBeGreaterThanOrEqual(0)
+    expect(childIds.indexOf('task-inside-pool:view')).toBeGreaterThan(childIds.indexOf('pool-1:view'))
+    app.destroy()
+  })
+
   it('switches BPMN data object and data store through one variant provider', () => {
     const dataObject = createBpmnDataObjectElement({
       id: 'data-1',
@@ -1511,6 +1680,46 @@ describe('nova modeler minimal kernel', () => {
     expect(controller.hitTest({ x: 124, y: 124 })).toEqual({ type: 'element', id: 'start-1' })
     expect(controller.hitTest({ x: 100, y: 100 })).toEqual({ type: 'canvas' })
     expect(controller.hitTest({ x: 124, y: 95 })).toEqual({ type: 'canvas' })
+  })
+
+  it('renders BPMN event frames and catch/throw definition markers differently', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 520, height: 220, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'event-render-root',
+      props: {
+        model: createModelerModel({
+          elements: [
+            createBpmnEventElement({ id: 'start', x: 60, y: 80, eventPosition: 'start', trigger: 'none' }),
+            createBpmnEventElement({ id: 'catch', x: 140, y: 80, eventPosition: 'intermediate', trigger: 'message', direction: 'catch' }),
+            createBpmnEventElement({ id: 'throw', x: 220, y: 80, eventPosition: 'intermediate', trigger: 'signal', direction: 'throw' }),
+            createBpmnEventElement({ id: 'end', x: 300, y: 80, eventPosition: 'end', trigger: 'terminate', direction: 'throw' }),
+          ],
+        }),
+        width: 520,
+        height: 220,
+      },
+    })
+    app.raph.run()
+    app.raph.run()
+
+    const interaction = app.surfaces.find(item => item.name === 'event-render-root:interaction')
+    const schemaItems = interaction?.compileRenderFrame().items.map(item => item.schemaItem).filter(Boolean) ?? []
+    expect(schemaItems.some(item => item.type === 'circle' && Number(item.styles?.border?.width) >= 3)).toBe(true)
+    expect(schemaItems.filter(item => item.type === 'circle').length).toBeGreaterThanOrEqual(6)
+    expect(schemaItems.some(item => item.type === 'rect' && item.styles?.background === 'rgba(0,0,0,0)')).toBe(true)
+    expect(schemaItems.some(item => item.type === 'polygon')).toBe(true)
+    expect(schemaItems.some(item => item.type === 'circle' && Number(item.radius) < 12)).toBe(true)
+    app.destroy()
   })
 
   it('keeps controller store as reactive source of truth', () => {
@@ -2219,7 +2428,7 @@ describe('nova modeler minimal kernel', () => {
     expect(rectTooltip?.tooltip).toMatchObject({ value: 'Create Rectangle', placement: 'cursor' })
     expect(rectTooltip?.rect).toMatchObject({ x: 24, y: 129, width: 40, height: 40 })
     expect(rectTooltipFromEdge?.rect).toMatchObject({ x: 24, y: 129, width: 40, height: 40 })
-    expect(eventTooltip?.tooltip).toMatchObject({ value: 'Create Start event', placement: 'cursor' })
+    expect(eventTooltip?.tooltip).toMatchObject({ value: 'Create Event', placement: 'cursor' })
     expect(eventTooltip?.rect).toMatchObject({ x: 24, y: 177, width: 40, height: 40 })
     app.destroy()
   })

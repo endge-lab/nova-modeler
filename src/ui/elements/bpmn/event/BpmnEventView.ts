@@ -10,14 +10,17 @@ import {
 } from '@endge/nova'
 import type { EventList } from '@endge/utils'
 import { Modeler } from '@/config/schema.config'
-import { resolveBpmnEventTriggerIcon } from '@/elements/bpmn/event/bpmn-event.variants'
 import {
   MODELER_THEME_FALLBACKS,
   MODELER_THEME_TOKENS,
   type ModelerThemeTokenKey,
 } from '@/config/theme.config'
 import type { ModelerViewport } from '@/domain/types'
-import type { BpmnEventElement } from '@/elements/bpmn/event/bpmn-event.types'
+import type {
+  BpmnEventDirection,
+  BpmnEventElement,
+  BpmnEventTrigger,
+} from '@/elements/bpmn/event/bpmn-event.types'
 
 export interface BpmnEventViewProps {
   element: BpmnEventElement
@@ -125,18 +128,211 @@ export class BpmnEventView<E extends EventList = Record<string, any>>
   }
 
   private appendTriggerMarker(schema: NovaSchema): void {
-    const data = this.props.element.data ?? { trigger: 'none' as const }
-    const icon = resolveBpmnEventTriggerIcon(data.trigger)
-    if (!icon) return
-    const size = Math.max(10, Math.min(this.width, this.height) * 0.48)
+    const data = this.props.element.data ?? { eventPosition: 'start' as const, trigger: 'none' as const }
+    const trigger = data.trigger ?? 'none'
+    if (trigger === 'none') return
+    const position = data.eventPosition ?? 'start'
+    const direction = data.direction ?? (position === 'end' ? 'throw' : 'catch')
+    const markerColor = String(this.props.element.style?.markerColor ?? this.resolveThemeColor('bpmnEventStroke', 'elementStroke'))
+    const size = Math.max(12, Math.min(this.width, this.height) * 0.48)
+    const filled = trigger === 'terminate' || direction === 'throw'
+    this.appendMarkerByTrigger(schema, trigger, direction, size, markerColor, filled)
+  }
+
+  private appendMarkerByTrigger(
+    schema: NovaSchema,
+    trigger: BpmnEventTrigger,
+    direction: BpmnEventDirection,
+    size: number,
+    color: string,
+    filled: boolean,
+  ): void {
+    if (trigger === 'message') {
+      this.appendMessageMarker(schema, size, color, filled)
+      return
+    }
+    if (trigger === 'timer') {
+      this.appendTimerMarker(schema, size, color, filled)
+      return
+    }
+    if (trigger === 'error') {
+      this.appendErrorMarker(schema, size, color, filled)
+      return
+    }
+    if (trigger === 'escalation' || trigger === 'signal') {
+      this.appendTriangleMarker(schema, size, color, filled)
+      return
+    }
+    if (trigger === 'cancel') {
+      this.appendCancelMarker(schema, size, color, filled)
+      return
+    }
+    if (trigger === 'compensation') {
+      this.appendCompensationMarker(schema, size, color, filled)
+      return
+    }
+    if (trigger === 'conditional') {
+      this.appendConditionalMarker(schema, size, color, filled)
+      return
+    }
+    if (trigger === 'link') {
+      this.appendLinkMarker(schema, size, color, filled)
+      return
+    }
+    if (trigger === 'terminate') {
+      this.appendCircleMarker(schema, size * 0.34, color, true)
+      return
+    }
+    if (trigger === 'parallelMultiple') {
+      this.appendParallelMultipleMarker(schema, size, color, filled)
+      return
+    }
+    this.appendMultipleMarker(schema, size, color, filled || direction === 'throw')
+  }
+
+  private appendMessageMarker(schema: NovaSchema, size: number, color: string, filled: boolean): void {
+    const w = size * 0.78
+    const h = size * 0.48
+    const x = -w / 2
+    const y = -h / 2
+    this.appendRectMarker(schema, x, y, w, h, color, filled)
+    const lineColor = filled ? '#ffffff' : color
+    schema.push({ type: 'line', x1: x, y1: y, x2: 0, y2: y + h * 0.56, styles: { color: lineColor, width: 1.6 } })
+    schema.push({ type: 'line', x1: x + w, y1: y, x2: 0, y2: y + h * 0.56, styles: { color: lineColor, width: 1.6 } })
+  }
+
+  private appendTimerMarker(schema: NovaSchema, size: number, color: string, filled: boolean): void {
+    const radius = size * 0.32
+    this.appendCircleMarker(schema, radius, color, filled)
+    const lineColor = filled ? '#ffffff' : color
+    schema.push({ type: 'line', x1: 0, y1: 0, x2: 0, y2: -radius * 0.55, styles: { color: lineColor, width: 1.6 } })
+    schema.push({ type: 'line', x1: 0, y1: 0, x2: radius * 0.42, y2: radius * 0.2, styles: { color: lineColor, width: 1.6 } })
+  }
+
+  private appendErrorMarker(schema: NovaSchema, size: number, color: string, filled: boolean): void {
+    this.appendPolygonMarker(schema, [
+      { x: -size * 0.12, y: -size * 0.42 },
+      { x: size * 0.2, y: -size * 0.06 },
+      { x: size * 0.04, y: -size * 0.06 },
+      { x: size * 0.22, y: size * 0.42 },
+      { x: -size * 0.22, y: size * 0.02 },
+      { x: -size * 0.04, y: size * 0.02 },
+    ], color, filled)
+  }
+
+  private appendTriangleMarker(schema: NovaSchema, size: number, color: string, filled: boolean): void {
+    this.appendPolygonMarker(schema, [
+      { x: 0, y: -size * 0.4 },
+      { x: size * 0.4, y: size * 0.32 },
+      { x: -size * 0.4, y: size * 0.32 },
+    ], color, filled)
+  }
+
+  private appendCancelMarker(schema: NovaSchema, size: number, color: string, filled: boolean): void {
+    const lineWidth = filled ? 2.4 : 2
+    if (filled) this.appendCircleMarker(schema, size * 0.36, color, true)
+    const lineColor = filled ? '#ffffff' : color
+    schema.push({ type: 'line', x1: -size * 0.24, y1: -size * 0.24, x2: size * 0.24, y2: size * 0.24, styles: { color: lineColor, width: lineWidth } })
+    schema.push({ type: 'line', x1: size * 0.24, y1: -size * 0.24, x2: -size * 0.24, y2: size * 0.24, styles: { color: lineColor, width: lineWidth } })
+  }
+
+  private appendCompensationMarker(schema: NovaSchema, size: number, color: string, filled: boolean): void {
+    const pointsA = [
+      { x: -size * 0.38, y: 0 },
+      { x: -size * 0.04, y: -size * 0.3 },
+      { x: -size * 0.04, y: size * 0.3 },
+    ]
+    const pointsB = pointsA.map(point => ({ x: point.x + size * 0.34, y: point.y }))
+    this.appendPolygonMarker(schema, pointsA, color, filled)
+    this.appendPolygonMarker(schema, pointsB, color, filled)
+  }
+
+  private appendConditionalMarker(schema: NovaSchema, size: number, color: string, filled: boolean): void {
+    const w = size * 0.58
+    const h = size * 0.7
+    const x = -w / 2
+    const y = -h / 2
+    this.appendRectMarker(schema, x, y, w, h, color, filled)
+    const lineColor = filled ? '#ffffff' : color
+    for (let index = 0; index < 3; index += 1) {
+      const lineY = y + h * (0.28 + index * 0.22)
+      schema.push({ type: 'line', x1: x + w * 0.22, y1: lineY, x2: x + w * 0.78, y2: lineY, styles: { color: lineColor, width: 1.4 } })
+    }
+  }
+
+  private appendLinkMarker(schema: NovaSchema, size: number, color: string, filled: boolean): void {
+    this.appendPolygonMarker(schema, [
+      { x: -size * 0.42, y: -size * 0.22 },
+      { x: size * 0.06, y: -size * 0.22 },
+      { x: size * 0.06, y: -size * 0.38 },
+      { x: size * 0.42, y: 0 },
+      { x: size * 0.06, y: size * 0.38 },
+      { x: size * 0.06, y: size * 0.22 },
+      { x: -size * 0.42, y: size * 0.22 },
+    ], color, filled)
+  }
+
+  private appendParallelMultipleMarker(schema: NovaSchema, size: number, color: string, filled: boolean): void {
+    if (filled) this.appendCircleMarker(schema, size * 0.36, color, true)
+    const lineColor = filled ? '#ffffff' : color
+    const width = filled ? 2.4 : 2
+    schema.push({ type: 'line', x1: -size * 0.3, y1: 0, x2: size * 0.3, y2: 0, styles: { color: lineColor, width } })
+    schema.push({ type: 'line', x1: 0, y1: -size * 0.3, x2: 0, y2: size * 0.3, styles: { color: lineColor, width } })
+  }
+
+  private appendMultipleMarker(schema: NovaSchema, size: number, color: string, filled: boolean): void {
+    const points = Array.from({ length: 5 }, (_, index) => {
+      const angle = -Math.PI / 2 + index * (Math.PI * 2 / 5)
+      return {
+        x: Math.cos(angle) * size * 0.36,
+        y: Math.sin(angle) * size * 0.36,
+      }
+    })
+    this.appendPolygonMarker(schema, points, color, filled)
+  }
+
+  private appendCircleMarker(schema: NovaSchema, radius: number, color: string, filled: boolean): void {
     schema.push({
-      type: 'icon',
-      icon,
-      x: -size / 2,
-      y: -size / 2,
-      width: size,
-      height: size,
-      styles: { opacity: 1 },
+      type: 'circle',
+      x: 0,
+      y: 0,
+      radius,
+      styles: {
+        background: filled ? color : 'rgba(0,0,0,0)',
+        border: {
+          color,
+          width: 2,
+        },
+      },
+    })
+  }
+
+  private appendRectMarker(schema: NovaSchema, x: number, y: number, width: number, height: number, color: string, filled: boolean): void {
+    schema.push({
+      type: 'rect',
+      x,
+      y,
+      width,
+      height,
+      styles: {
+        background: filled ? color : 'rgba(0,0,0,0)',
+        border: {
+          color,
+          width: 2,
+        },
+      },
+    })
+  }
+
+  private appendPolygonMarker(schema: NovaSchema, points: Array<{ x: number; y: number }>, color: string, filled: boolean): void {
+    schema.push({
+      type: 'polygon',
+      points,
+      styles: {
+        background: filled ? color : 'rgba(0,0,0,0)',
+        stroke: color,
+        lineWidth: 2,
+      },
     })
   }
 

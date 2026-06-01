@@ -7,6 +7,7 @@ import type {
   ModelerPluginContext,
 } from '@/domain/types/index'
 import { isModelerEdgeElement } from '@/domain/types/index'
+import { BPMN_PARTICIPANT_TYPE } from '@/elements/bpmn/participant/bpmn-participant.factory'
 import { MODELER_PORT_RADIUS } from '@/plugins/elements/elements.constants'
 import type { ElementsRuntime } from '@/plugins/elements/model/ElementsRuntime'
 
@@ -34,6 +35,7 @@ export class ElementsLayer {
   sync(): void {
     const linkSchemas: Array<NovaTemplateChildSchema> = []
     const interactionSchemas: Array<NovaTemplateChildSchema> = []
+    const nodeOverlaySchemas: Array<NovaTemplateChildSchema> = []
     const model = this.context.getModel()
     const selected = new Set(model.selection)
     const connectionTargetId = this.runtime.connection.get()?.targetElementId
@@ -46,14 +48,17 @@ export class ElementsLayer {
       }, this.createShadowElement(element))))
     }
     const edges = model.elements.filter(element => this.runtime.edges.isEdge(element))
-    const nodes = model.elements.filter(element => !this.runtime.edges.isEdge(element))
+    const nodes = model.elements
+      .filter(element => !this.runtime.edges.isEdge(element))
+      .sort(compareNodeRenderOrder)
     for (const element of edges) {
       this.appendEdgeSchema(linkSchemas, element, selected)
       this.appendEdgeInteractionSchema(interactionSchemas, element, selected)
     }
     for (const element of nodes) {
-      this.appendNodeSchema(interactionSchemas, element, selected, connectionTargetId)
+      this.appendNodeSchema(interactionSchemas, nodeOverlaySchemas, element, selected, connectionTargetId)
     }
+    interactionSchemas.push(...nodeOverlaySchemas)
     const preview = this.runtime.edgePreview.get()
     if (preview) {
       const definition = this.context.getElementRegistry().get(preview.type)
@@ -105,6 +110,7 @@ export class ElementsLayer {
 
   private appendNodeSchema(
     schemas: Array<NovaTemplateChildSchema>,
+    overlaySchemas: Array<NovaTemplateChildSchema>,
     element: ModelerElement,
     selected: Set<string>,
     connectionTargetId?: string,
@@ -116,14 +122,14 @@ export class ElementsLayer {
     if (!isSelected) return
     const rotateHandle = this.runtime.handles.createRotateHandle(element, definition)
     if (rotateHandle) {
-      schemas.push({
+      overlaySchemas.push({
         type: Modeler.RotateHandleView,
         id: `${element.id}:rotate`,
         props: { handle: rotateHandle, viewport: this.context.getViewport() },
       })
     }
     for (const handle of this.runtime.handles.createResizeHandles(element, definition)) {
-      schemas.push({
+      overlaySchemas.push({
         type: Modeler.ResizeHandleView,
         id: `${element.id}:resize:${handle.handle}`,
         props: { handle, viewport: this.context.getViewport() },
@@ -131,7 +137,7 @@ export class ElementsLayer {
     }
     if (definition.capabilities?.ports === false) return
     for (const port of this.runtime.ports.createElementPorts(element, definition.getPorts?.(this.context, element) ?? [])) {
-      schemas.push({
+      overlaySchemas.push({
         type: Modeler.PortView,
         id: `${element.id}:port:${port.id}`,
         props: { port, viewport: this.context.getViewport(), radius: MODELER_PORT_RADIUS },
@@ -278,4 +284,16 @@ export class ElementsLayer {
     }
     return next
   }
+}
+
+function compareNodeRenderOrder(a: ModelerElement, b: ModelerElement): number {
+  const zIndexDelta = (a.zIndex ?? 0) - (b.zIndex ?? 0)
+  if (zIndexDelta !== 0) return zIndexDelta
+  const backgroundDelta = resolveNodeBackgroundRank(a) - resolveNodeBackgroundRank(b)
+  if (backgroundDelta !== 0) return backgroundDelta
+  return 0
+}
+
+function resolveNodeBackgroundRank(element: ModelerElement): number {
+  return element.type === BPMN_PARTICIPANT_TYPE ? -1 : 0
 }

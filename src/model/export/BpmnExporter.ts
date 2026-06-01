@@ -3,7 +3,7 @@ import type {
   ModelerExportContext,
 } from '@/domain/types/index'
 import { isModelerEdgeElement } from '@/domain/types/index'
-import { BPMN_EVENT_TYPE } from '@/elements/bpmn/event/bpmn-event.factory'
+import { BPMN_EVENT_TYPE, normalizeBpmnEventVariantData } from '@/elements/bpmn/event/bpmn-event.factory'
 import type { BpmnEventElement } from '@/elements/bpmn/event/bpmn-event.types'
 import { BPMN_FLOW_TYPE, normalizeBpmnFlowType } from '@/elements/bpmn/flow/bpmn-flow.factory'
 import type { BpmnFlowElement } from '@/elements/bpmn/flow/bpmn-flow.types'
@@ -174,8 +174,9 @@ export class BpmnExporter {
   }
 
   private serializeEvent(element: BpmnEventElement, state: BpmnExportState): string {
-    const position = element.data?.eventPosition ?? 'start'
-    const direction = element.data?.direction ?? (position === 'end' ? 'throw' : 'catch')
+    const eventData = normalizeBpmnEventVariantData(element.data?.eventPosition, element.data?.trigger, element.data?.direction)
+    const position = eventData.eventPosition
+    const direction = eventData.direction
     const tag = position === 'start'
       ? 'startEvent'
       : position === 'end'
@@ -191,7 +192,7 @@ export class BpmnExporter {
   }
 
   private serializeEventDefinition(element: BpmnEventElement): string {
-    const trigger = element.data?.trigger ?? 'none'
+    const trigger = normalizeBpmnEventVariantData(element.data?.eventPosition, element.data?.trigger, element.data?.direction).trigger
     if (trigger === 'message') return '<messageEventDefinition />'
     if (trigger === 'timer') return '<timerEventDefinition />'
     if (trigger === 'error') return '<errorEventDefinition />'

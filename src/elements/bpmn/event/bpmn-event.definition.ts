@@ -42,12 +42,12 @@ export const BpmnEventDefinition: ModelerElementDefinition<BpmnEventElement> = {
     id: 'create:bpmn.event',
     actionId: 'element.create.bpmn.event',
     shortcutId: 'bpmn.event.create',
-    title: 'Start event',
+    title: 'Event',
     palette: {
       id: 'bpmn.event.create',
       group: 'elements',
       order: 110,
-      icon: 'bpmn-event-start',
+      icon: 'bpmn-event',
     },
     shortcuts: [{ key: 'e' }],
     create: input => createBpmnEventElement({
@@ -57,46 +57,6 @@ export const BpmnEventDefinition: ModelerElementDefinition<BpmnEventElement> = {
       direction: 'catch',
     }),
   },
-  createTools: [
-    {
-      id: 'create:bpmn.event.intermediate',
-      actionId: 'element.create.bpmn.event.intermediate',
-      shortcutId: 'bpmn.event.intermediate.create',
-      title: 'Intermediate event',
-      palette: {
-        id: 'bpmn.event.intermediate.create',
-        group: 'elements',
-        order: 111,
-        icon: 'bpmn-event-intermediate',
-      },
-      shortcuts: [{ key: 'i', shift: true }],
-      create: input => createBpmnEventElement({
-        ...(input as BpmnEventElementInput),
-        eventPosition: 'intermediate',
-        trigger: 'none',
-        direction: 'catch',
-      }),
-    },
-    {
-      id: 'create:bpmn.event.end',
-      actionId: 'element.create.bpmn.event.end',
-      shortcutId: 'bpmn.event.end.create',
-      title: 'End event',
-      palette: {
-        id: 'bpmn.event.end.create',
-        group: 'elements',
-        order: 112,
-        icon: 'bpmn-event-end',
-      },
-      shortcuts: [{ key: 'e', shift: true }],
-      create: input => createBpmnEventElement({
-        ...(input as BpmnEventElementInput),
-        eventPosition: 'end',
-        trigger: 'none',
-        direction: 'throw',
-      }),
-    },
-  ],
   variantProvider: BpmnEventVariantProvider,
   normalize: element => createBpmnEventElement(element as BpmnEventElementInput),
   render: (context: ModelerElementRenderContext, element) => ({

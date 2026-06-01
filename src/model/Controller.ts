@@ -42,6 +42,7 @@ import {
 import { ElementsPlugin } from '@/plugins/elements/elements-plugin'
 import { CoreActionsPlugin } from '@/plugins/core/core-actions-plugin'
 import { MODEL_ELEMENTS_RUNTIME } from '@/plugins/elements/model/ElementsRuntime'
+import { BPMN_PARTICIPANT_TYPE } from '@/elements/bpmn/participant/bpmn-participant.factory'
 
 export class Controller implements ModelerController {
   readonly store: ModelerStore
@@ -558,5 +559,11 @@ export function createModelerController(options: ControllerOptions = {}): Contro
 }
 
 function compareElementsByZIndex(a: ModelerElement, b: ModelerElement): number {
-  return (a.zIndex ?? 0) - (b.zIndex ?? 0)
+  const zIndexDelta = (a.zIndex ?? 0) - (b.zIndex ?? 0)
+  if (zIndexDelta !== 0) return zIndexDelta
+  return resolveElementHitRank(a) - resolveElementHitRank(b)
+}
+
+function resolveElementHitRank(element: ModelerElement): number {
+  return element.type === BPMN_PARTICIPANT_TYPE ? -1 : 0
 }

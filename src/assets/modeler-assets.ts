@@ -23,6 +23,7 @@ import databaseIconSource from '@/assets/icons/database.svg?raw'
 import subtaskIconSource from '@/assets/icons/subtask.svg?raw'
 import boxMultipleIconSource from '@/assets/icons/box-multiple.svg?raw'
 import circleDashedIconSource from '@/assets/icons/circle-dashed.svg?raw'
+import circleIconSource from '@/assets/icons/circle.svg?raw'
 import arrowsExchangeIconSource from '@/assets/icons/arrows-exchange.svg?raw'
 import tildeIconSource from '@/assets/icons/tilde.svg?raw'
 import externalLinkIconSource from '@/assets/icons/external-link.svg?raw'
@@ -74,6 +75,7 @@ export const MODELER_ASSETS = NovaAssets.define('nova-modeler', {
     activity: NovaAssets.svg(subtaskIconSource, { width: 24, height: 24, color: '#3f3f46' }),
     activitySubProcess: NovaAssets.svg(boxMultipleIconSource, { width: 24, height: 24, color: '#3f3f46' }),
     activityEventSubProcess: NovaAssets.svg(circleDashedIconSource, { width: 24, height: 24, color: '#3f3f46' }),
+    event: NovaAssets.svg(circleIconSource, { width: 24, height: 24, color: '#3f3f46' }),
     activityTransaction: NovaAssets.svg(arrowsExchangeIconSource, { width: 24, height: 24, color: '#3f3f46' }),
     activityAdHoc: NovaAssets.svg(tildeIconSource, { width: 24, height: 24, color: '#3f3f46' }),
     activityCall: NovaAssets.svg(externalLinkIconSource, { width: 24, height: 24, color: '#3f3f46' }),
