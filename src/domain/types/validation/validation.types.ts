@@ -15,6 +15,10 @@ export type BpmnValidationRuleId =
   | 'bpmn.endNoIncoming'
   | 'bpmn.nodeNoIncoming'
   | 'bpmn.nodeNoOutgoing'
+  | 'bpmn.multipleDefaultFlows'
+  | 'bpmn.invalidDefaultFlowSource'
+  | 'bpmn.invalidConditionalFlowSource'
+  | 'bpmn.conditionalFlowNoCondition'
   | 'bpmn.instantiateNonReceiveTask'
 
 export interface ModelerValidationIssue {

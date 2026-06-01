@@ -9,6 +9,8 @@ export type BpmnFlowType = 'sequence' | 'conditionalSequence' | 'defaultSequence
 
 export interface BpmnFlowElementData extends Record<string, unknown> {
   flowType: BpmnFlowType
+  name?: string
+  conditionExpression?: string
 }
 
 export type BpmnFlowElement = ModelerEdgeElement<BpmnFlowElementData>

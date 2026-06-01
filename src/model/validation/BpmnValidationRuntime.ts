@@ -8,7 +8,10 @@ import type {
 } from '@/domain/types/index'
 import { BPMN_EVENT_TYPE } from '@/elements/bpmn/event/bpmn-event.factory'
 import { BPMN_BOUNDARY_EVENT_TYPE } from '@/elements/bpmn/boundary-event/bpmn-boundary-event.factory'
-import { BPMN_FLOW_TYPE } from '@/elements/bpmn/flow/bpmn-flow.factory'
+import {
+  BPMN_FLOW_TYPE,
+  normalizeBpmnFlowType,
+} from '@/elements/bpmn/flow/bpmn-flow.factory'
 import { BPMN_GATEWAY_TYPE } from '@/elements/bpmn/gateway/bpmn-gateway.factory'
 import { BPMN_CALL_ACTIVITY_TYPE } from '@/elements/bpmn/call-activity/bpmn-call-activity.factory'
 import { BPMN_SUB_PROCESS_TYPE } from '@/elements/bpmn/sub-process/bpmn-sub-process.factory'
@@ -25,6 +28,7 @@ export class BpmnValidationRuntime {
     const bpmnFlows = model.elements.filter(isBpmnFlowElement)
     const incoming = new Map<string, number>()
     const outgoing = new Map<string, number>()
+    const defaultFlowsBySource = new Map<string, Array<BpmnFlowElement>>()
 
     for (const node of bpmnNodes) {
       incoming.set(node.id, 0)
@@ -68,6 +72,34 @@ export class BpmnValidationRuntime {
         outgoing.set(sourceId!, (outgoing.get(sourceId!) ?? 0) + 1)
         incoming.set(targetId!, (incoming.get(targetId!) ?? 0) + 1)
       }
+      const flowType = normalizeBpmnFlowType(flow.data?.flowType)
+      if (flowType === 'defaultSequence' && sourceId) {
+        const list = defaultFlowsBySource.get(sourceId) ?? []
+        list.push(flow)
+        defaultFlowsBySource.set(sourceId, list)
+        if (source && !isDefaultOrConditionalFlowSource(source)) {
+          issues.push(createIssue(flow.id, 'bpmn.invalidDefaultFlowSource', 'error', 'Default sequence flow can only start from an Activity or Gateway.', [flow.id, sourceId]))
+        }
+      }
+      if (flowType === 'conditionalSequence') {
+        if (sourceId && source && !isDefaultOrConditionalFlowSource(source)) {
+          issues.push(createIssue(flow.id, 'bpmn.invalidConditionalFlowSource', 'error', 'Conditional sequence flow can only start from an Activity or Gateway.', [flow.id, sourceId]))
+        }
+        if (typeof flow.data?.conditionExpression !== 'string' || !flow.data.conditionExpression.trim()) {
+          issues.push(createIssue(flow.id, 'bpmn.conditionalFlowNoCondition', 'warning', 'Conditional sequence flow should define a condition expression.', [flow.id]))
+        }
+      }
+    }
+
+    for (const [sourceId, flows] of defaultFlowsBySource) {
+      if (flows.length <= 1) continue
+      issues.push(createIssue(
+        sourceId,
+        'bpmn.multipleDefaultFlows',
+        'error',
+        'A BPMN node can have only one default outgoing sequence flow.',
+        [sourceId, ...flows.map(flow => flow.id)],
+      ))
     }
 
     if (bpmnNodes.length === 0) {
@@ -139,6 +171,10 @@ function isBpmnNodeElement(element: ModelerElement): boolean {
 
 function isBpmnActivityElement(element: ModelerElement): boolean {
   return element.type === BPMN_TASK_TYPE || element.type === BPMN_SUB_PROCESS_TYPE || element.type === BPMN_CALL_ACTIVITY_TYPE
+}
+
+function isDefaultOrConditionalFlowSource(element: ModelerElement): boolean {
+  return isBpmnActivityElement(element) || element.type === BPMN_GATEWAY_TYPE
 }
 
 function isBpmnFlowElement(element: ModelerElement): element is BpmnFlowElement {

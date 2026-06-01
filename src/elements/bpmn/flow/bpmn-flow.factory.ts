@@ -23,6 +23,8 @@ export function createBpmnFlowElement(input: BpmnFlowElementInput): BpmnFlowElem
   const data = {
     ...input.data,
     flowType: normalizeBpmnFlowType(input.flowType ?? input.data?.flowType),
+    name: normalizeOptionalText(input.data?.name),
+    conditionExpression: normalizeOptionalText(input.data?.conditionExpression),
   }
   return {
     id: input.id,
@@ -66,4 +68,8 @@ function normalizePoint(input: ModelerPoint | undefined, fallback: ModelerPoint)
 
 function finiteNumber(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+}
+
+function normalizeOptionalText(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined
 }

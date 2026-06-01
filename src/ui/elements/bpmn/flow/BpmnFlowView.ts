@@ -28,6 +28,7 @@ export interface BpmnFlowViewProps {
   path: Array<ModelerPoint>
   selected?: boolean
   preview?: boolean
+  hideName?: boolean
 }
 
 export interface BpmnFlowViewResolvedProps {
@@ -36,6 +37,7 @@ export interface BpmnFlowViewResolvedProps {
   path: Array<ModelerPoint>
   selected: boolean
   preview: boolean
+  hideName: boolean
 }
 
 export type BpmnFlowViewDescriptor = NovaComponentDescriptor<
@@ -51,7 +53,7 @@ export type BpmnFlowViewDescriptor = NovaComponentDescriptor<
   version: '0.1.0',
   dirtyPolicy: {
     update: ['viewport'],
-    render: ['element', 'path', 'selected', 'preview'],
+    render: ['element', 'path', 'selected', 'preview', 'hideName'],
   },
 })
 export class BpmnFlowView<E extends EventList = Record<string, any>>
@@ -80,11 +82,12 @@ export class BpmnFlowView<E extends EventList = Record<string, any>>
     return {
       element: props.element,
       viewport: props.viewport,
-      path: props.path ?? [],
-      selected: props.selected ?? false,
-      preview: props.preview ?? false,
-    }
+    path: props.path ?? [],
+    selected: props.selected ?? false,
+    preview: props.preview ?? false,
+    hideName: props.hideName ?? false,
   }
+}
 
   update(): void {
     super.update()
@@ -123,7 +126,37 @@ export class BpmnFlowView<E extends EventList = Record<string, any>>
     this.appendSegmentJoins(schema, path, color, width, opacity)
     this.appendTargetArrow(schema, path, color, opacity)
     this.appendSourceMarker(schema, path, color, width, opacity)
+    if (!this.props.hideName) this.appendLabel(schema, path, opacity)
     return schema
+  }
+
+  private appendLabel(schema: NovaSchema, path: Array<ModelerPoint>, opacity: number): void {
+    const layout = resolveBpmnFlowLabelLayout({
+      name: this.props.element.data?.name,
+      path,
+    })
+    if (!layout.text) return
+    schema.push({
+      type: 'text',
+      text: layout.text,
+      x: layout.rect.x,
+      y: layout.rect.y,
+      width: layout.rect.width,
+      height: layout.rect.height,
+      clip: true,
+      styles: {
+        color: this.resolveThemeColor('bpmnTaskTextColor'),
+        opacity,
+        font: {
+          family: layout.fontFamily,
+          size: layout.fontSize,
+          weight: layout.fontWeight,
+        },
+        lineHeight: layout.lineHeight,
+        align: { horizontal: 'center', vertical: 'middle' },
+        ellipsis: true,
+      },
+    })
   }
 
   private appendSegmentJoins(schema: NovaSchema, path: Array<ModelerPoint>, color: string, width: number, opacity: number): void {
@@ -313,3 +346,81 @@ export const MODELER_BPMN_FLOW_VIEW_DESCRIPTOR = createNovaDecoratedComponentDes
   Record<string, never>,
   BpmnFlowViewProps
 >(BpmnFlowView as never) as BpmnFlowViewDescriptor
+
+export interface BpmnFlowLabelLayout {
+  text: string
+  rect: { x: number; y: number; width: number; height: number }
+  lines: Array<{ text: string; x: number; y: number; width: number; widthLimit: number; height: number }>
+  fontFamily: string
+  fontSize: number
+  fontWeight: '500'
+  lineHeight: number
+  clipped: boolean
+}
+
+export function resolveBpmnFlowLabelLayout(input: {
+  name?: string
+  path: Array<ModelerPoint>
+}): BpmnFlowLabelLayout {
+  const text = typeof input.name === 'string' ? input.name.trim() : ''
+  const fontFamily = 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+  const fontSize = 12
+  const fontWeight = '500' as const
+  const lineHeight = 16
+  const midpoint = resolvePathMidpoint(input.path) ?? { x: 0, y: 0 }
+  const width = Math.min(180, Math.max(56, Math.ceil(text.length * fontSize * 0.58) + 18))
+  const height = 22
+  const rect = {
+    x: midpoint.x - width / 2,
+    y: midpoint.y - height / 2 - 10,
+    width,
+    height,
+  }
+  return {
+    text,
+    rect,
+    lines: [{
+      text,
+      x: rect.x,
+      y: rect.y,
+      width,
+      widthLimit: width,
+      height,
+    }],
+    fontFamily,
+    fontSize,
+    fontWeight,
+    lineHeight,
+    clipped: text.length * fontSize * 0.58 > width - 8,
+  }
+}
+
+function resolvePathMidpoint(path: Array<ModelerPoint>): ModelerPoint | null {
+  if (path.length === 0) return null
+  if (path.length === 1) return path[0]!
+  let total = 0
+  for (let index = 0; index < path.length - 1; index += 1) {
+    total += distance(path[index]!, path[index + 1]!)
+  }
+  if (total <= 0.001) return path[0]!
+  const target = total / 2
+  let walked = 0
+  for (let index = 0; index < path.length - 1; index += 1) {
+    const start = path[index]!
+    const end = path[index + 1]!
+    const segment = distance(start, end)
+    if (walked + segment >= target) {
+      const ratio = segment <= 0.001 ? 0 : (target - walked) / segment
+      return {
+        x: start.x + (end.x - start.x) * ratio,
+        y: start.y + (end.y - start.y) * ratio,
+      }
+    }
+    walked += segment
+  }
+  return path[path.length - 1]!
+}
+
+function distance(a: ModelerPoint, b: ModelerPoint): number {
+  return Math.hypot(b.x - a.x, b.y - a.y)
+}

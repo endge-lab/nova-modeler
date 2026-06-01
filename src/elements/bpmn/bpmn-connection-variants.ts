@@ -12,7 +12,10 @@ import type {
   BpmnAssociationElement,
   BpmnAssociationType,
 } from '@/elements/bpmn/association/bpmn-association.types'
-import { createBpmnFlowElement } from '@/elements/bpmn/flow/bpmn-flow.factory'
+import {
+  BPMN_FLOW_TYPE,
+  createBpmnFlowElement,
+} from '@/elements/bpmn/flow/bpmn-flow.factory'
 import type {
   BpmnFlowElement,
   BpmnFlowType,
@@ -25,6 +28,8 @@ export interface BpmnConnectionVariantDraft extends ModelerElementVariantDraft {
   connectionFamily?: BpmnConnectionFamily
   flowType?: BpmnFlowType
   associationType?: BpmnAssociationType
+  name?: string
+  conditionExpression?: string
 }
 
 const CONNECTION_FAMILIES: Array<{
@@ -55,6 +60,8 @@ export function createBpmnConnectionDraft(element: BpmnFlowElement | BpmnAssocia
     connectionFamily: family,
     flowType: isBpmnFlowElement(element) ? normalizeFlowType(element.data?.flowType) : 'sequence',
     associationType: isBpmnAssociationElement(element) ? normalizeAssociationType(element.data?.associationType) : 'undirected',
+    name: typeof element.data?.name === 'string' ? element.data.name : '',
+    conditionExpression: isBpmnFlowElement(element) && typeof element.data?.conditionExpression === 'string' ? element.data.conditionExpression : '',
   }
 }
 
@@ -64,25 +71,45 @@ export function getBpmnConnectionVariantDescriptor(
 ): ModelerElementVariantDescriptor {
   const typedDraft = resolveConnectionDraft(element, draft)
   const family = typedDraft.connectionFamily ?? resolveElementFamily(element)
+  const controls: Array<ModelerElementVariantControl> = []
   const variantControl: ModelerElementVariantControl = family === 'association'
     ? createAssociationVariantControl(typedDraft.associationType)
     : createFlowVariantControl(typedDraft.flowType)
+  controls.push({
+    id: 'connectionFamily',
+    kind: 'choice',
+    title: 'Connection type',
+    value: family,
+    options: CONNECTION_FAMILIES.map(option => ({
+      ...option,
+      selected: option.id === family,
+      data: { connectionFamily: option.id },
+    })),
+  })
+  controls.push(variantControl)
+  if (family === 'flow') {
+    controls.push({
+      id: 'name',
+      kind: 'input',
+      title: 'Label',
+      value: typedDraft.name ?? '',
+      placeholder: 'Flow label',
+      options: [],
+    })
+    if (normalizeFlowType(typedDraft.flowType) === 'conditionalSequence') {
+      controls.push({
+        id: 'conditionExpression',
+        kind: 'input',
+        title: 'Condition expression',
+        value: typedDraft.conditionExpression ?? '',
+        placeholder: '${ approved }',
+        options: [],
+      })
+    }
+  }
   return {
     title: 'Change connection',
-    controls: [
-      {
-        id: 'connectionFamily',
-        kind: 'choice',
-        title: 'Connection type',
-        value: family,
-        options: CONNECTION_FAMILIES.map(option => ({
-          ...option,
-          selected: option.id === family,
-          data: { connectionFamily: option.id },
-        })),
-      },
-      variantControl,
-    ],
+    controls,
   }
 }
 
@@ -106,6 +133,18 @@ export function updateBpmnConnectionVariantDraft(
       flowType: normalizeFlowType(option.data?.flowType ?? option.id),
     }
   }
+  if (control.id === 'name') {
+    return {
+      ...current,
+      name: String(option.data?.name ?? option.title ?? ''),
+    }
+  }
+  if (control.id === 'conditionExpression') {
+    return {
+      ...current,
+      conditionExpression: String(option.data?.conditionExpression ?? option.title ?? ''),
+    }
+  }
   if (control.id === 'associationType') {
     return {
       ...current,
@@ -125,11 +164,35 @@ export function applyBpmnConnectionVariant(input: {
 }): void {
   const nextDraft = updateBpmnConnectionVariantDraft(input.element, input.draft, input.control, input.option)
   const family = nextDraft.connectionFamily ?? resolveElementFamily(input.element)
+  if (input.control.id === 'name' || input.control.id === 'conditionExpression') {
+    applyFlowInput(input.context, input.element, input.control.id, input.option)
+    return
+  }
   if (family === 'association') {
     applyAssociationVariant(input.context, input.element, nextDraft.associationType)
     return
   }
   applyFlowVariant(input.context, input.element, nextDraft.flowType)
+}
+
+function applyFlowInput(
+  context: ModelerPluginContext,
+  element: BpmnFlowElement | BpmnAssociationElement,
+  controlId: string,
+  option: ModelerElementVariantOption,
+): void {
+  if (!isBpmnFlowElement(element)) return
+  const value = String(option.data?.[controlId] ?? option.title ?? '').trim()
+  context.applyCommand({
+    type: 'element.patch',
+    id: element.id,
+    patch: {
+      data: {
+        ...element.data,
+        [controlId]: value || undefined,
+      },
+    },
+  })
 }
 
 function createFlowVariantControl(value: unknown): ModelerElementVariantControl {
@@ -173,14 +236,16 @@ function applyFlowVariant(
   element: BpmnFlowElement | BpmnAssociationElement,
   flowType: unknown,
 ): void {
+  const normalizedFlowType = normalizeFlowType(flowType)
   if (isBpmnFlowElement(element)) {
+    if (normalizedFlowType === 'defaultSequence') clearSiblingDefaultFlows(context, element.id, element.source.elementId)
     context.applyCommand({
       type: 'element.patch',
       id: element.id,
       patch: {
         data: {
           ...element.data,
-          flowType: normalizeFlowType(flowType),
+          flowType: normalizedFlowType,
         },
       },
     })
@@ -189,14 +254,34 @@ function applyFlowVariant(
   const nextElement = createBpmnFlowElement({
     ...createBaseEdgeInput(element),
     data: sanitizeConnectionData(element.data),
-    flowType: normalizeFlowType(flowType),
+    flowType: normalizedFlowType,
   })
   if (showDuplicateConnectionWarning(context, element, nextElement, 'Sequence flow')) return
+  if (normalizedFlowType === 'defaultSequence') clearSiblingDefaultFlows(context, element.id, element.source.elementId)
   context.applyCommand({
     type: 'element.replace',
     id: element.id,
     element: nextElement,
   })
+}
+
+function clearSiblingDefaultFlows(context: ModelerPluginContext, currentId: string, sourceId: string | undefined): void {
+  if (!sourceId) return
+  for (const item of context.getModel().elements) {
+    if (item.id === currentId || item.type !== BPMN_FLOW_TYPE || !isModelerEdgeElement(item)) continue
+    if (item.source.elementId !== sourceId) continue
+    if (normalizeFlowType(item.data?.flowType) !== 'defaultSequence') continue
+    context.applyCommand({
+      type: 'element.patch',
+      id: item.id,
+      patch: {
+        data: {
+          ...item.data,
+          flowType: 'sequence',
+        },
+      },
+    })
+  }
 }
 
 function applyAssociationVariant(
@@ -299,6 +384,8 @@ function resolveConnectionDraft(
     connectionFamily: resolveFamily(draft.connectionFamily, fallback.connectionFamily),
     flowType: normalizeFlowType(draft.flowType ?? fallback.flowType),
     associationType: normalizeAssociationType(draft.associationType ?? fallback.associationType),
+    name: typeof draft.name === 'string' ? draft.name : fallback.name,
+    conditionExpression: typeof draft.conditionExpression === 'string' ? draft.conditionExpression : fallback.conditionExpression,
   }
 }
 

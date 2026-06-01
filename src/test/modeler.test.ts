@@ -190,6 +190,37 @@ describe('nova modeler minimal kernel', () => {
     expect(xml).toContain('<terminateEventDefinition />')
   })
 
+  it('exports BPMN default and conditional sequence flow metadata', () => {
+    const gateway = createBpmnGatewayElement({ id: 'decision', x: 220, y: 90 })
+    const approve = createBpmnTaskElement({ id: 'approve', x: 340, y: 74, name: 'Approve' })
+    const reject = createBpmnTaskElement({ id: 'reject', x: 340, y: 174, name: 'Reject' })
+    const defaultFlow = createBpmnFlowElement({
+      id: 'default-path',
+      flowType: 'defaultSequence',
+      source: { elementId: gateway.id, point: { x: 276, y: 118 } },
+      target: { elementId: approve.id, point: { x: 340, y: 118 } },
+      data: { name: 'Default path' },
+    })
+    const conditionalFlow = createBpmnFlowElement({
+      id: 'reject-path',
+      flowType: 'conditionalSequence',
+      source: { elementId: gateway.id, point: { x: 248, y: 146 } },
+      target: { elementId: reject.id, point: { x: 340, y: 218 } },
+      data: { name: 'Needs changes', conditionExpression: '${ approved == false }' },
+    })
+    const xml = new BpmnExporter().export({
+      model: createModelerModel({
+        id: 'sequence-flow-metadata',
+        elements: [gateway, approve, reject, defaultFlow, conditionalFlow],
+      }),
+    })
+
+    expect(xml).toContain('<exclusiveGateway id="Gateway_decision" default="Flow_default-path" />')
+    expect(xml).toContain('<sequenceFlow id="Flow_default-path" name="Default path" sourceRef="Gateway_decision" targetRef="Task_approve" />')
+    expect(xml).toContain('<sequenceFlow id="Flow_reject-path" name="Needs changes" sourceRef="Gateway_decision" targetRef="Task_reject">')
+    expect(xml).toContain('<conditionExpression xsi:type="tFormalExpression">${ approved == false }</conditionExpression>')
+  })
+
   it('exports BPMN global event definitions and references', () => {
     const task = createBpmnTaskElement({ id: 'task', x: 160, y: 74, name: 'Review request' })
     const messageStart = createBpmnEventElement({
@@ -1804,6 +1835,10 @@ describe('nova modeler minimal kernel', () => {
     expect(familyControl?.options.map(option => option.id)).toEqual(['flow', 'association'])
     const typeControl = descriptor?.controls.find(control => control.id === 'flowType')
     expect(typeControl?.options.map(option => option.id)).toEqual(['sequence', 'conditionalSequence', 'defaultSequence'])
+    expect(descriptor?.controls.find(control => control.id === 'name')).toMatchObject({
+      kind: 'input',
+      title: 'Label',
+    })
 
     for (const option of typeControl?.options ?? []) {
       provider?.apply({
@@ -1815,6 +1850,62 @@ describe('nova modeler minimal kernel', () => {
       })
       expect(controller.getModel().elements.find(element => element.id === flow.id)?.data?.flowType).toBe(option.id)
     }
+    let currentFlow = controller.getModel().elements.find(element => element.id === flow.id)!
+    provider?.apply({
+      context,
+      element: currentFlow,
+      draft: provider.createDraft?.(context, currentFlow) ?? {},
+      control: typeControl!,
+      option: typeControl!.options.find(option => option.id === 'conditionalSequence')!,
+    })
+    currentFlow = controller.getModel().elements.find(element => element.id === flow.id)!
+    let conditionalDescriptor = provider?.getDescriptor(context, currentFlow, provider.createDraft?.(context, currentFlow) ?? {})
+    expect(conditionalDescriptor?.controls.find(control => control.id === 'conditionExpression')).toMatchObject({
+      kind: 'input',
+      title: 'Condition expression',
+    })
+    const labelControl = conditionalDescriptor!.controls.find(control => control.id === 'name')!
+    provider?.apply({
+      context,
+      element: currentFlow,
+      draft: provider.createDraft?.(context, currentFlow) ?? {},
+      control: labelControl,
+      option: { id: 'name:input', title: 'Approved path', data: { name: 'Approved path' } },
+    })
+    currentFlow = controller.getModel().elements.find(element => element.id === flow.id)!
+    const conditionControl = conditionalDescriptor!.controls.find(control => control.id === 'conditionExpression')!
+    provider?.apply({
+      context,
+      element: currentFlow,
+      draft: provider.createDraft?.(context, currentFlow) ?? {},
+      control: conditionControl,
+      option: { id: 'conditionExpression:input', title: '${ approved }', data: { conditionExpression: '${ approved }' } },
+    })
+    expect(controller.getModel().elements.find(element => element.id === flow.id)).toMatchObject({
+      data: {
+        name: 'Approved path',
+        conditionExpression: '${ approved }',
+      },
+    })
+
+    const siblingDefault = createBpmnFlowElement({
+      id: 'flow-default-sibling',
+      flowType: 'defaultSequence',
+      source: { elementId: start.id, point: { x: 148, y: 130 } },
+      target: { elementId: task.id, point: { x: 220, y: 130 } },
+    })
+    controller.applyCommand({ type: 'element.add', element: siblingDefault })
+    currentFlow = controller.getModel().elements.find(element => element.id === flow.id)!
+    provider?.apply({
+      context,
+      element: currentFlow,
+      draft: provider.createDraft?.(context, currentFlow) ?? {},
+      control: typeControl!,
+      option: typeControl!.options.find(option => option.id === 'defaultSequence')!,
+    })
+    expect(controller.getModel().elements.find(element => element.id === flow.id)?.data?.flowType).toBe('defaultSequence')
+    expect(controller.getModel().elements.find(element => element.id === siblingDefault.id)?.data?.flowType).toBe('sequence')
+    controller.applyCommand({ type: 'element.delete', id: siblingDefault.id })
 
     provider?.apply({
       context,
@@ -1953,6 +2044,38 @@ describe('nova modeler minimal kernel', () => {
         target: { elementId: 'start', point: { x: 0, y: 0 } },
       }),
     ])).toEqual(expect.arrayContaining(['bpmn.startIncoming', 'bpmn.endOutgoing']))
+    expect(validateBpmnRules([
+      ...valid,
+      createBpmnFlowElement({
+        id: 'default-1',
+        flowType: 'defaultSequence',
+        source: { elementId: 'task', point: { x: 0, y: 0 } },
+        target: { elementId: 'end', point: { x: 0, y: 0 } },
+      }),
+      createBpmnFlowElement({
+        id: 'default-2',
+        flowType: 'defaultSequence',
+        source: { elementId: 'task', point: { x: 0, y: 0 } },
+        target: { elementId: 'end', point: { x: 0, y: 0 } },
+      }),
+      createBpmnFlowElement({
+        id: 'start-default',
+        flowType: 'defaultSequence',
+        source: { elementId: 'start', point: { x: 0, y: 0 } },
+        target: { elementId: 'task', point: { x: 0, y: 0 } },
+      }),
+      createBpmnFlowElement({
+        id: 'start-conditional',
+        flowType: 'conditionalSequence',
+        source: { elementId: 'start', point: { x: 0, y: 0 } },
+        target: { elementId: 'task', point: { x: 0, y: 0 } },
+      }),
+    ])).toEqual(expect.arrayContaining([
+      'bpmn.multipleDefaultFlows',
+      'bpmn.invalidDefaultFlowSource',
+      'bpmn.invalidConditionalFlowSource',
+      'bpmn.conditionalFlowNoCondition',
+    ]))
     const nonReceiveInstantiateModel = createModelerModel({ elements: [
       createBpmnEventElement({ id: 'start', eventPosition: 'start' }),
       createBpmnTaskElement({ id: 'task', taskType: 'user' }),
@@ -2400,6 +2523,7 @@ describe('nova modeler minimal kernel', () => {
               source: { elementId: 'start-1', portId: 'right', point: { x: 368, y: 144 } },
               target: { elementId: 'gateway-1', portId: 'left', point: { x: 420, y: 148 } },
               waypoints: [{ x: 394, y: 146 }],
+              data: { name: 'Approved' },
             }),
           ],
           selection: ['rect-1', 'start-1', 'gateway-1', 'flow-1'],
@@ -2450,6 +2574,7 @@ describe('nova modeler minimal kernel', () => {
       ...(hoverInteraction?.compileRenderFrame().items.map(item => item.schemaItem).filter(Boolean) ?? []),
     ]
     expect(schemaItems.some(item => item.type === 'polygon')).toBe(true)
+    expect(schemaItems.some(item => item.type === 'text' && item.text === 'Approved')).toBe(true)
     expect(schemaItems.some(item => item.type === 'circle' && item.styles?.background === '#2563eb')).toBe(true)
     app.destroy()
   })
@@ -2732,6 +2857,75 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
+  it('edits BPMN sequence flow label inline from the label area', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    const root = app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'flow-label-edit-root',
+      props: {
+        model: createModelerModel({
+          elements: [
+            createBpmnEventElement({ id: 'start-1', x: 100, y: 100 }),
+            createBpmnTaskElement({ id: 'task-1', x: 220, y: 84 }),
+            createBpmnFlowElement({
+              id: 'flow-1',
+              source: { elementId: 'start-1', point: { x: 148, y: 124 } },
+              target: { elementId: 'task-1', point: { x: 220, y: 124 } },
+              waypoints: [{ x: 184, y: 124 }],
+              data: { name: 'Old label' },
+            }),
+          ],
+          selection: ['flow-1'],
+        }),
+        width: 640,
+        height: 420,
+      },
+    }) as Root
+    app.raph.run()
+    app.raph.run()
+
+    ;(root as unknown as { openTaskNameEditorFromPoint(point: { x: number; y: number }): boolean })
+      .openTaskNameEditorFromPoint({ x: 184, y: 124 })
+    app.raph.run()
+
+    const inputId = 'flow-label-edit-root:task-name-editor:input'
+    const input = app.components.requireApi<InputApi>(inputId)
+    const links = app.surfaces.find(item => item.name === 'flow-label-edit-root:links')
+    const linkTexts = () => links
+      ?.compileRenderFrame().items
+      .map(item => item.schemaItem)
+      .filter(item => item?.type === 'text')
+      .map(item => item?.text) ?? []
+    expect(linkTexts()).not.toContain('Old label')
+    expect(pickInputProps(input.getProps())).toMatchObject({
+      variant: 'ghost',
+      align: 'center',
+      wrap: true,
+      maxRows: 1,
+      fontSize: 12,
+      lineHeight: 16,
+      border: { width: 0 },
+      background: 'rgba(255,255,255,0)',
+    })
+
+    input.setValue('Approved path')
+    input.commit()
+    app.raph.run()
+    expect(root.getApi().getModel().elements.find(element => element.id === 'flow-1')?.data?.name).toBe('Approved path')
+    expect(linkTexts()).toContain('Approved path')
+    expect(app.components.get(inputId)).toBeFalsy()
+    app.destroy()
+  })
+
   it('renders and edits BPMN data store label below the database icon', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(createMeasured2DContextStub())
     const canvas = document.createElement('canvas')
@@ -2956,6 +3150,55 @@ describe('nova modeler minimal kernel', () => {
     expect(rectTooltipFromEdge?.rect).toMatchObject({ x: palette.x + rectEntry.x, y: palette.y + rectEntry.y, width: 40, height: 40 })
     expect(eventTooltip?.tooltip).toMatchObject({ value: 'Create Event', placement: 'cursor' })
     expect(eventTooltip?.rect).toMatchObject({ x: palette.x + eventEntry.x, y: palette.y + eventEntry.y, width: 40, height: 40 })
+    app.destroy()
+  })
+
+  it('applies initial root options to an external controller palette', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    const controller = createModelerController({
+      model: createModelerModel(),
+      pluginRuntime: createPluginRuntime().use(MarqueeSelectionPlugin.create()),
+    })
+    app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'external-controller-palette-root',
+      props: {
+        model: createModelerModel(),
+        controller,
+        width: 640,
+        height: 420,
+        options: {
+          branding: {
+            visible: false,
+          },
+          palette: {
+            visibleItemIds: ['marqueeSelection.tool', 'element.connect.tool', 'bpmn.message-flow.create'],
+          },
+        },
+      },
+    })
+    app.raph.run()
+    app.raph.run()
+
+    expect(controller.getOptions().palette?.visibleItemIds).toEqual([
+      'marqueeSelection.tool',
+      'element.connect.tool',
+      'bpmn.message-flow.create',
+    ])
+    expect(controller.getPluginContext().palette.getItems().map(item => item.id)).toEqual([
+      'marqueeSelection.tool',
+      'element.connect.tool',
+      'bpmn.message-flow.create',
+    ])
     app.destroy()
   })
 

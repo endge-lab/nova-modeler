@@ -402,11 +402,19 @@ export class BpmnExporter {
     const targetRef = this.resolveEndpointRef(element.target.elementId, state)
     const id = this.requireBpmnId(element, state)
     const flowType = normalizeBpmnFlowType(element.data?.flowType)
-    const attrs = `id="${id}" sourceRef="${sourceRef}" targetRef="${targetRef}"`
+    const attrs = [
+      `id="${id}"`,
+      this.resolveName(element) ? `name="${escapeXml(this.resolveName(element))}"` : '',
+      `sourceRef="${sourceRef}"`,
+      `targetRef="${targetRef}"`,
+    ].filter(Boolean).join(' ')
     if (flowType !== 'conditionalSequence') return `<sequenceFlow ${attrs} />`
+    const condition = typeof element.data?.conditionExpression === 'string' && element.data.conditionExpression.trim()
+      ? element.data.conditionExpression.trim()
+      : 'true'
     return [
       `<sequenceFlow ${attrs}>`,
-      '  <conditionExpression xsi:type="tFormalExpression">true</conditionExpression>',
+      `  <conditionExpression xsi:type="tFormalExpression">${escapeXml(condition)}</conditionExpression>`,
       '</sequenceFlow>',
     ].join('\n')
   }
