@@ -11,6 +11,10 @@ import {
 import type { EventList } from '@endge/utils'
 import { Modeler } from '@/config/schema.config'
 import {
+  MODELER_THEME_FALLBACKS,
+  MODELER_THEME_TOKENS,
+} from '@/config/theme.config'
+import {
   MODELER_CONTEXT,
   MODELER_STORE,
 } from '@/config/context.config'
@@ -23,6 +27,7 @@ import {
   createMiniMapLayout,
   createMiniMapSchema,
   type MiniMapLayout,
+  type MiniMapTheme,
 } from '@/plugins/mini-map/mini-map-schema'
 
 export interface MiniMapProps {
@@ -76,6 +81,7 @@ export class MiniMap<E extends EventList = Record<string, any>>
   ) {
     super(app, surface, descriptor, props, options)
     this.options({ width: surface.width, height: surface.height, interactive: props.visible, zIndex: 0 })
+    this.addDisposer(app.theme.observe(this, { phase: 'render' }))
     this.setupEvents()
   }
 
@@ -112,7 +118,7 @@ export class MiniMap<E extends EventList = Record<string, any>>
       this.renderer.schema([] as unknown as NovaSchema)
       return
     }
-    this.renderer.schema(createMiniMapSchema(this.resolveLayout()))
+    this.renderer.schema(createMiniMapSchema(this.resolveLayout(), this.resolveTheme()))
   }
 
   protected override onPropsChanged(): void {
@@ -194,6 +200,21 @@ export class MiniMap<E extends EventList = Record<string, any>>
       ? this.surface.height - this.props.height - this.props.margin
       : this.props.margin
     return { x, y, width: this.props.width, height: this.props.height }
+  }
+
+  private resolveTheme(): MiniMapTheme {
+    return {
+      background: this.resolveColor('miniMapBackground'),
+      borderColor: this.resolveColor('miniMapBorderColor'),
+      contentBackground: this.resolveColor('miniMapContentBackground'),
+      viewportBackground: this.resolveColor('miniMapViewportBackground'),
+      viewportBorderColor: this.resolveColor('miniMapViewportBorderColor'),
+    }
+  }
+
+  private resolveColor(token: keyof typeof MODELER_THEME_FALLBACKS): string {
+    const fallback = String(MODELER_THEME_FALLBACKS[token])
+    return this.nova.theme.resolve(MODELER_THEME_TOKENS[token], fallback) ?? fallback
   }
 }
 

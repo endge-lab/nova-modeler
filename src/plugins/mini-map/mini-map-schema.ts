@@ -6,6 +6,14 @@ export interface MiniMapLayout extends ModelerRect {
   viewport: ModelerRect
 }
 
+export interface MiniMapTheme {
+  background: string
+  borderColor: string
+  contentBackground: string
+  viewportBackground: string
+  viewportBorderColor: string
+}
+
 export function createMiniMapLayout(
   layout: ModelerLayout,
   width: number,
@@ -37,11 +45,11 @@ export function createMiniMapLayout(
   return { x, y, width, height, content, viewport }
 }
 
-export function createMiniMapSchema(layout: MiniMapLayout): NovaSchema {
+export function createMiniMapSchema(layout: MiniMapLayout, theme: MiniMapTheme): NovaSchema {
   return [
-    { type: 'rect', x: layout.x, y: layout.y, width: layout.width, height: layout.height, styles: { background: 'rgba(241, 245, 249, 0.78)', border: { color: '#cbd5e1', width: 1 } } },
-    { type: 'rect', x: layout.content.x, y: layout.content.y, width: layout.content.width, height: layout.content.height, styles: { background: 'rgba(226, 232, 240, 0.44)' } },
-    { type: 'rect', x: layout.viewport.x, y: layout.viewport.y, width: layout.viewport.width, height: layout.viewport.height, styles: { background: 'rgba(37, 99, 235, 0.12)', border: { color: '#2563eb', width: 1.5 } } },
+    { type: 'rect', x: layout.x, y: layout.y, width: layout.width, height: layout.height, styles: { background: theme.background, border: { color: theme.borderColor, width: 1 } } },
+    { type: 'rect', x: layout.content.x, y: layout.content.y, width: layout.content.width, height: layout.content.height, styles: { background: theme.contentBackground } },
+    { type: 'rect', x: layout.viewport.x, y: layout.viewport.y, width: layout.viewport.width, height: layout.viewport.height, styles: { background: theme.viewportBackground, border: { color: theme.viewportBorderColor, width: 1.5 } } },
   ] as NovaSchema
 }
 

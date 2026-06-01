@@ -18,7 +18,6 @@ import {
   type NovaUiLayoutMeasure,
   type NovaUiLayoutRect,
 } from '@endge/nova-ui-kit'
-import { MODELER_ASSETS } from '@/assets/modeler-assets'
 import { Modeler } from '@/config/schema.config'
 import {
   MODELER_CONTEXT,
@@ -137,6 +136,7 @@ export class Palette<E extends EventList = Record<string, any>>
       cursor: PALETTE_CURSOR_RULES,
       cursorContext: { paletteCursor: 'none' },
     })
+    this.addDisposer(app.theme.observe(this, { phase: 'render' }))
     this.restoreLocalRenderBounds()
     this.setupEvents()
   }
@@ -878,43 +878,43 @@ export class Palette<E extends EventList = Record<string, any>>
 
   private appendItemIcon(schema: NovaSchema, item: ModelerPaletteItemDefinition, x: number, y: number, size: number): void {
     if (item.icon === 'connect-arrow') {
-      this.appendAssetIcon(schema, MODELER_ASSETS.icons.connectArrow, x, y, size)
+      this.appendConnectIcon(schema, x, y, size)
       return
     }
     if (item.icon === 'bpmn-text-annotation') {
-      this.appendAssetIcon(schema, MODELER_ASSETS.icons.textCaption, x, y, size)
+      this.appendTextAnnotationIcon(schema, x, y, size)
       return
     }
     if (item.icon === 'bpmn-group') {
-      this.appendAssetIcon(schema, MODELER_ASSETS.icons.boxMargin, x, y, size)
+      this.appendGroupIcon(schema, x, y, size)
       return
     }
     if (item.icon === 'bpmn-data-object') {
-      this.appendAssetIcon(schema, MODELER_ASSETS.icons.fileText, x, y, size)
+      this.appendDataObjectIcon(schema, x, y, size)
       return
     }
     if (item.icon === 'bpmn-data-store') {
-      this.appendAssetIcon(schema, MODELER_ASSETS.icons.database, x, y, size)
+      this.appendDataStoreIcon(schema, x, y, size)
       return
     }
     if (item.icon === 'bpmn-activity') {
-      this.appendAssetIcon(schema, MODELER_ASSETS.icons.activity, x, y, size)
+      this.appendBpmnTaskIcon(schema, x, y, size)
       return
     }
     if (item.icon === 'bpmn-event') {
-      this.appendAssetIcon(schema, MODELER_ASSETS.icons.event, x, y, size)
+      this.appendBpmnEventIcon(schema, x, y, size, 'bpmn-event')
       return
     }
     if (item.icon === 'bpmn-swimlane') {
-      this.appendAssetIcon(schema, MODELER_ASSETS.icons.swimlane, x, y, size)
+      this.appendSwimlaneIcon(schema, x, y, size)
       return
     }
     if (item.icon === 'bpmn-association') {
-      this.appendAssetIcon(schema, MODELER_ASSETS.icons.link, x, y, size)
+      this.appendAssociationIcon(schema, x, y, size)
       return
     }
     if (item.icon === 'bpmn-message-flow') {
-      this.appendAssetIcon(schema, MODELER_ASSETS.icons.send, x, y, size)
+      this.appendMessageFlowIcon(schema, x, y, size)
       return
     }
     if (item.icon === 'marquee-rect') {
@@ -936,17 +936,122 @@ export class Palette<E extends EventList = Record<string, any>>
     this.appendRectIcon(schema, x, y, size)
   }
 
-  private appendAssetIcon(schema: NovaSchema, icon: unknown, x: number, y: number, size: number): void {
-    const iconSize = Math.min(24, size * 0.68)
+  private appendConnectIcon(schema: NovaSchema, x: number, y: number, size: number): void {
+    const color = this.resolvePaletteColor('paletteIconStroke')
+    const cy = y + size / 2
+    const left = x + size * 0.24
+    const right = x + size * 0.76
     schema.push({
-      type: 'icon',
-      icon: icon as never,
-      x: x + (size - iconSize) / 2,
-      y: y + (size - iconSize) / 2,
-      width: iconSize,
-      height: iconSize,
-      styles: { opacity: 1 },
+      type: 'circle',
+      x: left,
+      y: cy,
+      radius: size * 0.07,
+      styles: { background: this.resolvePaletteColor('paletteIconFill'), border: { color, width: 2 } },
     })
+    schema.push({ type: 'line', x1: left + size * 0.07, y1: cy, x2: right, y2: cy, styles: { color, width: 2 } })
+    schema.push({ type: 'line', x1: right, y1: cy, x2: right - size * 0.12, y2: cy - size * 0.1, styles: { color, width: 2 } })
+    schema.push({ type: 'line', x1: right, y1: cy, x2: right - size * 0.12, y2: cy + size * 0.1, styles: { color, width: 2 } })
+  }
+
+  private appendTextAnnotationIcon(schema: NovaSchema, x: number, y: number, size: number): void {
+    const color = this.resolvePaletteColor('paletteIconStroke')
+    const left = x + size * 0.28
+    const top = y + size * 0.25
+    const bottom = y + size * 0.75
+    schema.push({ type: 'line', x1: left, y1: top, x2: left, y2: bottom, styles: { color, width: 2 } })
+    schema.push({ type: 'line', x1: left, y1: top, x2: left + size * 0.16, y2: top, styles: { color, width: 2 } })
+    schema.push({ type: 'line', x1: left, y1: bottom, x2: left + size * 0.16, y2: bottom, styles: { color, width: 2 } })
+    schema.push({ type: 'line', x1: x + size * 0.48, y1: y + size * 0.36, x2: x + size * 0.72, y2: y + size * 0.36, styles: { color, width: 2 } })
+    schema.push({ type: 'line', x1: x + size * 0.48, y1: y + size * 0.5, x2: x + size * 0.68, y2: y + size * 0.5, styles: { color, width: 2 } })
+    schema.push({ type: 'line', x1: x + size * 0.48, y1: y + size * 0.64, x2: x + size * 0.72, y2: y + size * 0.64, styles: { color, width: 2 } })
+  }
+
+  private appendGroupIcon(schema: NovaSchema, x: number, y: number, size: number): void {
+    const color = this.resolvePaletteColor('paletteIconStroke')
+    const left = x + size * 0.24
+    const top = y + size * 0.26
+    const width = size * 0.52
+    const height = size * 0.48
+    schema.push({
+      type: 'rect',
+      x: left,
+      y: top,
+      width,
+      height,
+      styles: {
+        background: 'rgba(0,0,0,0)',
+        border: { color, width: 2, radius: 6 },
+      },
+    })
+    schema.push({ type: 'line', x1: left + width * 0.24, y1: top, x2: left + width * 0.24, y2: top + height, styles: { color, width: 1.5, opacity: 0.72 } })
+    schema.push({ type: 'line', x1: left, y1: top + height * 0.5, x2: left + width, y2: top + height * 0.5, styles: { color, width: 1.5, opacity: 0.72 } })
+  }
+
+  private appendDataObjectIcon(schema: NovaSchema, x: number, y: number, size: number): void {
+    const color = this.resolvePaletteColor('paletteIconStroke')
+    const fill = this.resolvePaletteColor('paletteIconFill')
+    const left = x + size * 0.31
+    const top = y + size * 0.22
+    const width = size * 0.38
+    const height = size * 0.56
+    const fold = size * 0.13
+    schema.push({
+      type: 'polygon',
+      points: [
+        { x: left, y: top },
+        { x: left + width - fold, y: top },
+        { x: left + width, y: top + fold },
+        { x: left + width, y: top + height },
+        { x: left, y: top + height },
+      ],
+      styles: { background: fill, stroke: color, lineWidth: 2 },
+    })
+    schema.push({ type: 'line', x1: left + width - fold, y1: top, x2: left + width - fold, y2: top + fold, styles: { color, width: 1.5 } })
+    schema.push({ type: 'line', x1: left + width - fold, y1: top + fold, x2: left + width, y2: top + fold, styles: { color, width: 1.5 } })
+  }
+
+  private appendDataStoreIcon(schema: NovaSchema, x: number, y: number, size: number): void {
+    const color = this.resolvePaletteColor('paletteIconStroke')
+    const left = x + size * 0.25
+    const right = x + size * 0.75
+    const top = y + size * 0.3
+    const bottom = y + size * 0.7
+    schema.push({ type: 'line', x1: left, y1: top, x2: right, y2: top, styles: { color, width: 2 } })
+    schema.push({ type: 'line', x1: left, y1: (top + bottom) / 2, x2: right, y2: (top + bottom) / 2, styles: { color, width: 2 } })
+    schema.push({ type: 'line', x1: left, y1: bottom, x2: right, y2: bottom, styles: { color, width: 2 } })
+    schema.push({ type: 'line', x1: left, y1: top, x2: left, y2: bottom, styles: { color, width: 2 } })
+    schema.push({ type: 'line', x1: right, y1: top, x2: right, y2: bottom, styles: { color, width: 2 } })
+  }
+
+  private appendSwimlaneIcon(schema: NovaSchema, x: number, y: number, size: number): void {
+    const color = this.resolvePaletteColor('paletteIconStroke')
+    const left = x + size * 0.22
+    const top = y + size * 0.28
+    const width = size * 0.56
+    const height = size * 0.44
+    schema.push({ type: 'rect', x: left, y: top, width, height, styles: { background: this.resolvePaletteColor('paletteIconFill'), border: { color, width: 2, radius: 1 } } })
+    schema.push({ type: 'line', x1: left, y1: top + height / 3, x2: left + width, y2: top + height / 3, styles: { color, width: 1.5 } })
+    schema.push({ type: 'line', x1: left, y1: top + height * 2 / 3, x2: left + width, y2: top + height * 2 / 3, styles: { color, width: 1.5 } })
+  }
+
+  private appendAssociationIcon(schema: NovaSchema, x: number, y: number, size: number): void {
+    const color = this.resolvePaletteColor('paletteIconStroke')
+    const cy = y + size / 2
+    const start = x + size * 0.27
+    const segment = size * 0.13
+    for (let index = 0; index < 3; index += 1) {
+      const x1 = start + index * segment * 1.45
+      schema.push({ type: 'line', x1, y1: cy, x2: x1 + segment, y2: cy, styles: { color, width: 2 } })
+    }
+  }
+
+  private appendMessageFlowIcon(schema: NovaSchema, x: number, y: number, size: number): void {
+    this.appendAssociationIcon(schema, x, y, size)
+    const color = this.resolvePaletteColor('paletteIconStroke')
+    const cy = y + size / 2
+    const right = x + size * 0.76
+    schema.push({ type: 'line', x1: right, y1: cy, x2: right - size * 0.1, y2: cy - size * 0.09, styles: { color, width: 2 } })
+    schema.push({ type: 'line', x1: right, y1: cy, x2: right - size * 0.1, y2: cy + size * 0.09, styles: { color, width: 2 } })
   }
 
   private appendRectIcon(schema: NovaSchema, x: number, y: number, size: number): void {

@@ -2249,6 +2249,45 @@ describe('nova modeler minimal kernel', () => {
     expect(boundsContainsPoint({ x: 0, y: 0, width: 10, height: 10 }, 15, 5)).toBe(false)
   })
 
+  it('keeps the viewport center stable when zoom controls change scale', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    const root = app.schema.createNode(surface, {
+      type: Modeler.Root,
+      props: {
+        model: createModelerModel({
+          canvas: { x: -1000, y: -1000, width: 4000, height: 3000 },
+          viewport: { x: -120, y: -80, scale: 1 },
+        }),
+        width: 640,
+        height: 420,
+      },
+    }) as Root
+    const zoomControls = app.schema.createChild(root, {
+      type: Modeler.ZoomControls,
+      id: 'centered-zoom-controls',
+      props: { minZoom: 0.1, maxZoom: 3, step: 0.2 },
+    }) as { getApi(): { setValue(value: number): void } }
+    app.raph.run()
+
+    const center = { x: 320, y: 210 }
+    const before = root.screenToWorld(center)
+    zoomControls.getApi().setValue(2)
+    app.raph.run()
+
+    expect(root.getViewport().scale).toBe(2)
+    expect(root.screenToWorld(center)).toEqual(before)
+    app.destroy()
+  })
+
   it('hit-tests basic rect body, resize handles and ports', () => {
     const model = createModelerModel({
       elements: [createBasicRectElement({ id: 'rect-1', x: 100, y: 100, width: 160, height: 96 })],
@@ -2479,6 +2518,22 @@ describe('nova modeler minimal kernel', () => {
       renderer: { main: RendererType.Web2D },
       scheduler: { type: RaphSchedulerType.Sync, loop: false },
     })
+    app.theme.registerMany([
+      {
+        id: 'light',
+        tokens: {
+          '--modeler-palette-background': '#ffffff',
+          '--modeler-mini-map-background': '#f8fafc',
+        },
+      },
+      {
+        id: 'dark',
+        tokens: {
+          '--modeler-palette-background': '#101827',
+          '--modeler-mini-map-background': '#0f172a',
+        },
+      },
+    ])
     registerModeler(app.schema)
     const surface = app.createSurface('modeler')
     const root = app.schema.createNode(surface, {
@@ -2495,6 +2550,10 @@ describe('nova modeler minimal kernel', () => {
     expect(root.getApi().getViewport().scale).toBe(1)
     expect(root.getApi().setViewport({ scale: 1.4 }).viewport.scale).toBe(1.4)
     expect(root.getApi().fitView().scale).toBeGreaterThan(0)
+    app.theme.use('dark')
+    app.raph.run()
+    expect(app.theme.resolve('--modeler-palette-background')).toBe('#101827')
+    expect(app.theme.resolve('--modeler-mini-map-background')).toBe('#0f172a')
   })
 
   it('registers and renders basic rect and BPMN graph elements', () => {
@@ -4621,7 +4680,7 @@ describe('nova modeler minimal kernel', () => {
     const controller = (root as unknown as { controllerInstance: ReturnType<typeof createModelerController> }).controllerInstance
     const controls = app.surfaces.find(item => item.name === 'palette-root:controls')
     const paletteItems = controls?.compileRenderFrame().items.map(item => item.schemaItem).filter(Boolean) ?? []
-    expect(paletteItems.some(item => item.type === 'icon' && item.icon === MODELER_ASSETS.icons.connectArrow)).toBe(true)
+    expect(paletteItems.some(item => item.type === 'line' && item.styles?.color === '#1f2937')).toBe(true)
     const palette = app.components.require('palette-root:palette') as unknown as {
       x: number
       y: number

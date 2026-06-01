@@ -78,7 +78,7 @@ export class ZoomControls<E extends EventList = Record<string, any>>
     return {
       zoomIn: () => this.zoomBy(1),
       zoomOut: () => this.zoomBy(-1),
-      setValue: value => this.resolveViewportController()?.setViewport({ scale: value }),
+      setValue: value => this.setViewportScale(value),
       setProps: patch => this.setProps(patch),
       getProps: () => this.props,
     }
@@ -143,7 +143,7 @@ export class ZoomControls<E extends EventList = Record<string, any>>
         height: this.height,
         position: 'static',
         value: store?.viewport.scale ?? viewportController?.getViewport().scale ?? 1,
-        onChange: (value: number) => viewportController?.setViewport({ scale: value }),
+        onChange: (value: number) => this.setViewportScale(value),
       },
     }])
   }
@@ -152,12 +152,26 @@ export class ZoomControls<E extends EventList = Record<string, any>>
     const viewportController = this.resolveViewportController()
     if (!viewportController) return
     const viewport = viewportController.getViewport()
+    this.setViewportScale(clamp(viewport.scale + this.props.step * direction, this.props.minZoom, this.props.maxZoom))
+  }
+
+  private setViewportScale(scale: number): void {
+    const viewportController = this.resolveViewportController()
+    if (!viewportController) return
+    const layout = viewportController.getLayout()
+    const anchor = {
+      x: layout.canvas.x + layout.canvas.width / 2,
+      y: layout.canvas.y + layout.canvas.height / 2,
+    }
+    const world = viewportController.screenToWorld(anchor)
     viewportController.setViewport({
-      scale: clamp(viewport.scale + this.props.step * direction, this.props.minZoom, this.props.maxZoom),
+      x: anchor.x - world.x * scale,
+      y: anchor.y - world.y * scale,
+      scale,
     })
   }
 
-  private resolveViewportController(): Pick<ModelerController, 'getViewport' | 'setViewport'> | undefined {
+  private resolveViewportController(): Pick<ModelerController, 'getLayout' | 'getViewport' | 'screenToWorld' | 'setViewport'> | undefined {
     return this.props.controller ?? this.injectOptional(MODELER_CONTEXT)
   }
 }

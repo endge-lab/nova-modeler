@@ -267,7 +267,7 @@ export class ElementsLayer {
       data: { ...element.data },
       style: {
         ...element.style,
-        opacity: opacity * 0.45,
+        opacity: opacity * 0.225,
       },
     }
   }
