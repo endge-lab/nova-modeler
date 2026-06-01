@@ -13,6 +13,8 @@ import { BPMN_FLOW_TYPE, normalizeBpmnFlowType } from '@/elements/bpmn/flow/bpmn
 import type { BpmnFlowElement } from '@/elements/bpmn/flow/bpmn-flow.types'
 import { BPMN_GATEWAY_TYPE, normalizeBpmnGatewayType } from '@/elements/bpmn/gateway/bpmn-gateway.factory'
 import type { BpmnGatewayElement } from '@/elements/bpmn/gateway/bpmn-gateway.types'
+import { BPMN_CALL_ACTIVITY_TYPE } from '@/elements/bpmn/call-activity/bpmn-call-activity.factory'
+import { BPMN_SUB_PROCESS_TYPE } from '@/elements/bpmn/sub-process/bpmn-sub-process.factory'
 import { BPMN_TASK_TYPE } from '@/elements/bpmn/task/bpmn-task.factory'
 import type { BpmnTaskElement } from '@/elements/bpmn/task/bpmn-task.types'
 import { ModelerExportGeometry } from '@/model/export/modeler-export-geometry'
@@ -63,6 +65,10 @@ export class ModelerPngExporter {
 
   private renderNode(ctx: CanvasRenderingContext2D, element: ModelerElement, bounds: ModelerRect): void {
     if (element.type === BPMN_TASK_TYPE) {
+      this.renderTask(ctx, element as BpmnTaskElement, bounds)
+      return
+    }
+    if (element.type === BPMN_SUB_PROCESS_TYPE || element.type === BPMN_CALL_ACTIVITY_TYPE) {
       this.renderTask(ctx, element as BpmnTaskElement, bounds)
       return
     }

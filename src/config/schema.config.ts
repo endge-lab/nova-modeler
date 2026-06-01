@@ -10,6 +10,7 @@ export const Modeler = {
   BpmnFlowView: 'Modeler.BpmnFlowView',
   BpmnEventView: 'Modeler.BpmnEventView',
   BpmnTaskView: 'Modeler.BpmnTaskView',
+  BpmnActivityView: 'Modeler.BpmnActivityView',
   BpmnGatewayView: 'Modeler.BpmnGatewayView',
   BpmnTextAnnotationView: 'Modeler.BpmnTextAnnotationView',
   BpmnGroupView: 'Modeler.BpmnGroupView',

@@ -9,6 +9,10 @@ import { BPMN_FLOW_TYPE, normalizeBpmnFlowType } from '@/elements/bpmn/flow/bpmn
 import type { BpmnFlowElement } from '@/elements/bpmn/flow/bpmn-flow.types'
 import { BPMN_GATEWAY_TYPE, normalizeBpmnGatewayType } from '@/elements/bpmn/gateway/bpmn-gateway.factory'
 import type { BpmnGatewayElement } from '@/elements/bpmn/gateway/bpmn-gateway.types'
+import { BPMN_CALL_ACTIVITY_TYPE } from '@/elements/bpmn/call-activity/bpmn-call-activity.factory'
+import type { BpmnCallActivityElement } from '@/elements/bpmn/call-activity/bpmn-call-activity.types'
+import { BPMN_SUB_PROCESS_TYPE, normalizeBpmnSubProcessType } from '@/elements/bpmn/sub-process/bpmn-sub-process.factory'
+import type { BpmnSubProcessElement } from '@/elements/bpmn/sub-process/bpmn-sub-process.types'
 import { BPMN_TASK_TYPE, normalizeBpmnTaskLoopType, normalizeBpmnTaskType } from '@/elements/bpmn/task/bpmn-task.factory'
 import type { BpmnTaskElement } from '@/elements/bpmn/task/bpmn-task.types'
 import { ModelerExportGeometry } from '@/model/export/modeler-export-geometry'
@@ -88,6 +92,8 @@ export class BpmnExporter {
 
   private serializeNode(element: ModelerElement, state: BpmnExportState): string {
     if (element.type === BPMN_TASK_TYPE) return this.serializeTask(element as BpmnTaskElement, state)
+    if (element.type === BPMN_SUB_PROCESS_TYPE) return this.serializeSubProcess(element as BpmnSubProcessElement, state)
+    if (element.type === BPMN_CALL_ACTIVITY_TYPE) return this.serializeCallActivity(element as BpmnCallActivityElement, state)
     if (element.type === BPMN_EVENT_TYPE) return this.serializeEvent(element as BpmnEventElement, state)
     if (element.type === BPMN_GATEWAY_TYPE) return this.serializeGateway(element as BpmnGatewayElement, state)
     throw new Error(`[BpmnExporter] Unsupported BPMN element type: ${element.type}`)
@@ -123,6 +129,43 @@ export class BpmnExporter {
   }
 
   private serializeTaskChildren(element: BpmnTaskElement): Array<string> {
+    const loopType = normalizeBpmnTaskLoopType(element.data?.loopType)
+    if (loopType === 'standard') return ['<standardLoopCharacteristics />']
+    if (loopType === 'multiInstanceParallel') return ['<multiInstanceLoopCharacteristics isSequential="false" />']
+    if (loopType === 'multiInstanceSequential') return ['<multiInstanceLoopCharacteristics isSequential="true" />']
+    return []
+  }
+
+  private serializeSubProcess(element: BpmnSubProcessElement, state: BpmnExportState): string {
+    const type = normalizeBpmnSubProcessType(element.data?.subProcessType)
+    const tag = type === 'transaction'
+      ? 'transaction'
+      : type === 'adHoc'
+        ? 'adHocSubProcess'
+        : 'subProcess'
+    const attrs = [
+      this.serializeNodeAttrs(element, state),
+      type === 'event' ? 'triggeredByEvent="true"' : '',
+      element.data?.isForCompensation ? 'isForCompensation="true"' : '',
+    ].filter(Boolean).join(' ')
+    const children = this.serializeActivityLoopChildren(element)
+    return children.length > 0
+      ? [`<${tag} ${attrs}>`, ...children.map(item => indent(item, 2)), `</${tag}>`].join('\n')
+      : `<${tag} ${attrs} />`
+  }
+
+  private serializeCallActivity(element: BpmnCallActivityElement, state: BpmnExportState): string {
+    const attrs = [
+      this.serializeNodeAttrs(element, state),
+      element.data?.isForCompensation ? 'isForCompensation="true"' : '',
+    ].filter(Boolean).join(' ')
+    const children = this.serializeActivityLoopChildren(element)
+    return children.length > 0
+      ? [`<callActivity ${attrs}>`, ...children.map(item => indent(item, 2)), '</callActivity>'].join('\n')
+      : `<callActivity ${attrs} />`
+  }
+
+  private serializeActivityLoopChildren(element: BpmnTaskElement | BpmnSubProcessElement | BpmnCallActivityElement): Array<string> {
     const loopType = normalizeBpmnTaskLoopType(element.data?.loopType)
     if (loopType === 'standard') return ['<standardLoopCharacteristics />']
     if (loopType === 'multiInstanceParallel') return ['<multiInstanceLoopCharacteristics isSequential="false" />']

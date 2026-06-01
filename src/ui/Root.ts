@@ -81,9 +81,18 @@ import {
 } from '@/elements/bpmn/artifacts/group/bpmn-group.factory'
 import type { BpmnGroupElement } from '@/elements/bpmn/artifacts/group/bpmn-group.types'
 import {
+  BPMN_CALL_ACTIVITY_TYPE,
+} from '@/elements/bpmn/call-activity/bpmn-call-activity.factory'
+import type { BpmnCallActivityElement } from '@/elements/bpmn/call-activity/bpmn-call-activity.types'
+import {
+  BPMN_SUB_PROCESS_TYPE,
+} from '@/elements/bpmn/sub-process/bpmn-sub-process.factory'
+import type { BpmnSubProcessElement } from '@/elements/bpmn/sub-process/bpmn-sub-process.types'
+import {
   BPMN_TASK_TYPE,
 } from '@/elements/bpmn/task/bpmn-task.factory'
 import type { BpmnTaskElement } from '@/elements/bpmn/task/bpmn-task.types'
+import { resolveBpmnActivityNameLayout } from '@/ui/elements/bpmn/activity/BpmnActivityView'
 import {
   resolveBpmnTaskNameLayout,
   type BpmnTaskNameLayout,
@@ -92,8 +101,8 @@ import { resolveBpmnDataStoreNameLayout } from '@/ui/elements/bpmn/data/data-sto
 import { resolveBpmnGroupNameLayout } from '@/ui/elements/bpmn/artifacts/group/BpmnGroupView'
 import { MODEL_ELEMENTS_RUNTIME } from '@/plugins/elements/model/ElementsRuntime'
 
-type EditableNameElement = BpmnTaskElement | BpmnDataStoreElement | BpmnGroupElement
-type EditableNameKind = 'task' | 'dataStore' | 'group'
+type EditableNameElement = BpmnTaskElement | BpmnSubProcessElement | BpmnCallActivityElement | BpmnDataStoreElement | BpmnGroupElement
+type EditableNameKind = 'task' | 'activity' | 'dataStore' | 'group'
 
 type RootDescriptor = NovaComponentDescriptor<
   RootResolvedProps,
@@ -195,6 +204,10 @@ export class Root<E extends EventList = Record<string, any>>
   private hiddenTaskNameElementId: string | null = null
   private disposeTaskNameEditorLayer?: () => void
   private lastTaskNamePointerDown: { elementId: string; x: number; y: number; time: number } | null = null
+  private readonly handleWindowKeyDown = (event: KeyboardEvent): void => {
+    if (event.key !== 'Escape') return
+    if (this.handleEscapeKey(event)) event.preventDefault()
+  }
 
   constructor(
     app: NovaApp<E>,
@@ -220,6 +233,7 @@ export class Root<E extends EventList = Record<string, any>>
     this.setupLayerSurfaces()
     this.controllerInstance.mount(this.controllerHost)
     this.setupEvents()
+    this.setupWindowEvents()
   }
 
   static normalizeProps(props: RootProps): RootResolvedProps {
@@ -269,6 +283,7 @@ export class Root<E extends EventList = Record<string, any>>
   }
 
   protected override onUnmount(): void {
+    this.teardownWindowEvents()
     this.clearTaskNameEditorLayer()
     this.controllerInstance.unmount()
     this.destroyLayerSurfaces()
@@ -413,12 +428,19 @@ export class Root<E extends EventList = Record<string, any>>
             width,
             height,
           })
-        : resolveBpmnTaskNameLayout({
-            name: element.data?.name,
-            width,
-            height,
-            data: element.data,
-          })
+        : element.type === BPMN_SUB_PROCESS_TYPE || element.type === BPMN_CALL_ACTIVITY_TYPE
+          ? resolveBpmnActivityNameLayout({
+              name: element.data?.name,
+              width,
+              height,
+              data: element.data,
+            })
+          : resolveBpmnTaskNameLayout({
+              name: element.data?.name,
+              width,
+              height,
+              data: element.data,
+            })
     const center = this.controllerInstance.worldToScreen({
       x: element.x + element.width / 2,
       y: element.y + element.height / 2,
@@ -756,9 +778,10 @@ export class Root<E extends EventList = Record<string, any>>
       const context = this.controllerInstance.getPluginContext()
       for (const gesture of this.controllerInstance.getGestures()) {
         if (!gesture.hitTest?.(context, event, target)) continue
-        this.activePluginGesture = gesture
-        this.activeModelerCursor = this.resolveModelerCursor(target)
-        this.setModelerCursor(this.activeModelerCursor)
+        const hasPointerContinuation = Boolean(gesture.onPointerMove || gesture.onPointerUp || gesture.onCancel)
+        this.activePluginGesture = hasPointerContinuation ? gesture : null
+        this.activeModelerCursor = hasPointerContinuation ? this.resolveModelerCursor(target) : null
+        if (this.activeModelerCursor) this.setModelerCursor(this.activeModelerCursor)
         const result = gesture.onPointerDown?.(context, event)
         if (result === false) return false
       }
@@ -859,6 +882,7 @@ export class Root<E extends EventList = Record<string, any>>
       if (event.key === 'Shift' && !event.repeat && this.activateTemporaryMarqueeTool()) {
         return false
       }
+      if (event.key === 'Escape' && this.handleEscapeKey(event)) return false
       const shortcut = this.controllerInstance.getPluginContext().shortcuts.resolve(event)
       if (shortcut) {
         if (shortcut.shortcut.preventDefault !== false) event.preventDefault()
@@ -873,21 +897,6 @@ export class Root<E extends EventList = Record<string, any>>
       if (event.key === ' ') {
         this.spacePressed = true
         if (!this.activeModelerCursor) this.setModelerCursor('pan')
-        return false
-      }
-      if (event.key === 'Escape' && this.activePluginGesture) {
-        this.activePluginGesture.onCancel?.(this.controllerInstance.getPluginContext())
-        this.activePluginGesture = null
-        this.activeModelerCursor = null
-        this.setModelerCursor('default')
-        return false
-      }
-      if (event.key === 'Escape') {
-        this.closeContextPadMenus()
-        const context = this.controllerInstance.getPluginContext()
-        const activeTool = context.tools.getActive()
-        activeTool?.onCancel?.(context)
-        context.tools.deactivate()
         return false
       }
     })
@@ -906,6 +915,37 @@ export class Root<E extends EventList = Record<string, any>>
   private clearSelection(): void {
     if (this.controllerInstance.getModel().selection.length === 0) return
     this.controllerInstance.applyCommand({ type: 'select', ids: [] })
+  }
+
+  private setupWindowEvents(): void {
+    if (typeof window === 'undefined') return
+    window.addEventListener('keydown', this.handleWindowKeyDown, true)
+  }
+
+  private teardownWindowEvents(): void {
+    if (typeof window === 'undefined') return
+    window.removeEventListener('keydown', this.handleWindowKeyDown, true)
+  }
+
+  private handleEscapeKey(event?: KeyboardEvent): boolean {
+    if (this.taskNameEditor) {
+      this.closeTaskNameEditor({ commit: false })
+      return true
+    }
+    if (this.activePluginGesture) {
+      this.activePluginGesture.onCancel?.(this.controllerInstance.getPluginContext())
+      this.activePluginGesture = null
+      this.activeModelerCursor = null
+      this.setModelerCursor('default')
+      return true
+    }
+    this.closeContextPadMenus()
+    const context = this.controllerInstance.getPluginContext()
+    const activeTool = context.tools.getActive()
+    activeTool?.onCancel?.(context)
+    context.tools.deactivate()
+    event?.preventDefault()
+    return true
   }
 
   private applyActiveCreateTool(point: ModelerPoint): boolean {
@@ -1087,18 +1127,25 @@ export class Root<E extends EventList = Record<string, any>>
   }
 
   private isEditableNameElement(element: { type: string }): element is EditableNameElement {
-    return element.type === BPMN_TASK_TYPE || element.type === BPMN_DATA_STORE_TYPE || element.type === BPMN_GROUP_TYPE
+    return element.type === BPMN_TASK_TYPE
+      || element.type === BPMN_SUB_PROCESS_TYPE
+      || element.type === BPMN_CALL_ACTIVITY_TYPE
+      || element.type === BPMN_DATA_STORE_TYPE
+      || element.type === BPMN_GROUP_TYPE
   }
 
   private resolveNameEditorKind(element: EditableNameElement): EditableNameKind {
     if (element.type === BPMN_DATA_STORE_TYPE) return 'dataStore'
     if (element.type === BPMN_GROUP_TYPE) return 'group'
+    if (element.type === BPMN_SUB_PROCESS_TYPE || element.type === BPMN_CALL_ACTIVITY_TYPE) return 'activity'
     return 'task'
   }
 
   private resolveNameEditorFallback(element: EditableNameElement): string {
     if (element.type === BPMN_DATA_STORE_TYPE) return 'Data store'
     if (element.type === BPMN_GROUP_TYPE) return 'Group'
+    if (element.type === BPMN_SUB_PROCESS_TYPE) return 'Sub-process'
+    if (element.type === BPMN_CALL_ACTIVITY_TYPE) return 'Call activity'
     return 'Task'
   }
 
@@ -1109,6 +1156,8 @@ export class Root<E extends EventList = Record<string, any>>
   private resolveNameEditorTargetType(element: EditableNameElement): string {
     if (element.type === BPMN_DATA_STORE_TYPE) return 'modeler.bpmn.data-store.name'
     if (element.type === BPMN_GROUP_TYPE) return 'modeler.bpmn.group.name'
+    if (element.type === BPMN_SUB_PROCESS_TYPE) return 'modeler.bpmn.sub-process.name'
+    if (element.type === BPMN_CALL_ACTIVITY_TYPE) return 'modeler.bpmn.call-activity.name'
     return 'modeler.bpmn.task.name'
   }
 
@@ -1152,11 +1201,17 @@ export class Root<E extends EventList = Record<string, any>>
       MODEL_ELEMENTS_RUNTIME.edgeSegmentHover.clear()
       return
     }
-    if (target.type !== 'edge-segment-handle') {
+    if (target.type !== 'edge-segment-handle' && target.type !== 'element') {
       MODEL_ELEMENTS_RUNTIME.edgeSegmentHover.clear()
       return
     }
-    const element = this.controllerInstance.getModel().elements.find(item => item.id === target.elementId)
+    const elementId = target.type === 'edge-segment-handle' ? target.elementId : target.id
+    const model = this.controllerInstance.getModel()
+    if (target.type === 'element' && !model.selection.includes(elementId)) {
+      MODEL_ELEMENTS_RUNTIME.edgeSegmentHover.clear()
+      return
+    }
+    const element = model.elements.find(item => item.id === elementId)
     if (!element || !isModelerEdgeElement(element)) {
       MODEL_ELEMENTS_RUNTIME.edgeSegmentHover.clear()
       return

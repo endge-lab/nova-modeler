@@ -9,6 +9,8 @@ import type {
 import { BPMN_EVENT_TYPE } from '@/elements/bpmn/event/bpmn-event.factory'
 import { BPMN_FLOW_TYPE } from '@/elements/bpmn/flow/bpmn-flow.factory'
 import { BPMN_GATEWAY_TYPE } from '@/elements/bpmn/gateway/bpmn-gateway.factory'
+import { BPMN_CALL_ACTIVITY_TYPE } from '@/elements/bpmn/call-activity/bpmn-call-activity.factory'
+import { BPMN_SUB_PROCESS_TYPE } from '@/elements/bpmn/sub-process/bpmn-sub-process.factory'
 import { BPMN_TASK_TYPE } from '@/elements/bpmn/task/bpmn-task.factory'
 import type { BpmnEventElement } from '@/elements/bpmn/event/bpmn-event.types'
 import type { BpmnFlowElement } from '@/elements/bpmn/flow/bpmn-flow.types'
@@ -101,10 +103,10 @@ export class BpmnValidationRuntime {
         }
         continue
       }
-      if ((node.type === BPMN_TASK_TYPE || node.type === BPMN_GATEWAY_TYPE) && incomingCount === 0) {
+      if ((isBpmnActivityElement(node) || node.type === BPMN_GATEWAY_TYPE) && incomingCount === 0) {
         issues.push(createIssue(node.id, 'bpmn.nodeNoIncoming', 'error', 'BPMN Task or Gateway must have at least one incoming sequence flow.', [node.id]))
       }
-      if ((node.type === BPMN_TASK_TYPE || node.type === BPMN_GATEWAY_TYPE) && outgoingCount === 0) {
+      if ((isBpmnActivityElement(node) || node.type === BPMN_GATEWAY_TYPE) && outgoingCount === 0) {
         issues.push(createIssue(node.id, 'bpmn.nodeNoOutgoing', 'error', 'BPMN Task or Gateway must have at least one outgoing sequence flow.', [node.id]))
       }
       if (node.type === BPMN_TASK_TYPE) {
@@ -125,7 +127,11 @@ export class BpmnValidationRuntime {
 }
 
 function isBpmnNodeElement(element: ModelerElement): boolean {
-  return element.type === BPMN_EVENT_TYPE || element.type === BPMN_TASK_TYPE || element.type === BPMN_GATEWAY_TYPE
+  return element.type === BPMN_EVENT_TYPE || isBpmnActivityElement(element) || element.type === BPMN_GATEWAY_TYPE
+}
+
+function isBpmnActivityElement(element: ModelerElement): boolean {
+  return element.type === BPMN_TASK_TYPE || element.type === BPMN_SUB_PROCESS_TYPE || element.type === BPMN_CALL_ACTIVITY_TYPE
 }
 
 function isBpmnFlowElement(element: ModelerElement): element is BpmnFlowElement {

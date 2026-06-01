@@ -50,6 +50,7 @@ type PaletteDockMode = 'docked' | 'floating'
 type PaletteDragPreviewShape =
   | 'basic-rect'
   | 'bpmn-event'
+  | 'bpmn-activity'
   | 'bpmn-task'
   | 'bpmn-gateway'
   | 'bpmn-text-annotation'
@@ -895,6 +896,10 @@ export class Palette<E extends EventList = Record<string, any>>
       this.appendAssetIcon(schema, MODELER_ASSETS.icons.database, x, y, size)
       return
     }
+    if (item.icon === 'bpmn-activity') {
+      this.appendAssetIcon(schema, MODELER_ASSETS.icons.activity, x, y, size)
+      return
+    }
     if (item.icon === 'bpmn-association') {
       this.appendAssetIcon(schema, MODELER_ASSETS.icons.link, x, y, size)
       return
@@ -1188,7 +1193,7 @@ export class Palette<E extends EventList = Record<string, any>>
       return
     }
 
-    if (shape === 'bpmn-task') {
+    if (shape === 'bpmn-task' || shape === 'bpmn-activity') {
       const width = 120 * scale
       const height = 80 * scale
       schema.push({
@@ -1238,6 +1243,7 @@ export class Palette<E extends EventList = Record<string, any>>
     if (signature.includes('bpmn.dataObject') || icon === 'bpmn-data-object') return 'bpmn-data-object'
     if (signature.includes('bpmn.dataStore') || icon === 'bpmn-data-store') return 'bpmn-data-store'
     if (signature.includes('bpmn.gateway') || icon === 'bpmn-gateway') return 'bpmn-gateway'
+    if (signature.includes('bpmn.activity') || icon === 'bpmn-activity') return 'bpmn-activity'
     if (signature.includes('bpmn.task') || icon === 'bpmn-task') return 'bpmn-task'
     if (signature.includes('bpmn.event') || icon.startsWith('bpmn-event')) return 'bpmn-event'
     return 'basic-rect'

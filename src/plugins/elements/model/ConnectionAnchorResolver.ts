@@ -6,6 +6,8 @@ import type {
 import { BASIC_RECT_TYPE } from '@/elements/basic/rect/basic-rect.factory'
 import { BPMN_EVENT_TYPE } from '@/elements/bpmn/event/bpmn-event.factory'
 import { BPMN_GATEWAY_TYPE } from '@/elements/bpmn/gateway/bpmn-gateway.factory'
+import { BPMN_CALL_ACTIVITY_TYPE } from '@/elements/bpmn/call-activity/bpmn-call-activity.factory'
+import { BPMN_SUB_PROCESS_TYPE } from '@/elements/bpmn/sub-process/bpmn-sub-process.factory'
 import { BPMN_TASK_TYPE } from '@/elements/bpmn/task/bpmn-task.factory'
 import type { ElementsGeometry } from '@/plugins/elements/model/ElementsGeometry'
 
@@ -16,6 +18,8 @@ export class ConnectionAnchorResolver {
     return element.type === BPMN_EVENT_TYPE ||
       element.type === BPMN_GATEWAY_TYPE ||
       element.type === BPMN_TASK_TYPE ||
+      element.type === BPMN_SUB_PROCESS_TYPE ||
+      element.type === BPMN_CALL_ACTIVITY_TYPE ||
       element.type === BASIC_RECT_TYPE
   }
 

@@ -7,6 +7,8 @@ import { BpmnDataStoreDefinition } from '@/elements/bpmn/data/data-store/bpmn-da
 import { BpmnEventDefinition } from '@/elements/bpmn/event/bpmn-event.definition'
 import { BpmnFlowDefinition } from '@/elements/bpmn/flow/bpmn-flow.definition'
 import { BpmnGatewayDefinition } from '@/elements/bpmn/gateway/bpmn-gateway.definition'
+import { BpmnCallActivityDefinition } from '@/elements/bpmn/call-activity/bpmn-call-activity.definition'
+import { BpmnSubProcessDefinition } from '@/elements/bpmn/sub-process/bpmn-sub-process.definition'
 import { BpmnTaskDefinition } from '@/elements/bpmn/task/bpmn-task.definition'
 
 export const BpmnElementDefinitions: Array<ModelerElementDefinition> = [
@@ -15,6 +17,8 @@ export const BpmnElementDefinitions: Array<ModelerElementDefinition> = [
   BpmnEventDefinition,
   BpmnGatewayDefinition,
   BpmnTaskDefinition,
+  BpmnSubProcessDefinition,
+  BpmnCallActivityDefinition,
   BpmnTextAnnotationDefinition,
   BpmnGroupDefinition,
   BpmnDataObjectDefinition,

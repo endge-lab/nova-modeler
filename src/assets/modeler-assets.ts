@@ -19,6 +19,12 @@ import textCaptionIconSource from '@/assets/icons/text-caption.svg?raw'
 import boxMarginIconSource from '@/assets/icons/box-margin.svg?raw'
 import fileTextIconSource from '@/assets/icons/file-text.svg?raw'
 import databaseIconSource from '@/assets/icons/database.svg?raw'
+import subtaskIconSource from '@/assets/icons/subtask.svg?raw'
+import boxMultipleIconSource from '@/assets/icons/box-multiple.svg?raw'
+import circleDashedIconSource from '@/assets/icons/circle-dashed.svg?raw'
+import arrowsExchangeIconSource from '@/assets/icons/arrows-exchange.svg?raw'
+import tildeIconSource from '@/assets/icons/tilde.svg?raw'
+import externalLinkIconSource from '@/assets/icons/external-link.svg?raw'
 import signalIconSource from '@/assets/icons/signal.svg?raw'
 import terminateIconSource from '@/assets/icons/terminate.svg?raw'
 import multipleIconSource from '@/assets/icons/multiple.svg?raw'
@@ -60,6 +66,12 @@ export const MODELER_ASSETS = NovaAssets.define('nova-modeler', {
     boxMargin: NovaAssets.svg(boxMarginIconSource, { width: 24, height: 24, color: '#3f3f46' }),
     fileText: NovaAssets.svg(fileTextIconSource, { width: 24, height: 24, color: '#3f3f46' }),
     database: NovaAssets.svg(databaseIconSource, { width: 24, height: 24, color: '#3f3f46' }),
+    activity: NovaAssets.svg(subtaskIconSource, { width: 24, height: 24, color: '#3f3f46' }),
+    activitySubProcess: NovaAssets.svg(boxMultipleIconSource, { width: 24, height: 24, color: '#3f3f46' }),
+    activityEventSubProcess: NovaAssets.svg(circleDashedIconSource, { width: 24, height: 24, color: '#3f3f46' }),
+    activityTransaction: NovaAssets.svg(arrowsExchangeIconSource, { width: 24, height: 24, color: '#3f3f46' }),
+    activityAdHoc: NovaAssets.svg(tildeIconSource, { width: 24, height: 24, color: '#3f3f46' }),
+    activityCall: NovaAssets.svg(externalLinkIconSource, { width: 24, height: 24, color: '#3f3f46' }),
     signal: NovaAssets.svg(signalIconSource, { width: 24, height: 24, color: '#3f3f46' }),
     terminate: NovaAssets.svg(terminateIconSource, { width: 24, height: 24, color: '#3f3f46' }),
     multiple: NovaAssets.svg(multipleIconSource, { width: 24, height: 24, color: '#3f3f46' }),

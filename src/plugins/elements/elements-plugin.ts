@@ -11,6 +11,8 @@ import { BPMN_DATA_OBJECT_TYPE } from '@/elements/bpmn/data/data-object/bpmn-dat
 import { BPMN_DATA_STORE_TYPE } from '@/elements/bpmn/data/data-store/bpmn-data-store.factory'
 import { BPMN_EVENT_TYPE } from '@/elements/bpmn/event/bpmn-event.factory'
 import { BPMN_GATEWAY_TYPE } from '@/elements/bpmn/gateway/bpmn-gateway.factory'
+import { BPMN_CALL_ACTIVITY_TYPE } from '@/elements/bpmn/call-activity/bpmn-call-activity.factory'
+import { BPMN_SUB_PROCESS_TYPE } from '@/elements/bpmn/sub-process/bpmn-sub-process.factory'
 import { BPMN_TASK_TYPE } from '@/elements/bpmn/task/bpmn-task.factory'
 import type { ElementsConnectionEdgeInput } from '@/plugins/elements/model/ElementsConnectionFlow'
 import { MODELER_ELEMENTS_PLUGIN_ID } from '@/plugins/elements/elements.constants'
@@ -34,7 +36,7 @@ export class ElementsPlugin extends PluginBase {
   private readonly handleWindowKeyDown = (event: KeyboardEvent): void => {
     if (event.key !== 'Escape') return
     const activeToolId = this.context.tools.getActiveId()
-    if (!this.isConnectionToolId(activeToolId)) return
+    if (!this.isConnectionToolId(activeToolId) && !this.runtime.connection.get()) return
     event.preventDefault()
     this.runtime.connectionFlow.clear()
     this.context.tools.deactivate(activeToolId ?? undefined)
@@ -323,6 +325,8 @@ function isAssociationNode(element: ModelerElement): boolean {
   return element.type === BPMN_EVENT_TYPE
     || element.type === BPMN_GATEWAY_TYPE
     || element.type === BPMN_TASK_TYPE
+    || element.type === BPMN_SUB_PROCESS_TYPE
+    || element.type === BPMN_CALL_ACTIVITY_TYPE
     || element.type === BPMN_TEXT_ANNOTATION_TYPE
     || element.type === BPMN_DATA_OBJECT_TYPE
     || element.type === BPMN_DATA_STORE_TYPE

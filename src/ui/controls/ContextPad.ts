@@ -682,6 +682,12 @@ export class ContextPad<E extends EventList = Record<string, any>>
       this.dirty({ render: true })
       return false
     })
+    this.on('keydown', event => {
+      if ((!this.variantMenuOpen && !this.colorMenuOpen) || event.key !== 'Escape') return
+      event.preventDefault()
+      this.closeOpenMenus()
+      return false
+    })
   }
 
   private resolveEntryFromEvent(

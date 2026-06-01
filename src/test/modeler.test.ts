@@ -22,6 +22,8 @@ import {
   createBpmnDataObjectElement,
   createBpmnDataStoreElement,
   createBpmnGroupElement,
+  createBpmnCallActivityElement,
+  createBpmnSubProcessElement,
   createBpmnTextAnnotationElement,
   createBpmnTaskElement,
   createBasicRectElement,
@@ -39,6 +41,7 @@ import {
   normalizeModelerModel,
   normalizeModelerOptions,
   registerModeler,
+  resolveBpmnActivityNameLayout,
   resolveBpmnTaskNameLayout,
   type ModelerSettingsDialogApi,
   type ModelerValidationResult,
@@ -340,16 +343,32 @@ describe('nova modeler minimal kernel', () => {
     controller.mount(createControllerHost(640, 420))
     const context = controller.getPluginContext()
     const provider = context.elementVariants.getProvider(task)
-    expect(provider?.id).toBe('bpmn.task.variants')
-    expect(context.palette.get('bpmn.task.create')).toMatchObject({ icon: 'bpmn-task' })
+    expect(provider?.id).toBe('bpmn.activity.variants')
+    expect(context.palette.get('bpmn.activity.create')).toMatchObject({
+      icon: 'bpmn-activity',
+      toolId: 'create:bpmn.activity',
+    })
+    expect(context.palette.get('bpmn.task.create')).toBeUndefined()
+    expect(context.tools.createAt('create:bpmn.activity', { x: 360, y: 220 })?.type).toBe('bpmn.task')
+    controller.applyCommand({ type: 'select', ids: ['task-1'] })
 
     const ports = controller.getElementRegistry().require('bpmn.task').getPorts?.(context, task) ?? []
     expect(ports.map(port => port.id)).toEqual(['top', 'right', 'bottom', 'left'])
 
     const draft = provider?.createDraft?.(context, task) ?? {}
     const descriptor = provider?.getDescriptor(context, task, draft)
+    const activityControl = descriptor?.controls.find(control => control.id === 'activityKind')
     const typeControl = descriptor?.controls.find(control => control.id === 'taskType')
     const loopControl = descriptor?.headerControls?.find(control => control.id === 'loopType')
+    expect(activityControl?.kind).toBe('choice')
+    expect(activityControl?.options.map(option => option.id)).toEqual([
+      'task',
+      'subProcess',
+      'eventSubProcess',
+      'transaction',
+      'adHocSubProcess',
+      'callActivity',
+    ])
     expect(descriptor?.controls.some(control => control.id === 'name')).toBe(false)
     expect(descriptor?.controls.some(control => control.kind === 'toggle')).toBe(false)
     expect(loopControl?.kind).toBe('iconToggle')
@@ -415,6 +434,255 @@ describe('nova modeler minimal kernel', () => {
     expect(controller.getModel().elements[0]).toMatchObject({ x: 160, y: 120, width: 120, height: 80 })
     expect(controller.hitTest(controller.worldToScreen({ x: 180, y: 140 }))).toEqual({ type: 'element', id: 'task-1' })
     expect(controller.getModel().selection).toEqual(['task-1'])
+    controller.unmount()
+  })
+
+  it('switches BPMN activity root variants while preserving identity and behavior', () => {
+    const task = createBpmnTaskElement({
+      id: 'activity-1',
+      x: 160,
+      y: 120,
+      name: 'Review request',
+      style: { fill: '#f8fafc', stroke: '#334155' },
+    })
+    const controller = createModelerController({
+      model: createModelerModel({
+        elements: [task],
+        selection: [task.id],
+      }),
+    })
+    controller.mount(createControllerHost(640, 420))
+    const context = controller.getPluginContext()
+
+    let current = controller.getModel().elements[0]!
+    let provider = context.elementVariants.getProvider(current)
+    expect(provider?.id).toBe('bpmn.activity.variants')
+    let draft = provider?.createDraft?.(context, current) ?? {}
+    let descriptor = provider?.getDescriptor(context, current, draft)
+    let activityControl = descriptor?.controls.find(control => control.id === 'activityKind')
+    expect(activityControl?.kind).toBe('choice')
+    expect(activityControl?.options.every(option => Boolean(option.icon))).toBe(true)
+
+    provider?.apply({
+      context,
+      element: current,
+      draft,
+      control: activityControl!,
+      option: activityControl!.options.find(option => option.id === 'subProcess')!,
+    })
+    current = controller.getModel().elements[0]!
+    expect(current).toMatchObject({
+      id: 'activity-1',
+      type: 'bpmn.subProcess',
+      x: 160,
+      y: 120,
+      width: 160,
+      height: 100,
+      data: {
+        name: 'Review request',
+        subProcessType: 'embedded',
+      },
+      style: { fill: '#f8fafc', stroke: '#334155' },
+    })
+    expect(controller.getModel().selection).toEqual(['activity-1'])
+    expect(context.elementVariants.getProvider(current)?.id).toBe('bpmn.activity.variants')
+    expect(controller.getElementRegistry().require('bpmn.subProcess').capabilities?.resizable).toMatchObject({
+      minWidth: 96,
+      minHeight: 64,
+    })
+
+    provider = context.elementVariants.getProvider(current)
+    draft = provider?.createDraft?.(context, current) ?? {}
+    descriptor = provider?.getDescriptor(context, current, draft)
+    activityControl = descriptor?.controls.find(control => control.id === 'activityKind')
+    provider?.apply({
+      context,
+      element: current,
+      draft,
+      control: activityControl!,
+      option: activityControl!.options.find(option => option.id === 'transaction')!,
+    })
+    current = controller.getModel().elements[0]!
+    expect(current).toMatchObject({
+      type: 'bpmn.subProcess',
+      data: { subProcessType: 'transaction' },
+    })
+
+    provider = context.elementVariants.getProvider(current)
+    draft = provider?.createDraft?.(context, current) ?? {}
+    descriptor = provider?.getDescriptor(context, current, draft)
+    activityControl = descriptor?.controls.find(control => control.id === 'activityKind')
+    provider?.apply({
+      context,
+      element: current,
+      draft,
+      control: activityControl!,
+      option: activityControl!.options.find(option => option.id === 'eventSubProcess')!,
+    })
+    expect(controller.getModel().elements[0]).toMatchObject({
+      type: 'bpmn.subProcess',
+      data: { subProcessType: 'event' },
+    })
+
+    current = controller.getModel().elements[0]!
+    provider = context.elementVariants.getProvider(current)
+    draft = provider?.createDraft?.(context, current) ?? {}
+    descriptor = provider?.getDescriptor(context, current, draft)
+    activityControl = descriptor?.controls.find(control => control.id === 'activityKind')
+    provider?.apply({
+      context,
+      element: current,
+      draft,
+      control: activityControl!,
+      option: activityControl!.options.find(option => option.id === 'adHocSubProcess')!,
+    })
+    expect(controller.getModel().elements[0]).toMatchObject({
+      type: 'bpmn.subProcess',
+      data: { subProcessType: 'adHoc' },
+    })
+
+    current = controller.getModel().elements[0]!
+    provider = context.elementVariants.getProvider(current)
+    draft = provider?.createDraft?.(context, current) ?? {}
+    descriptor = provider?.getDescriptor(context, current, draft)
+    activityControl = descriptor?.controls.find(control => control.id === 'activityKind')
+    provider?.apply({
+      context,
+      element: current,
+      draft,
+      control: activityControl!,
+      option: activityControl!.options.find(option => option.id === 'callActivity')!,
+    })
+    current = controller.getModel().elements[0]!
+    expect(current).toMatchObject({
+      id: 'activity-1',
+      type: 'bpmn.callActivity',
+      data: { name: 'Review request' },
+    })
+    expect(context.elementVariants.getProvider(current)?.id).toBe('bpmn.activity.variants')
+    expect(controller.getElementRegistry().require('bpmn.callActivity').capabilities?.resizable).toMatchObject({
+      minWidth: 96,
+      minHeight: 64,
+    })
+
+    provider = context.elementVariants.getProvider(current)
+    draft = provider?.createDraft?.(context, current) ?? {}
+    descriptor = provider?.getDescriptor(context, current, draft)
+    activityControl = descriptor?.controls.find(control => control.id === 'activityKind')
+    provider?.apply({
+      context,
+      element: current,
+      draft,
+      control: activityControl!,
+      option: activityControl!.options.find(option => option.id === 'task')!,
+    })
+    expect(controller.getModel().elements[0]).toMatchObject({
+      id: 'activity-1',
+      type: 'bpmn.task',
+      width: 120,
+      height: 80,
+      data: { name: 'Review request' },
+      style: { fill: '#f8fafc', stroke: '#334155' },
+    })
+
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('activity-menu')
+    app.schema.createNode(surface, {
+      type: Modeler.ElementVariantMenu,
+      id: 'activity-menu',
+      props: {
+        controller,
+        elementId: 'activity-1',
+        anchor: { x: 20, y: 20 },
+        visible: true,
+      },
+    })
+    app.raph.run()
+    const activityChoiceIcons = surface
+      .compileRenderFrame()
+      .items
+      .map(item => item.schemaItem)
+      .filter(item => item?.type === 'icon' && Number(item.y) < 270)
+    expect(activityChoiceIcons).toHaveLength(6)
+    app.destroy()
+    controller.unmount()
+  })
+
+  it('keeps independent scroll positions for multiple lists inside one variant menu', () => {
+    const rect = createBasicRectElement({ id: 'rect-variant-scroll', x: 80, y: 80 })
+    const controller = createModelerController({
+      model: createModelerModel({
+        elements: [rect],
+        selection: [rect.id],
+      }),
+    })
+    controller.mount(createControllerHost(640, 760))
+    const context = controller.getPluginContext()
+    const optionsA = Array.from({ length: 10 }, (_, index) => ({ id: `a-${index}`, title: `A${index}` }))
+    const optionsB = Array.from({ length: 10 }, (_, index) => ({ id: `b-${index}`, title: `B${index}` }))
+    const dispose = context.elementVariants.register({
+      id: 'test.two-list.variants',
+      matches: (_context, element) => element.id === rect.id,
+      getDescriptor: () => ({
+        title: 'Two lists',
+        controls: [
+          { id: 'first', kind: 'list', title: 'First', value: 'a-0', options: optionsA },
+          { id: 'second', kind: 'list', title: 'Second', value: 'b-0', options: optionsB },
+        ],
+      }),
+      apply: () => {},
+    })
+
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 520, height: 760, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('two-list-variant-menu')
+    app.schema.createNode(surface, {
+      type: Modeler.ElementVariantMenu,
+      id: 'two-list-variant-menu',
+      props: {
+        controller,
+        elementId: rect.id,
+        anchor: { x: 20, y: 20 },
+        visible: true,
+      },
+    })
+    app.raph.run()
+
+    const texts = (): Array<string> => surface
+      .compileRenderFrame()
+      .items
+      .map(item => item.schemaItem)
+      .filter(item => item?.type === 'text')
+      .map(item => String(item?.text))
+
+    expect(texts()).toEqual(expect.arrayContaining(['A0', 'B0']))
+    const wheel = new WheelEvent('wheel', { clientX: 80, clientY: 410, deltaY: 132 })
+    Object.defineProperties(wheel, {
+      offsetX: { value: 80 },
+      offsetY: { value: 410 },
+    })
+    app.handleEvent('wheel', wheel)
+    app.raph.run()
+
+    const after = texts()
+    expect(after).toContain('A0')
+    expect(after).not.toContain('B0')
+    expect(after).toContain('B3')
+    app.destroy()
+    dispose()
     controller.unmount()
   })
 
@@ -1461,6 +1729,71 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
+  it('renders BPMN activity variants with BPMN markers, resize handles and editable wrapped labels', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+      ...create2DContextStub(),
+      measureText: vi.fn((text: string) => ({ width: text.length * 7 })),
+    } as unknown as CanvasRenderingContext2D)
+    const activityLayout = resolveBpmnActivityNameLayout({
+      name: 'Collapsed activity with a long wrapped title',
+      width: 160,
+      height: 100,
+    })
+    expect(activityLayout.lines.length).toBeGreaterThan(1)
+
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 860, height: 520, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    const root = app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'activity-render-root',
+      props: {
+        model: createModelerModel({
+          elements: [
+            createBpmnSubProcessElement({ id: 'sub-1', x: 60, y: 80, name: 'Sub-process' }),
+            createBpmnSubProcessElement({ id: 'event-sub-1', x: 260, y: 80, name: 'Event sub-process', subProcessType: 'event' }),
+            createBpmnSubProcessElement({ id: 'transaction-1', x: 460, y: 80, name: 'Transaction', subProcessType: 'transaction', style: { fill: '#eff6ff', stroke: '#1d4ed8' } }),
+            createBpmnSubProcessElement({ id: 'ad-hoc-1', x: 60, y: 260, name: 'Ad-hoc sub-process', subProcessType: 'adHoc' }),
+            createBpmnCallActivityElement({ id: 'call-1', x: 260, y: 260, name: 'Call activity', style: { fill: '#fefce8', stroke: '#854d0e' } }),
+          ],
+          selection: ['sub-1'],
+        }),
+        width: 860,
+        height: 520,
+      },
+    }) as Root
+    app.raph.run()
+
+    const interaction = app.surfaces.find(item => item.name === 'activity-render-root:interaction')
+    expect(interaction?.children.some(child => String((child as { componentId?: string }).componentId).includes('sub-1:resize:'))).toBe(true)
+    expect(root.hitTest({ x: 140, y: 130 })).toEqual({ type: 'element', id: 'sub-1' })
+
+    const schemaItems = interaction?.compileRenderFrame().items.map(item => item.schemaItem).filter(Boolean) ?? []
+    expect(schemaItems.some(item => item.type === 'text' && item.text === '~')).toBe(true)
+    expect(schemaItems.some(item => item.type === 'rect' && item.styles?.border?.dashPattern?.join(',') === '6,4')).toBe(true)
+    expect(schemaItems.some(item => item.type === 'rect' && item.x === -76 && item.y === -46)).toBe(true)
+    expect(schemaItems.some(item => item.type === 'rect' && Number(item.styles?.border?.width) >= 3)).toBe(true)
+    expect(schemaItems.some(item => item.type === 'line')).toBe(true)
+    expect(schemaItems.some(item => item.type === 'rect' && item.styles?.background === '#eff6ff' && item.styles?.border?.color === '#1d4ed8')).toBe(true)
+    expect(schemaItems.some(item => item.type === 'rect' && item.styles?.background === '#fefce8' && item.styles?.border?.color === '#854d0e')).toBe(true)
+
+    ;(root as unknown as { openTaskNameEditorFromPoint(point: { x: number; y: number }): boolean })
+      .openTaskNameEditorFromPoint({ x: 140, y: 130 })
+    app.raph.run()
+    const input = app.components.requireApi<InputApi>('activity-render-root:task-name-editor:input')
+    input.setValue('Updated sub-process name')
+    input.commit()
+    app.raph.run()
+    expect(root.getApi().getModel().elements.find(element => element.id === 'sub-1')?.data?.name).toBe('Updated sub-process name')
+    app.destroy()
+  })
+
   it('wraps BPMN task names and shows full-name tooltip only for clipped labels', () => {
     const getContextSpy = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
       ...create2DContextStub(),
@@ -1566,7 +1899,6 @@ describe('nova modeler minimal kernel', () => {
     app.handleEvent('mousedown', offsetMouseEvent('mousedown', 280, 140))
     app.handleEvent('mouseup', offsetMouseEvent('mouseup', 280, 140))
     app.raph.run()
-    console.log('task-edit:opened')
     const inputId = 'task-name-edit-root:task-name-editor:input'
     const input = app.components.requireApi<InputApi>(inputId)
     const interaction = app.surfaces.find(item => item.name === 'task-name-edit-root:interaction')
@@ -1596,29 +1928,22 @@ describe('nova modeler minimal kernel', () => {
       focusBorderColor: 'rgba(255,255,255,0)',
       selectOnFocus: false,
     })
-    console.log('task-edit:props')
 
     input.setValue('Approve invoice')
     input.commit()
     app.raph.run()
-    console.log('task-edit:committed')
     expect(root.getApi().getModel().elements[0]?.data?.name).toBe('Approve invoice')
     expect(getInteractionTexts()).toContain('Approve invoice')
     expect(app.components.get(inputId)).toBeFalsy()
 
     openEditor()
-    console.log('task-edit:reopened-cancel')
     app.components.requireApi<InputApi>(inputId).setValue('Cancelled name')
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
-    console.log('task-edit:escape-dispatched')
+    app.handleEvent('keydown', new KeyboardEvent('keydown', { key: 'Escape' }))
     app.raph.run()
-    console.log('task-edit:escape-run')
-    console.log('task-edit:escape-state', root.getApi().getModel().elements[0]?.data?.name, Boolean(app.components.get(inputId)))
     expect(root.getApi().getModel().elements[0]?.data?.name).toBe('Approve invoice')
     expect(app.components.get(inputId)).toBeFalsy()
 
     openEditor()
-    console.log('task-edit:reopened-outside')
     app.components.requireApi<InputApi>(inputId).setValue('Committed outside\nwith notes')
     app.handleEvent('mousedown', offsetMouseEvent('mousedown', 560, 320))
     app.handleEvent('mouseup', offsetMouseEvent('mouseup', 560, 320))
@@ -3242,23 +3567,28 @@ describe('nova modeler minimal kernel', () => {
     root.applyCommand({ type: 'select', ids: [flow.id] })
     app.raph.run()
     expect(root.hitTest({ x: 202, y: 124 })).toEqual({ type: 'edge-segment-handle', elementId: flow.id, segmentIndex: 1 })
-    app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 202, clientY: 124, button: 0 }))
+    const controller = (root as unknown as { controllerInstance: ReturnType<typeof createModelerController> }).controllerInstance
+    MODEL_ELEMENTS_RUNTIME.edgeSegmentHover.set(MODEL_ELEMENTS_RUNTIME.edges.createSegmentHandleAtPoint(
+      controller.getPluginContext(),
+      flow,
+      { x: 202, y: 124 },
+    ))
     app.raph.run()
-    expect(app.canvas.element.style.cursor).toBe('grab')
     expect(app.surfaces.find(item => item.name === 'flow-create-root:interaction')?.children
       .some(child => (child as { componentId?: string }).componentId === `${flow.id}:segment:1`)).toBe(true)
-    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 202, clientY: 124, button: 0 }))
-    expect(app.canvas.element.style.cursor).toBe('grabbing')
-    app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 202, clientY: 180, button: 0 }))
-    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 202, clientY: 180, button: 0 }))
+    expect(app.canvas.element.style.cursor).toBe('grab')
+    const waypointGesture = controller.getGestures().find(gesture => gesture.id === 'modeler-elements:waypoint')
+    waypointGesture?.onPointerDown?.(controller.getPluginContext(), offsetMouseEvent('mousedown', 202, 124))
+    waypointGesture?.onPointerMove?.(controller.getPluginContext(), offsetMouseEvent('mousemove', 202, 180))
+    waypointGesture?.onPointerUp?.(controller.getPluginContext(), offsetMouseEvent('mouseup', 202, 180))
     model = root.getApi().getModel()
     expect(model.elements.find(element => element.id === flow.id)).toMatchObject({
       waypoints: [{ x: 184, y: 124 }, { x: 202, y: 180 }],
     })
 
-    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 184, clientY: 124, button: 0 }))
-    app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 184, clientY: 160, button: 0 }))
-    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 184, clientY: 160, button: 0 }))
+    waypointGesture?.onPointerDown?.(controller.getPluginContext(), offsetMouseEvent('mousedown', 184, 124))
+    waypointGesture?.onPointerMove?.(controller.getPluginContext(), offsetMouseEvent('mousemove', 184, 160))
+    waypointGesture?.onPointerUp?.(controller.getPluginContext(), offsetMouseEvent('mouseup', 184, 160))
     model = root.getApi().getModel()
     expect(model.elements.find(element => element.id === flow.id)).toMatchObject({
       waypoints: [{ x: 202, y: 180 }],

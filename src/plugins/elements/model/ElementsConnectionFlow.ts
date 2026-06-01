@@ -11,6 +11,8 @@ import { isModelerEdgeElement } from '@/domain/types/index'
 import { BPMN_EVENT_TYPE } from '@/elements/bpmn/event/bpmn-event.factory'
 import { createBpmnFlowElement } from '@/elements/bpmn/flow/bpmn-flow.factory'
 import { BPMN_GATEWAY_TYPE } from '@/elements/bpmn/gateway/bpmn-gateway.factory'
+import { BPMN_CALL_ACTIVITY_TYPE } from '@/elements/bpmn/call-activity/bpmn-call-activity.factory'
+import { BPMN_SUB_PROCESS_TYPE } from '@/elements/bpmn/sub-process/bpmn-sub-process.factory'
 import { BPMN_TASK_TYPE } from '@/elements/bpmn/task/bpmn-task.factory'
 import type { ElementsConnection } from '@/plugins/elements/model/ElementsConnection'
 import type { ElementsEdgePreview } from '@/plugins/elements/model/ElementsEdgePreview'
@@ -199,5 +201,9 @@ export class ElementsConnectionFlow {
 }
 
 function isBpmnFlowNode(element: ModelerElement): boolean {
-  return element.type === BPMN_EVENT_TYPE || element.type === BPMN_GATEWAY_TYPE || element.type === BPMN_TASK_TYPE
+  return element.type === BPMN_EVENT_TYPE
+    || element.type === BPMN_GATEWAY_TYPE
+    || element.type === BPMN_TASK_TYPE
+    || element.type === BPMN_SUB_PROCESS_TYPE
+    || element.type === BPMN_CALL_ACTIVITY_TYPE
 }

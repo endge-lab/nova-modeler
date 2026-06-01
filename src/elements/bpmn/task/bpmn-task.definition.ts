@@ -11,7 +11,7 @@ import {
   createBpmnTaskElement,
 } from '@/elements/bpmn/task/bpmn-task.factory'
 import { createBpmnTaskPorts } from '@/elements/bpmn/task/bpmn-task.ports'
-import { BpmnTaskVariantProvider } from '@/elements/bpmn/task/bpmn-task.variants'
+import { BpmnActivityVariantProvider } from '@/elements/bpmn/activity/bpmn-activity.variants'
 import type {
   BpmnTaskElement,
   BpmnTaskElementInput,
@@ -41,20 +41,20 @@ export const BpmnTaskDefinition: ModelerElementDefinition<BpmnTaskElement> = {
     },
   },
   createTool: {
-    id: 'create:bpmn.task',
-    actionId: 'element.create.bpmn.task',
-    shortcutId: 'bpmn.task.create',
-    title: 'Task',
+    id: 'create:bpmn.activity',
+    actionId: 'element.create.bpmn.activity',
+    shortcutId: 'bpmn.activity.create',
+    title: 'Activity',
     palette: {
-      id: 'bpmn.task.create',
+      id: 'bpmn.activity.create',
       group: 'elements',
       order: 120,
-      icon: 'bpmn-task',
+      icon: 'bpmn-activity',
     },
     shortcuts: [{ key: 't' }],
     create: input => createBpmnTaskElement(input as BpmnTaskElementInput),
   },
-  variantProvider: BpmnTaskVariantProvider,
+  variantProvider: BpmnActivityVariantProvider as ModelerElementDefinition<BpmnTaskElement>['variantProvider'],
   normalize: element => createBpmnTaskElement(element as BpmnTaskElementInput),
   render: (context: ModelerElementRenderContext, element) => ({
     type: Modeler.BpmnTaskView,

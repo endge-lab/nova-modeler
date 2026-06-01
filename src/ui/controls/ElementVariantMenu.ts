@@ -35,6 +35,7 @@ const MENU_PADDING = 16
 const TITLE_HEIGHT = 30
 const CHOICE_CARD_HEIGHT = 64
 const CHOICE_CARD_GAP = 8
+const CHOICE_ROW_GAP = 8
 const LIST_ROW_HEIGHT = 44
 const LIST_ROW_ICON_SIZE = 32
 const LIST_ROW_TEXT_HEIGHT = 20
@@ -63,7 +64,7 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
   private hoveredHeaderOptionId: string | null = null
   private hoveredChoiceId: string | null = null
   private hoveredListOptionId: string | null = null
-  private scrollY = 0
+  private readonly scrollYByControl = new Map<string, number>()
 
   @Prop.object<ModelerController>()
   declare controller?: ModelerController
@@ -315,26 +316,29 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
       this.appendText(schema, control.title, x, y, width, 18, { size: 11, weight: '700', color: '#64748b' })
       y += CONTROL_LABEL_HEIGHT
     }
-    const cardWidth = Math.max(40, (width - CHOICE_CARD_GAP * Math.max(0, control.options.length - 1)) / Math.max(1, control.options.length))
+    const grid = this.resolveChoiceGrid(control, width)
     for (let index = 0; index < control.options.length; index += 1) {
       const option = control.options[index]
       if (!option) continue
       const selected = option.selected || control.value === option.id
       const hovered = this.hoveredChoiceId === option.id
-      const cardX = x + index * (cardWidth + CHOICE_CARD_GAP)
+      const col = index % grid.columns
+      const row = Math.floor(index / grid.columns)
+      const cardX = x + col * (grid.cardWidth + CHOICE_CARD_GAP)
+      const cardY = y + row * (CHOICE_CARD_HEIGHT + CHOICE_ROW_GAP)
       schema.push({
         type: 'rect',
         x: cardX,
-        y,
-        width: cardWidth,
+        y: cardY,
+        width: grid.cardWidth,
         height: CHOICE_CARD_HEIGHT,
         styles: {
           background: selected ? '#e8f3ff' : hovered ? '#f2f5f8' : 'rgba(0,0,0,0)',
           border: { color: selected ? '#1683ff' : 'rgba(0,0,0,0)', width: selected ? 1 : 0, radius: 6 },
         },
       })
-      this.appendOptionPreview(schema, element, option, cardX + (cardWidth - 32) / 2, y + 7, 32)
-      this.appendText(schema, option.title, cardX + 4, y + 42, cardWidth - 8, 18, {
+      this.appendOptionPreview(schema, element, option, cardX + (grid.cardWidth - 32) / 2, cardY + 7, 32)
+      this.appendText(schema, option.title, cardX + 4, cardY + 42, grid.cardWidth - 8, 18, {
         size: 13,
         weight: selected ? '700' : '600',
         color: '#2f3437',
@@ -405,7 +409,7 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
       },
     })
     const listClip = { x: x + 1, y: y + 1, width: Math.max(0, width - 2), height: Math.max(0, listHeight - 2) }
-    const scrollY = clamp(this.scrollY, 0, this.resolveMaxScroll(control))
+    const scrollY = this.resolveControlScrollY(control)
     const startIndex = Math.max(0, Math.floor(scrollY / LIST_ROW_HEIGHT))
     const endIndex = Math.min(control.options.length, Math.ceil((scrollY + listHeight) / LIST_ROW_HEIGHT))
     for (let index = startIndex; index < endIndex; index += 1) {
@@ -480,6 +484,10 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
   ): void {
     if (this.isConnectionPreview(element, option)) {
       this.appendConnectionPreview(schema, element, option, x, y, size)
+      return
+    }
+    if (this.isActivityPreview(option)) {
+      this.appendAssetOptionPreview(schema, option, x, y, size)
       return
     }
     if (element.type === 'bpmn.task') {
@@ -611,7 +619,7 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
     if (this.draftKey !== draftKey) {
       this.draftKey = draftKey
       this.draft = provider.createDraft?.(pluginContext, element) ?? {}
-      this.scrollY = 0
+      this.scrollYByControl.clear()
     }
     return {
       context,
@@ -626,6 +634,30 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
       || element.type === 'bpmn.association'
       || option.data?.connectionFamily === 'flow'
       || option.data?.connectionFamily === 'association'
+  }
+
+  private isActivityPreview(option: ModelerElementVariantOption): boolean {
+    return typeof option.data?.activityKind === 'string'
+  }
+
+  private appendAssetOptionPreview(
+    schema: NovaSchema,
+    option: ModelerElementVariantOption,
+    x: number,
+    y: number,
+    size: number,
+  ): void {
+    if (!option.icon) return
+    const iconSize = size * 0.8
+    schema.push({
+      type: 'icon',
+      icon: option.icon,
+      x: x + (size - iconSize) / 2,
+      y: y + (size - iconSize) / 2,
+      width: iconSize,
+      height: iconSize,
+      styles: { opacity: 1 },
+    })
   }
 
   private appendConnectionPreview(
@@ -744,7 +776,11 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
   private resolveControlHeight(control: ModelerElementVariantControl): number {
     const label = control.title ? CONTROL_LABEL_HEIGHT : 0
     if (control.kind === 'input') return label + INPUT_HEIGHT + CONTROL_BOTTOM_GAP
-    if (control.kind === 'choice') return label + CHOICE_CARD_HEIGHT + CONTROL_BOTTOM_GAP
+    if (control.kind === 'choice') {
+      const width = MENU_WIDTH - MENU_PADDING * 2
+      const grid = this.resolveChoiceGrid(control, width)
+      return label + grid.rows * CHOICE_CARD_HEIGHT + Math.max(0, grid.rows - 1) * CHOICE_ROW_GAP + CONTROL_BOTTOM_GAP
+    }
     if (control.kind === 'toggle') return this.resolveToggleRowHeight()
     if (control.kind === 'iconToggle') return 0
     return label + LIST_VISIBLE_HEIGHT
@@ -810,10 +846,10 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
     })
     this.on('wheel', event => {
       const state = this.resolveState()
-      const list = state?.descriptor.controls.find(control => control.kind === 'list')
+      const list = state ? this.hitListControl(state.descriptor.controls, event) : null
       if (!list) return false
       event.preventDefault()
-      this.scrollY = clamp(this.scrollY + event.deltaY, 0, this.resolveMaxScroll(list))
+      this.setControlScrollY(list, this.resolveControlScrollY(list) + event.deltaY)
       const hit = this.hitOption(event)
       this.hoveredHeaderOptionId = hit.headerOptionId
       this.hoveredChoiceId = hit.choiceId
@@ -842,7 +878,7 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
             control: hit.control,
             option: hit.option,
           })
-          this.scrollY = 0
+          this.scrollYByControl.clear()
           this.dirty({ render: true })
           return false
         }
@@ -890,28 +926,44 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
         rowY += control.title ? CONTROL_LABEL_HEIGHT : 0
         const controlX = rect.x + MENU_PADDING
         const controlWidth = rect.width - MENU_PADDING * 2
-        const cardWidth = Math.max(40, (controlWidth - CHOICE_CARD_GAP * Math.max(0, control.options.length - 1)) / Math.max(1, control.options.length))
+        const grid = this.resolveChoiceGrid(control, controlWidth)
         for (let index = 0; index < control.options.length; index += 1) {
           const option = control.options[index]
           if (!option) continue
-          const cardX = controlX + index * (cardWidth + CHOICE_CARD_GAP)
-          if (x >= cardX && x <= cardX + cardWidth && y >= rowY && y <= rowY + CHOICE_CARD_HEIGHT) {
+          const col = index % grid.columns
+          const row = Math.floor(index / grid.columns)
+          const cardX = controlX + col * (grid.cardWidth + CHOICE_CARD_GAP)
+          const cardY = rowY + row * (CHOICE_CARD_HEIGHT + CHOICE_ROW_GAP)
+          if (x >= cardX && x <= cardX + grid.cardWidth && y >= cardY && y <= cardY + CHOICE_CARD_HEIGHT) {
             return { control, option, headerOptionId: null, choiceId: option.id, listOptionId: null }
           }
         }
-        rowY += CHOICE_CARD_HEIGHT + CONTROL_BOTTOM_GAP
+        rowY += grid.rows * CHOICE_CARD_HEIGHT + Math.max(0, grid.rows - 1) * CHOICE_ROW_GAP + CONTROL_BOTTOM_GAP
         continue
       }
       rowY += control.title ? CONTROL_LABEL_HEIGHT : 0
       const listY = rowY
       if (x >= rect.x + MENU_PADDING && x <= rect.x + rect.width - MENU_PADDING && y >= listY && y <= listY + LIST_VISIBLE_HEIGHT) {
-        const index = Math.floor((y - listY + this.scrollY) / LIST_ROW_HEIGHT)
+        const index = Math.floor((y - listY + this.resolveControlScrollY(control)) / LIST_ROW_HEIGHT)
         const option = control.options[index]
         if (option) return { control, option, headerOptionId: null, choiceId: null, listOptionId: option.id }
       }
       rowY += LIST_VISIBLE_HEIGHT + 8
     }
     return { headerOptionId: null, choiceId: null, listOptionId: null }
+  }
+
+  private resolveChoiceGrid(
+    control: ModelerElementVariantControl,
+    width: number,
+  ): { columns: number; rows: number; cardWidth: number } {
+    const columns = Math.max(1, control.options.length > 4 ? 3 : control.options.length)
+    const rows = Math.max(1, Math.ceil(control.options.length / columns))
+    return {
+      columns,
+      rows,
+      cardWidth: Math.max(40, (width - CHOICE_CARD_GAP * Math.max(0, columns - 1)) / columns),
+    }
   }
 
   private hitHeaderOption(
@@ -996,6 +1048,47 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
 
   private resolveMaxScroll(control: ModelerElementVariantControl): number {
     return Math.max(0, control.options.length * LIST_ROW_HEIGHT - LIST_VISIBLE_HEIGHT)
+  }
+
+  private resolveControlScrollY(control: ModelerElementVariantControl): number {
+    return clamp(this.scrollYByControl.get(control.id) ?? 0, 0, this.resolveMaxScroll(control))
+  }
+
+  private setControlScrollY(control: ModelerElementVariantControl, value: number): void {
+    this.scrollYByControl.set(control.id, clamp(value, 0, this.resolveMaxScroll(control)))
+  }
+
+  private hitListControl(
+    controls: Array<ModelerElementVariantControl>,
+    event: MouseEvent,
+  ): ModelerElementVariantControl | null {
+    const { x, y } = this.events.getCanvasMousePosition(event)
+    const rect = this.resolveMenuRect(controls)
+    let rowY = rect.y + 12 + TITLE_HEIGHT + 10
+    for (let controlIndex = 0; controlIndex < controls.length; controlIndex += 1) {
+      const control = controls[controlIndex]
+      if (!control) continue
+      if (control.kind === 'input') {
+        rowY += this.resolveControlHeight(control)
+        continue
+      }
+      if (control.kind === 'toggle') {
+        const toggles = this.collectToggleRow(controls, controlIndex)
+        rowY += this.resolveToggleRowHeight()
+        controlIndex += toggles.length - 1
+        continue
+      }
+      if (control.kind === 'choice') {
+        rowY += this.resolveControlHeight(control)
+        continue
+      }
+      rowY += control.title ? CONTROL_LABEL_HEIGHT : 0
+      if (x >= rect.x + MENU_PADDING && x <= rect.x + rect.width - MENU_PADDING && y >= rowY && y <= rowY + LIST_VISIBLE_HEIGHT) {
+        return control
+      }
+      rowY += LIST_VISIBLE_HEIGHT + 8
+    }
+    return null
   }
 
   private close(): void {
