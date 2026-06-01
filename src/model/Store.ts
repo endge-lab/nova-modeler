@@ -6,6 +6,8 @@ import {
 import type {
   ModelerEdgeElement,
   ModelerElement,
+  BpmnGlobalDefinition,
+  BpmnGlobalDefinitionInput,
   ModelerCanvas,
   ModelerCommand,
   ModelerElementPatch,
@@ -23,6 +25,10 @@ import {
 import type { ModelerElementRegistry } from '@/domain/types'
 import { createModelerElementRegistry } from '@/model/ElementRegistry'
 import { isBpmnBoundaryEventAttachedTo } from '@/elements/bpmn/boundary-event/bpmn-boundary-event.factory'
+import {
+  cloneBpmnGlobalDefinition,
+  normalizeBpmnGlobalDefinitions,
+} from '@/model/bpmn-definitions'
 
 @NovaStore()
 export class ViewportStore {
@@ -119,6 +125,24 @@ export class ElementsStore {
 }
 
 @NovaStore()
+export class BpmnDefinitionsStore {
+  @Reactive({ phase: 'render' })
+  items: Array<BpmnGlobalDefinition> = []
+
+  load(input: Array<BpmnGlobalDefinitionInput> = []): void {
+    this.items = normalizeBpmnGlobalDefinitions(input).map(definition => cloneBpmnGlobalDefinition(definition))
+  }
+
+  set(items: Array<BpmnGlobalDefinitionInput>): void {
+    this.items = normalizeBpmnGlobalDefinitions(items).map(definition => cloneBpmnGlobalDefinition(definition))
+  }
+
+  toJSON(): Array<BpmnGlobalDefinition> {
+    return this.items.map(definition => cloneBpmnGlobalDefinition(definition))
+  }
+}
+
+@NovaStore()
 export class Store implements ModelerStore {
   @Reactive()
   viewport = new ViewportStore()
@@ -128,6 +152,9 @@ export class Store implements ModelerStore {
 
   @Reactive()
   elements = new ElementsStore()
+
+  @Reactive()
+  bpmnDefinitions = new BpmnDefinitionsStore()
 
   @Reactive()
   selection = new SelectionStore()
@@ -140,6 +167,9 @@ export class Store implements ModelerStore {
 
   @Reactive({ phase: 'render' })
   viewportVersion = 0
+
+  @Reactive({ phase: 'render' })
+  bpmnDefinitionsVersion = 0
 
   @Reactive({ phase: 'render' })
   elementsVersion = 0
@@ -169,6 +199,10 @@ export class Store implements ModelerStore {
   apply(command: ModelerCommand): ModelerModel {
     if (command.type === 'setViewport') {
       this.setViewport(command.viewport)
+      return this.toModel()
+    }
+    if (command.type === 'bpmn.definitions.set') {
+      this.setBpmnDefinitions(command.definitions)
       return this.toModel()
     }
     if (command.type === 'element.add') {
@@ -230,6 +264,14 @@ export class Store implements ModelerStore {
       this.elements.set([...this.elements.items, this.normalizeElement(element)])
       this.version += 1
       this.elementsVersion += 1
+    })
+  }
+
+  setBpmnDefinitions(definitions: Array<BpmnGlobalDefinitionInput>): void {
+    Nova.batchStore(this, () => {
+      this.bpmnDefinitions.set(definitions)
+      this.version += 1
+      this.bpmnDefinitionsVersion += 1
     })
   }
 
@@ -347,10 +389,12 @@ export class Store implements ModelerStore {
       this.id = input.id ?? 'modeler'
       this.viewport.load(input.viewport)
       this.canvas.load(input.canvas)
+      this.bpmnDefinitions.load(input.bpmnDefinitions)
       this.elements.load((input.elements ?? []).map(element => this.normalizeElement(element)))
       this.selection.set(input.selection ?? [])
       this.version = maybeModel.version ?? 0
       this.viewportVersion = maybeModel.viewportVersion ?? 0
+      this.bpmnDefinitionsVersion = maybeModel.bpmnDefinitionsVersion ?? 0
       this.elementsVersion = maybeModel.elementsVersion ?? 0
       this.selectionVersion = maybeModel.selectionVersion ?? 0
     })
@@ -361,10 +405,12 @@ export class Store implements ModelerStore {
       id: this.id,
       viewport: this.viewport.toJSON(),
       canvas: this.canvas.toJSON(),
+      bpmnDefinitions: this.bpmnDefinitions.toJSON(),
       elements: this.elements.toJSON(),
       selection: this.selection.toJSON(),
       version: this.version,
       viewportVersion: this.viewportVersion,
+      bpmnDefinitionsVersion: this.bpmnDefinitionsVersion,
       elementsVersion: this.elementsVersion,
       selectionVersion: this.selectionVersion,
     }

@@ -20,6 +20,12 @@ import type {
   BpmnEventPosition,
   BpmnEventTrigger,
 } from '@/elements/bpmn/event/bpmn-event.types'
+import {
+  applyBpmnEventDefinitionRefControl,
+  createBpmnEventDefinitionRefControls,
+  ensureBpmnGlobalDefinitionPatchForTrigger,
+  updateBpmnEventDefinitionDraft,
+} from '@/elements/bpmn/definitions/bpmn-event-definition-refs'
 
 export const BpmnEventVariantProvider: ModelerElementVariantProvider<BpmnEventElement> = {
   id: 'bpmn.event.variants',
@@ -28,8 +34,12 @@ export const BpmnEventVariantProvider: ModelerElementVariantProvider<BpmnEventEl
     eventPosition: element.data?.eventPosition,
     trigger: element.data?.trigger,
     direction: element.data?.direction,
+    messageRef: element.data?.messageRef,
+    signalRef: element.data?.signalRef,
+    errorRef: element.data?.errorRef,
+    escalationRef: element.data?.escalationRef,
   }),
-  getDescriptor: (_context, element, draft) => {
+  getDescriptor: (context, element, draft) => {
     const data = element.data ?? { eventPosition: 'start' as const, trigger: 'none' as const }
     const normalized = normalizeBpmnEventVariantData(
       draft.eventPosition ?? data.eventPosition,
@@ -62,14 +72,28 @@ export const BpmnEventVariantProvider: ModelerElementVariantProvider<BpmnEventEl
           value: `${eventPosition}:${trigger}:${direction}`,
           options: createBpmnEventVariantOptions(eventPosition, element, draft),
         },
+        ...createBpmnEventDefinitionRefControls(context, element, trigger, draft),
       ],
     }
   },
   updateDraft: (_context, element, draft, _control, option) => {
-    return { ...draft, ...resolveBpmnEventVariantData(option.data, draft, element) }
+    return {
+      ...draft,
+      ...resolveBpmnEventVariantData(option.data, draft, element),
+      ...updateBpmnEventDefinitionDraft(element, draft, option),
+    }
   },
-  apply: ({ context, element, draft, option }) => {
+  apply: ({ context, element, draft, control, option }) => {
     const data = resolveBpmnEventVariantData(option.data, draft, element)
+    const definitionOnlyPatch = applyBpmnEventDefinitionRefControl({ context, element, trigger: data.trigger, draft, control, option })
+    if (definitionOnlyPatch) {
+      context.applyCommand({
+        type: 'element.patch',
+        id: element.id,
+        patch: { data: definitionOnlyPatch },
+      })
+      return
+    }
     context.applyCommand({
       type: 'element.patch',
       id: element.id,
@@ -78,6 +102,7 @@ export const BpmnEventVariantProvider: ModelerElementVariantProvider<BpmnEventEl
           eventPosition: data.eventPosition,
           trigger: data.trigger,
           direction: data.direction,
+          ...ensureBpmnGlobalDefinitionPatchForTrigger(context, element, data.trigger, draft),
         },
       },
     })

@@ -48,6 +48,10 @@ export function createBpmnBoundaryEventElement(input: BpmnBoundaryEventElementIn
       trigger,
       direction: 'catch',
       isInterrupting: normalizeInterrupting(input.isInterrupting ?? data.isInterrupting),
+      messageRef: normalizeOptionalRef(input.messageRef ?? data.messageRef),
+      signalRef: normalizeOptionalRef(input.signalRef ?? data.signalRef),
+      errorRef: normalizeOptionalRef(input.errorRef ?? data.errorRef),
+      escalationRef: normalizeOptionalRef(input.escalationRef ?? data.escalationRef),
     },
     style: input.style ? { ...input.style } : {},
   }
@@ -98,4 +102,8 @@ function normalizeAttachedToRef(value: unknown): string {
 
 function normalizeInterrupting(value: unknown): boolean {
   return value !== false
+}
+
+function normalizeOptionalRef(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined
 }

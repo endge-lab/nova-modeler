@@ -10,6 +10,12 @@ import {
 import type {
   BpmnBoundaryEventElement,
 } from '@/elements/bpmn/boundary-event/bpmn-boundary-event.types'
+import {
+  applyBpmnEventDefinitionRefControl,
+  createBpmnEventDefinitionRefControls,
+  ensureBpmnGlobalDefinitionPatchForTrigger,
+  updateBpmnEventDefinitionDraft,
+} from '@/elements/bpmn/definitions/bpmn-event-definition-refs'
 import { resolveBpmnEventTriggerIcon } from '@/elements/bpmn/event/bpmn-event.variants'
 
 export const BpmnBoundaryEventVariantProvider: ModelerElementVariantProvider<BpmnBoundaryEventElement> = {
@@ -18,8 +24,12 @@ export const BpmnBoundaryEventVariantProvider: ModelerElementVariantProvider<Bpm
   createDraft: (_context, element) => ({
     trigger: element.data?.trigger,
     isInterrupting: element.data?.isInterrupting,
+    messageRef: element.data?.messageRef,
+    signalRef: element.data?.signalRef,
+    errorRef: element.data?.errorRef,
+    escalationRef: element.data?.escalationRef,
   }),
-  getDescriptor: (_context, element, draft) => {
+  getDescriptor: (context, element, draft) => {
     const trigger = normalizeBpmnBoundaryEventTrigger(draft.trigger ?? element.data?.trigger)
     const isInterrupting = (draft.isInterrupting ?? element.data?.isInterrupting) !== false
     return {
@@ -36,29 +46,42 @@ export const BpmnBoundaryEventVariantProvider: ModelerElementVariantProvider<Bpm
           data: { isInterrupting: !isInterrupting },
         }],
       }],
-      controls: [{
-        id: 'trigger',
-        kind: 'list',
-        title: 'Event definition',
-        value: trigger,
-        options: BPMN_BOUNDARY_EVENT_TRIGGERS.map(option => ({
-          id: option.id,
-          title: option.title,
-          icon: resolveBpmnEventTriggerIcon(option.id),
-          selected: trigger === option.id,
-          data: { trigger: option.id },
-        })),
-      }],
+      controls: [
+        {
+          id: 'trigger',
+          kind: 'list',
+          title: 'Event definition',
+          value: trigger,
+          options: BPMN_BOUNDARY_EVENT_TRIGGERS.map(option => ({
+            id: option.id,
+            title: option.title,
+            icon: resolveBpmnEventTriggerIcon(option.id),
+            selected: trigger === option.id,
+            data: { trigger: option.id },
+          })),
+        },
+        ...createBpmnEventDefinitionRefControls(context, element, trigger, draft),
+      ],
     }
   },
   updateDraft: (_context, element, draft, _control, option) => ({
     ...draft,
     trigger: normalizeBpmnBoundaryEventTrigger(option.data?.trigger ?? draft.trigger ?? element.data?.trigger),
     isInterrupting: option.data?.isInterrupting ?? draft.isInterrupting ?? element.data?.isInterrupting,
+    ...updateBpmnEventDefinitionDraft(element, draft, option),
   }),
-  apply: ({ context, element, draft, option }) => {
+  apply: ({ context, element, draft, control, option }) => {
     const trigger = normalizeBpmnBoundaryEventTrigger(option.data?.trigger ?? draft.trigger ?? element.data?.trigger)
     const isInterrupting = (option.data?.isInterrupting ?? draft.isInterrupting ?? element.data?.isInterrupting) !== false
+    const definitionOnlyPatch = applyBpmnEventDefinitionRefControl({ context, element, trigger, draft, control, option })
+    if (definitionOnlyPatch) {
+      context.applyCommand({
+        type: 'element.patch',
+        id: element.id,
+        patch: { data: definitionOnlyPatch },
+      })
+      return
+    }
     context.applyCommand({
       type: 'element.patch',
       id: element.id,
@@ -69,6 +92,7 @@ export const BpmnBoundaryEventVariantProvider: ModelerElementVariantProvider<Bpm
           trigger,
           direction: 'catch',
           isInterrupting,
+          ...ensureBpmnGlobalDefinitionPatchForTrigger(context, element, trigger, draft),
         },
       },
     })

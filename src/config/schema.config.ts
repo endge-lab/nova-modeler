@@ -7,6 +7,7 @@ export const Modeler = {
   Grid: 'Modeler.Grid',
   BasicRectView: 'Modeler.BasicRectView',
   BpmnAssociationView: 'Modeler.BpmnAssociationView',
+  BpmnMessageFlowView: 'Modeler.BpmnMessageFlowView',
   BpmnFlowView: 'Modeler.BpmnFlowView',
   BpmnEventView: 'Modeler.BpmnEventView',
   BpmnTaskView: 'Modeler.BpmnTaskView',

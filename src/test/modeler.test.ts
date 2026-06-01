@@ -22,6 +22,8 @@ import {
   createBpmnGatewayElement,
   createBpmnAssociationElement,
   createBpmnDataAssociationElement,
+  createBpmnMessageFlowElement,
+  canConnectBpmnMessageFlow,
   createBpmnDataObjectElement,
   createBpmnDataStoreElement,
   createBpmnGroupElement,
@@ -77,11 +79,26 @@ describe('nova modeler minimal kernel', () => {
     })
     expect(normalizeModelerModel({ id: 'bare' })).toMatchObject({
       elements: [],
+      bpmnDefinitions: [],
       version: 0,
       viewportVersion: 0,
+      bpmnDefinitionsVersion: 0,
       elementsVersion: 0,
       selectionVersion: 0,
     })
+    const withDefinitions = applyModelerCommand(model, {
+      type: 'bpmn.definitions.set',
+      definitions: [
+        { id: 'customer-message', kind: 'message', name: 'Customer message' },
+        { id: 'customer-message', kind: 'message', name: 'Duplicate message' },
+        { id: 'critical-signal', kind: 'signal', name: 'Critical signal' },
+      ],
+    })
+    expect(withDefinitions.bpmnDefinitions).toEqual([
+      { id: 'customer-message', kind: 'message', name: 'Customer message', code: undefined },
+      { id: 'critical-signal', kind: 'signal', name: 'Critical signal', code: undefined },
+    ])
+    expect(withDefinitions.bpmnDefinitionsVersion).toBe(1)
     const withRect = applyModelerCommand(selected, {
       type: 'element.add',
       element: createBasicRectElement({ id: 'rect-1', x: 100, y: 120 }),
@@ -171,6 +188,77 @@ describe('nova modeler minimal kernel', () => {
     expect(xml).toContain('<messageEventDefinition />')
     expect(xml).toContain('<endEvent id="Event_terminate-end">')
     expect(xml).toContain('<terminateEventDefinition />')
+  })
+
+  it('exports BPMN global event definitions and references', () => {
+    const task = createBpmnTaskElement({ id: 'task', x: 160, y: 74, name: 'Review request' })
+    const messageStart = createBpmnEventElement({
+      id: 'message-start',
+      eventPosition: 'start',
+      trigger: 'message',
+      direction: 'catch',
+      messageRef: 'customer-message',
+    })
+    const signalBoundary = createBpmnBoundaryEventElement({
+      id: 'signal-boundary',
+      attachedToRef: task.id,
+      trigger: 'signal',
+      signalRef: 'critical-signal',
+    })
+    const escalationEnd = createBpmnEventElement({
+      id: 'escalation-end',
+      eventPosition: 'end',
+      trigger: 'escalation',
+      direction: 'throw',
+      escalationRef: 'level-two',
+    })
+    const xml = new BpmnExporter().export({
+      model: createModelerModel({
+        id: 'global-definitions',
+        bpmnDefinitions: [
+          { id: 'customer-message', kind: 'message', name: 'Customer message' },
+          { id: 'critical-signal', kind: 'signal', name: 'Critical signal' },
+          { id: 'level-two', kind: 'escalation', name: 'Level two', code: 'L2' },
+        ],
+        elements: [messageStart, task, signalBoundary, escalationEnd],
+      }),
+    })
+
+    expect(xml).toContain('<message id="Message_customer-message" name="Customer message" />')
+    expect(xml).toContain('<signal id="Signal_critical-signal" name="Critical signal" />')
+    expect(xml).toContain('<escalation id="Escalation_level-two" name="Level two" escalationCode="L2" />')
+    expect(xml).toContain('<messageEventDefinition messageRef="Message_customer-message" />')
+    expect(xml).toContain('<signalEventDefinition signalRef="Signal_critical-signal" />')
+    expect(xml).toContain('<escalationEventDefinition escalationRef="Escalation_level-two" />')
+  })
+
+  it('exports BPMN collaboration participants and message flows', () => {
+    const poolA = createBpmnParticipantElement({ id: 'sales', x: 80, y: 80, name: 'Sales' })
+    const poolB = createBpmnParticipantElement({ id: 'support', x: 80, y: 380, name: 'Support' })
+    const sourceTask = createBpmnTaskElement({ id: 'send-request', x: 240, y: 120, name: 'Send request' })
+    const targetTask = createBpmnTaskElement({ id: 'receive-request', x: 240, y: 420, name: 'Receive request' })
+    const messageFlow = createBpmnMessageFlowElement({
+      id: 'request-flow',
+      source: { elementId: sourceTask.id, point: { x: 290, y: 190 } },
+      target: { elementId: targetTask.id, point: { x: 290, y: 420 } },
+      waypoints: [{ x: 290, y: 300 }],
+      messageRef: 'request-message',
+    })
+    const xml = new BpmnExporter().export({
+      model: createModelerModel({
+        id: 'message-flow-export',
+        bpmnDefinitions: [{ id: 'request-message', kind: 'message', name: 'Request message' }],
+        elements: [poolA, poolB, sourceTask, targetTask, messageFlow],
+      }),
+    })
+
+    expect(xml).toContain('<collaboration id="Process_message-flow-export_Collaboration">')
+    expect(xml).toContain('<participant id="Participant_sales" name="Sales" processRef="Process_message-flow-export" />')
+    expect(xml).toContain('<participant id="Participant_support" name="Support" processRef="Process_message-flow-export" />')
+    expect(xml).toContain('<messageFlow id="MessageFlow_request-flow" sourceRef="Task_send-request" targetRef="Task_receive-request" messageRef="Message_request-message" />')
+    expect(xml).toContain('<process id="Process_message-flow-export" isExecutable="false">')
+    expect(xml).toContain('<bpmndi:BPMNPlane id="Process_message-flow-export_Plane" bpmnElement="Process_message-flow-export_Collaboration">')
+    expect(xml).toContain('<bpmndi:BPMNEdge id="MessageFlow_request-flow_di" bpmnElement="MessageFlow_request-flow">')
   })
 
   it('exports BPMN data objects, data stores and data associations', () => {
@@ -472,6 +560,95 @@ describe('nova modeler minimal kernel', () => {
       trigger: 'message',
       direction: 'throw',
     })
+  })
+
+  it('creates and renames BPMN global definitions from event variants', () => {
+    const event = createBpmnEventElement({
+      id: 'event-1',
+      x: 120,
+      y: 140,
+      eventPosition: 'start',
+      trigger: 'none',
+    })
+    const controller = createModelerController({
+      model: createModelerModel({
+        bpmnDefinitions: [{ id: 'existing-signal', kind: 'signal', name: 'Existing signal' }],
+        elements: [event],
+        selection: [event.id],
+      }),
+    })
+    controller.mount(createControllerHost(640, 420))
+    const context = controller.getPluginContext()
+    const provider = context.elementVariants.getProvider(event)!
+    const draft = provider.createDraft?.(context, event) ?? {}
+    const descriptor = provider.getDescriptor(context, event, draft)
+    const triggerControl = descriptor.controls.find(control => control.id === 'trigger')!
+    const messageOption = triggerControl.options.find(option => option.id === 'start:message:catch')!
+
+    provider.apply({
+      context,
+      element: event,
+      draft,
+      control: triggerControl,
+      option: messageOption,
+    })
+    let model = controller.getModel()
+    expect(model.bpmnDefinitions).toEqual([
+      { id: 'existing-signal', kind: 'signal', name: 'Existing signal', code: undefined },
+      { id: 'message-event-1', kind: 'message', name: 'Message', code: undefined },
+    ])
+    expect(model.elements[0]).toMatchObject({
+      data: {
+        trigger: 'message',
+        messageRef: 'message-event-1',
+      },
+    })
+
+    const current = model.elements[0] as typeof event
+    const currentDraft = provider.createDraft?.(context, current) ?? {}
+    const currentDescriptor = provider.getDescriptor(context, current, currentDraft)
+    expect(currentDescriptor.controls.map(control => control.id)).toEqual([
+      'eventPosition',
+      'trigger',
+      'messageRef',
+      'definitionName',
+    ])
+    const nameControl = currentDescriptor.controls.find(control => control.id === 'definitionName')!
+    provider.apply({
+      context,
+      element: current,
+      draft: currentDraft,
+      control: nameControl,
+      option: {
+        id: 'definitionName:input',
+        title: 'Customer request',
+        data: { definitionName: 'Customer request' },
+      },
+    })
+    model = controller.getModel()
+    expect(model.bpmnDefinitions.find(definition => definition.id === 'message-event-1')).toMatchObject({
+      kind: 'message',
+      name: 'Customer request',
+    })
+
+    const signalEvent = model.elements[0] as typeof event
+    const signalDraft = provider.createDraft?.(context, signalEvent) ?? {}
+    const signalDescriptor = provider.getDescriptor(context, signalEvent, signalDraft)
+    const signalOption = signalDescriptor.controls.find(control => control.id === 'trigger')?.options.find(option => option.id === 'start:signal:catch')!
+    provider.apply({
+      context,
+      element: signalEvent,
+      draft: signalDraft,
+      control: triggerControl,
+      option: signalOption,
+    })
+    expect(controller.getModel().elements[0]).toMatchObject({
+      data: {
+        trigger: 'signal',
+        signalRef: 'existing-signal',
+      },
+    })
+    controller.unmount()
   })
 
   it('adds, changes, moves and exports BPMN boundary events attached to activities', () => {
@@ -1451,6 +1628,100 @@ describe('nova modeler minimal kernel', () => {
       target: { elementId: dataStore.id },
       data: { dataAssociationType: 'output' },
     })
+    MODEL_ELEMENTS_RUNTIME.connectionFlow.clear()
+    controller.unmount()
+  })
+
+  it('creates BPMN message flows only across participants and manages message refs', () => {
+    const poolA = createBpmnParticipantElement({ id: 'pool-a', x: 80, y: 80, name: 'Pool A' })
+    const poolB = createBpmnParticipantElement({ id: 'pool-b', x: 80, y: 380, name: 'Pool B' })
+    const sourceTask = createBpmnTaskElement({ id: 'source-task', x: 240, y: 120, name: 'Source' })
+    const targetTask = createBpmnTaskElement({ id: 'target-task', x: 240, y: 420, name: 'Target' })
+    const samePoolTask = createBpmnTaskElement({ id: 'same-pool-task', x: 380, y: 120, name: 'Same pool' })
+    const messageFlow = createBpmnMessageFlowElement({
+      id: 'message-flow-1',
+      source: { elementId: sourceTask.id, point: { x: 340, y: 160 } },
+      target: { elementId: targetTask.id, point: { x: 240, y: 460 } },
+      messageRef: 'customer-message',
+    })
+    expect(messageFlow).toMatchObject({
+      type: 'bpmn.messageFlow',
+      data: { messageRef: 'customer-message' },
+    })
+
+    const elements = [poolA, poolB, sourceTask, targetTask, samePoolTask, messageFlow]
+    expect(canConnectBpmnMessageFlow(elements, sourceTask, targetTask)).toBe(true)
+    expect(canConnectBpmnMessageFlow(elements, sourceTask, samePoolTask)).toBe(false)
+    expect(canConnectBpmnMessageFlow(elements, sourceTask, createBpmnTaskElement({ id: 'outside', x: 20, y: 20 }))).toBe(false)
+
+    const controller = createModelerController({
+      model: createModelerModel({
+        bpmnDefinitions: [{ id: 'customer-message', kind: 'message', name: 'Customer message' }],
+        elements,
+        selection: [messageFlow.id],
+      }),
+    })
+    controller.mount(createControllerHost(800, 760))
+    const context = controller.getPluginContext()
+
+    expect(context.palette.get('bpmn.message-flow.create')).toMatchObject({
+      kind: 'tool',
+      icon: 'bpmn-message-flow',
+      toolId: 'connect:bpmn.messageFlow',
+    })
+    expect(context.tools.get('connect:bpmn.messageFlow')).toMatchObject({
+      kind: 'mode',
+      title: 'Message flow',
+    })
+    expect(context.actions.get('element.connect.message-flow.from-selection')).toBeTruthy()
+    expect(context.elementVariants.getProvider(messageFlow)?.id).toBe('bpmn.messageFlow.variants')
+    expect(controller.getElementRegistry().require('bpmn.messageFlow').capabilities?.colorable).toMatchObject({
+      fill: false,
+      stroke: true,
+      custom: true,
+    })
+
+    const provider = context.elementVariants.getProvider(messageFlow)!
+    const descriptor = provider.getDescriptor(context, messageFlow, provider.createDraft?.(context, messageFlow) ?? {})
+    expect(descriptor.controls.map(control => control.id)).toEqual(['messageRef', 'definitionName'])
+    const nameControl = descriptor.controls.find(control => control.id === 'definitionName')!
+    provider.apply({
+      context,
+      element: messageFlow,
+      draft: provider.createDraft?.(context, messageFlow) ?? {},
+      control: nameControl,
+      option: {
+        id: 'definitionName:input',
+        title: 'Renamed message',
+        data: { definitionName: 'Renamed message' },
+      },
+    })
+    expect(controller.getModel().bpmnDefinitions.find(definition => definition.id === 'customer-message')).toMatchObject({
+      name: 'Renamed message',
+    })
+
+    controller.applyCommand({ type: 'select', ids: [sourceTask.id] })
+    expect(context.actions.run('element.connect.message-flow.from-selection')).toBe(true)
+    expect(context.tools.getActiveId()).toBe('connect:bpmn.messageFlow')
+    const created = MODEL_ELEMENTS_RUNTIME.connectionFlow.completeAtTarget(
+      context,
+      { type: 'element', id: targetTask.id },
+      { x: targetTask.x, y: targetTask.y + targetTask.height / 2 },
+    )
+    expect(created).toMatchObject({
+      type: 'bpmn.messageFlow',
+      source: { elementId: sourceTask.id },
+      target: { elementId: targetTask.id },
+    })
+
+    controller.applyCommand({ type: 'select', ids: [sourceTask.id] })
+    expect(context.actions.run('element.connect.message-flow.from-selection')).toBe(true)
+    const samePoolCreated = MODEL_ELEMENTS_RUNTIME.connectionFlow.completeAtTarget(
+      context,
+      { type: 'element', id: samePoolTask.id },
+      { x: samePoolTask.x, y: samePoolTask.y + samePoolTask.height / 2 },
+    )
+    expect(samePoolCreated).toBeNull()
     MODEL_ELEMENTS_RUNTIME.connectionFlow.clear()
     controller.unmount()
   })
@@ -2634,22 +2905,57 @@ describe('nova modeler minimal kernel', () => {
     app.raph.run()
 
     const palette = app.components.require('palette-tooltip-root:palette') as unknown as {
+      x: number
+      y: number
+      createLayoutPlan(options: unknown): {
+        entries: Array<{
+          type: string
+          item?: { id: string }
+          x: number
+          y: number
+          size?: number
+        }>
+      }
+      resolvePaletteLayoutOptions(): unknown
       resolveNovaTooltipTarget(input: { x: number; y: number }): { tooltip?: unknown; rect?: { x: number; y: number; width: number; height: number } } | null
     }
-    const connectTooltip = palette.resolveNovaTooltipTarget({ x: 44, y: 44 })
-    const associationTooltip = palette.resolveNovaTooltipTarget({ x: 44, y: 101 })
-    const rectTooltip = palette.resolveNovaTooltipTarget({ x: 44, y: 149 })
-    const rectTooltipFromEdge = palette.resolveNovaTooltipTarget({ x: 60, y: 165 })
-    const eventTooltip = palette.resolveNovaTooltipTarget({ x: 44, y: 197 })
+    const resolveEntry = (id: string) => {
+      const entry = palette
+        .createLayoutPlan(palette.resolvePaletteLayoutOptions())
+        .entries.find(item => item.type === 'item' && item.item?.id === id)
+      if (!entry || typeof entry.size !== 'number') throw new Error(`Expected palette item ${id}`)
+      return entry
+    }
+    const resolveTooltip = (id: string) => {
+      const entry = resolveEntry(id)
+      return palette.resolveNovaTooltipTarget({
+        x: palette.x + entry.x + entry.size / 2,
+        y: palette.y + entry.y + entry.size / 2,
+      })
+    }
+    const connectEntry = resolveEntry('element.connect.tool')
+    const associationEntry = resolveEntry('bpmn.association.create')
+    const rectEntry = resolveEntry('basic.rect.create')
+    const eventEntry = resolveEntry('bpmn.event.create')
+    const connectTooltip = resolveTooltip('element.connect.tool')
+    const messageFlowTooltip = resolveTooltip('bpmn.message-flow.create')
+    const associationTooltip = resolveTooltip('bpmn.association.create')
+    const rectTooltip = resolveTooltip('basic.rect.create')
+    const rectTooltipFromEdge = palette.resolveNovaTooltipTarget({
+      x: palette.x + rectEntry.x + rectEntry.size! - 4,
+      y: palette.y + rectEntry.y + rectEntry.size! - 4,
+    })
+    const eventTooltip = resolveTooltip('bpmn.event.create')
     expect(connectTooltip?.tooltip).toMatchObject({ value: 'Connect elements', placement: 'cursor' })
-    expect(connectTooltip?.rect).toMatchObject({ x: 24, y: 24, width: 40, height: 40 })
+    expect(connectTooltip?.rect).toMatchObject({ x: palette.x + connectEntry.x, y: palette.y + connectEntry.y, width: 40, height: 40 })
+    expect(messageFlowTooltip?.tooltip).toMatchObject({ value: 'Connect message flow', placement: 'cursor' })
     expect(associationTooltip?.tooltip).toMatchObject({ value: 'Association', placement: 'cursor' })
-    expect(associationTooltip?.rect).toMatchObject({ x: 24, y: 72, width: 40, height: 40 })
+    expect(associationTooltip?.rect).toMatchObject({ x: palette.x + associationEntry.x, y: palette.y + associationEntry.y, width: 40, height: 40 })
     expect(rectTooltip?.tooltip).toMatchObject({ value: 'Create Rectangle', placement: 'cursor' })
-    expect(rectTooltip?.rect).toMatchObject({ x: 24, y: 129, width: 40, height: 40 })
-    expect(rectTooltipFromEdge?.rect).toMatchObject({ x: 24, y: 129, width: 40, height: 40 })
+    expect(rectTooltip?.rect).toMatchObject({ x: palette.x + rectEntry.x, y: palette.y + rectEntry.y, width: 40, height: 40 })
+    expect(rectTooltipFromEdge?.rect).toMatchObject({ x: palette.x + rectEntry.x, y: palette.y + rectEntry.y, width: 40, height: 40 })
     expect(eventTooltip?.tooltip).toMatchObject({ value: 'Create Event', placement: 'cursor' })
-    expect(eventTooltip?.rect).toMatchObject({ x: 24, y: 177, width: 40, height: 40 })
+    expect(eventTooltip?.rect).toMatchObject({ x: palette.x + eventEntry.x, y: palette.y + eventEntry.y, width: 40, height: 40 })
     app.destroy()
   })
 
@@ -3104,11 +3410,11 @@ describe('nova modeler minimal kernel', () => {
       value: 'Add lane below',
       placement: 'bottom',
     })
-    expect(contextPad.resolveNovaTooltipTarget({ x: 282, y: 104 })?.tooltip).toMatchObject({
+    expect(contextPad.resolveNovaTooltipTarget({ x: 326, y: 104 })?.tooltip).toMatchObject({
       value: 'Delete lane',
       placement: 'bottom',
     })
-    expect(contextPad.resolveNovaTooltipTarget({ x: 326, y: 104 })?.tooltip).toMatchObject({
+    expect(contextPad.resolveNovaTooltipTarget({ x: 370, y: 104 })?.tooltip).toMatchObject({
       value: 'Delete pool',
       placement: 'bottom',
     })

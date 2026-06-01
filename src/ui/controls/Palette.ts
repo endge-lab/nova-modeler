@@ -913,6 +913,10 @@ export class Palette<E extends EventList = Record<string, any>>
       this.appendAssetIcon(schema, MODELER_ASSETS.icons.link, x, y, size)
       return
     }
+    if (item.icon === 'bpmn-message-flow') {
+      this.appendAssetIcon(schema, MODELER_ASSETS.icons.message, x, y, size)
+      return
+    }
     if (item.icon === 'marquee-rect') {
       this.appendMarqueeIcon(schema, x, y, size)
       return

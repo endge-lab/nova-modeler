@@ -1,4 +1,5 @@
 export * from '@/domain/types/model/geometry.types'
+export * from '@/domain/types/model/bpmn-definitions.types'
 export * from '@/domain/types/model/model.types'
 export * from '@/domain/types/model/options.types'
 export * from '@/domain/types/model/background.types'

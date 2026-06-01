@@ -18,6 +18,7 @@ import { BasicRectView } from '@/ui/elements/basic/BasicRectView'
 import { BpmnGroupView } from '@/ui/elements/bpmn/artifacts/group/BpmnGroupView'
 import { BpmnTextAnnotationView } from '@/ui/elements/bpmn/artifacts/text-annotation/BpmnTextAnnotationView'
 import { BpmnAssociationView } from '@/ui/elements/bpmn/association/BpmnAssociationView'
+import { BpmnMessageFlowView } from '@/ui/elements/bpmn/message-flow/BpmnMessageFlowView'
 import { BpmnDataObjectView } from '@/ui/elements/bpmn/data/data-object/BpmnDataObjectView'
 import { BpmnDataStoreView } from '@/ui/elements/bpmn/data/data-store/BpmnDataStoreView'
 import { BpmnEventView } from '@/ui/elements/bpmn/event/BpmnEventView'
@@ -43,6 +44,7 @@ export function registerModeler(registry: NovaSchemaRegistry): void {
   registry.registerDecorated(Grid as never, { override: true })
   registry.registerDecorated(BasicRectView as never, { override: true })
   registry.registerDecorated(BpmnAssociationView as never, { override: true })
+  registry.registerDecorated(BpmnMessageFlowView as never, { override: true })
   registry.registerDecorated(BpmnFlowView as never, { override: true })
   registry.registerDecorated(BpmnEventView as never, { override: true })
   registry.registerDecorated(BpmnGatewayView as never, { override: true })

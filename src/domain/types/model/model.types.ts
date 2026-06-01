@@ -1,5 +1,9 @@
 import type { ModelerElement } from '@/domain/types/elements/element.types'
 import type {
+  BpmnGlobalDefinition,
+  BpmnGlobalDefinitionInput,
+} from '@/domain/types/model/bpmn-definitions.types'
+import type {
   ModelerRect,
   ModelerViewport,
 } from '@/domain/types/model/geometry.types'
@@ -16,10 +20,12 @@ export interface ModelerModel {
   id: string
   viewport: ModelerViewport
   canvas: ModelerCanvas
+  bpmnDefinitions: Array<BpmnGlobalDefinition>
   elements: Array<ModelerElement>
   selection: Array<string>
   version: number
   viewportVersion: number
+  bpmnDefinitionsVersion: number
   elementsVersion: number
   selectionVersion: number
 }
@@ -28,6 +34,7 @@ export interface ModelerModelInput {
   id?: string
   viewport?: Partial<ModelerViewport>
   canvas?: Partial<ModelerCanvas>
+  bpmnDefinitions?: Array<BpmnGlobalDefinitionInput>
   elements?: Array<ModelerElement>
   selection?: Array<string>
 }

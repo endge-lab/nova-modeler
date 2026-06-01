@@ -17,6 +17,12 @@ import {
 } from '@/elements/bpmn/data-association/bpmn-data-association.factory'
 import { BPMN_EVENT_TYPE } from '@/elements/bpmn/event/bpmn-event.factory'
 import { BPMN_GATEWAY_TYPE } from '@/elements/bpmn/gateway/bpmn-gateway.factory'
+import {
+  canConnectBpmnMessageFlow,
+  createBpmnMessageFlowElement,
+  isBpmnMessageFlowNode,
+  resolveBpmnMessageFlowParticipantId,
+} from '@/elements/bpmn/message-flow/bpmn-message-flow.factory'
 import { BPMN_CALL_ACTIVITY_TYPE } from '@/elements/bpmn/call-activity/bpmn-call-activity.factory'
 import { BPMN_SUB_PROCESS_TYPE } from '@/elements/bpmn/sub-process/bpmn-sub-process.factory'
 import { BPMN_TASK_TYPE } from '@/elements/bpmn/task/bpmn-task.factory'
@@ -67,6 +73,7 @@ export class ElementsPlugin extends PluginBase {
     this.publishElementCreateTools()
     this.publishConnectTool()
     this.publishDataAssociationConnectTool()
+    this.publishMessageFlowConnectTool()
     this.setupWindowEvents()
     this.layer = new ElementsLayer(this.context, this.runtime)
     this.gestures = new ElementsGestures(this.context, this.runtime)
@@ -299,6 +306,66 @@ export class ElementsPlugin extends PluginBase {
         this.runtime.connectionFlow.clear()
       },
       onPointerMove: (context, event) => this.updateConnectionPreview(context, event),
+    }))
+  }
+
+  private publishMessageFlowConnectTool(): void {
+    const edgeFactory = {
+      idPrefix: 'bpmn-message-flow',
+      previewId: 'bpmn-message-flow-preview',
+      create: (input: ElementsConnectionEdgeInput) => createBpmnMessageFlowElement(input),
+      canStart: (context: ModelerPluginContext, element: ModelerElement) =>
+        isBpmnMessageFlowNode(element)
+        && Boolean(resolveBpmnMessageFlowParticipantId(context.getModel().elements, element)),
+      canComplete: (context: ModelerPluginContext, source: ModelerElement, target: ModelerElement) =>
+        canConnectBpmnMessageFlow(context.getModel().elements, source, target),
+    }
+    this.addDisposer(this.context.actions.register({
+      id: 'element.create.bpmn.message-flow',
+      title: 'Message flow',
+      run: context => {
+        this.runtime.connectionFlow.useEdgeFactory(edgeFactory)
+        context.tools.activate('connect:bpmn.messageFlow')
+      },
+    }))
+    this.addDisposer(this.context.actions.register({
+      id: 'element.connect.message-flow.from-selection',
+      title: 'Connect message flow',
+      run: context => {
+        const sourceId = context.getModel().selection[0]
+        if (!sourceId) return
+        this.runtime.connectionFlow.useEdgeFactory(edgeFactory)
+        context.tools.activate('connect:bpmn.messageFlow')
+        this.beginConnectionFromElement(context, sourceId, 'context-pad')
+      },
+    }))
+    this.addDisposer(this.context.tools.register({
+      id: 'connect:bpmn.messageFlow',
+      kind: 'mode',
+      title: 'Message flow',
+      tooltip: 'Connect message flow',
+      oneShot: false,
+      activate: () => {
+        this.runtime.connectionFlow.useEdgeFactory(edgeFactory)
+      },
+      deactivate: () => {
+        this.runtime.connectionFlow.clear()
+        this.runtime.connectionFlow.resetEdgeFactory()
+      },
+      onCancel: () => {
+        this.runtime.connectionFlow.clear()
+      },
+      onPointerMove: (context, event) => this.updateConnectionPreview(context, event),
+    }))
+    this.addDisposer(this.context.palette.register({
+      id: 'bpmn.message-flow.create',
+      kind: 'tool',
+      group: 'tools',
+      order: 25,
+      title: 'Message flow',
+      tooltip: 'Connect message flow',
+      icon: 'bpmn-message-flow',
+      toolId: 'connect:bpmn.messageFlow',
     }))
   }
 

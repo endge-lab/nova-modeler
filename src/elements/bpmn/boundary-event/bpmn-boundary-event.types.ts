@@ -23,6 +23,10 @@ export interface BpmnBoundaryEventElementData extends Record<string, unknown> {
   trigger: BpmnBoundaryEventTrigger
   direction: BpmnEventDirection
   isInterrupting: boolean
+  messageRef?: string
+  signalRef?: string
+  errorRef?: string
+  escalationRef?: string
 }
 
 export type BpmnBoundaryEventElement = ModelerElement<BpmnBoundaryEventElementData>
@@ -33,4 +37,8 @@ export type BpmnBoundaryEventElementInput =
     trigger?: BpmnEventTrigger | BpmnBoundaryEventTrigger
     direction?: BpmnEventDirection
     isInterrupting?: boolean
+    messageRef?: string
+    signalRef?: string
+    errorRef?: string
+    escalationRef?: string
   }

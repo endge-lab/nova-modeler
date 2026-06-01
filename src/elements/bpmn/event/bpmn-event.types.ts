@@ -24,6 +24,10 @@ export interface BpmnEventElementData extends Record<string, unknown> {
   eventPosition: BpmnEventPosition
   trigger: BpmnEventTrigger
   direction?: BpmnEventDirection
+  messageRef?: string
+  signalRef?: string
+  errorRef?: string
+  escalationRef?: string
 }
 
 export type BpmnEventElement = ModelerElement<BpmnEventElementData>
@@ -33,4 +37,8 @@ export type BpmnEventElementInput =
     eventPosition?: BpmnEventPosition
     trigger?: BpmnEventTrigger
     direction?: BpmnEventDirection
+    messageRef?: string
+    signalRef?: string
+    errorRef?: string
+    escalationRef?: string
   }

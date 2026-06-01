@@ -50,6 +50,10 @@ import {
   isBpmnDataAssociationActivityElement,
   isBpmnDataAssociationDataElement,
 } from '@/elements/bpmn/data-association/bpmn-data-association.factory'
+import {
+  isBpmnMessageFlowNode,
+  resolveBpmnMessageFlowParticipantId,
+} from '@/elements/bpmn/message-flow/bpmn-message-flow.factory'
 import type {
   ContextPadApi,
   ContextPadDescriptor,
@@ -359,7 +363,18 @@ export class ContextPad<E extends EventList = Record<string, any>>
         tone: 'default',
       })
     }
-    if (resolvePluginContext(context).elementVariants.hasProvider(target.element)) {
+    const pluginContext = resolvePluginContext(context)
+    if (
+      isBpmnMessageFlowNode(target.element)
+      && resolveBpmnMessageFlowParticipantId(pluginContext.getModel().elements, target.element)
+    ) {
+      entries.push({
+        id: 'message-flow.connect',
+        title: 'Connect message flow',
+        tone: 'default',
+      })
+    }
+    if (pluginContext.elementVariants.hasProvider(target.element)) {
       entries.push({
         id: 'variants',
         title: 'Change element',
@@ -549,6 +564,7 @@ export class ContextPad<E extends EventList = Record<string, any>>
     if (entry.id === 'swimlane.delete-lane') return MODELER_ASSETS.icons.trashX
     if (entry.id === 'boundary-event.add') return MODELER_ASSETS.icons.activityEventSubProcess
     if (entry.id === 'data-association.connect') return MODELER_ASSETS.icons.link
+    if (entry.id === 'message-flow.connect') return MODELER_ASSETS.icons.message
     if (entry.id === 'variants') return MODELER_ASSETS.icons.tool
     if (entry.id === 'connect') return MODELER_ASSETS.icons.connectArrow
     if (entry.id === 'color') return MODELER_ASSETS.icons.brush
@@ -612,6 +628,12 @@ export class ContextPad<E extends EventList = Record<string, any>>
     if (entry.id === 'data-association.connect') {
       this.closeOpenMenus()
       resolvePluginContext(context).actions.run('element.connect.data-association.from-selection')
+      this.close()
+      return
+    }
+    if (entry.id === 'message-flow.connect') {
+      this.closeOpenMenus()
+      resolvePluginContext(context).actions.run('element.connect.message-flow.from-selection')
       this.close()
       return
     }

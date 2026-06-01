@@ -43,9 +43,17 @@ export function createBpmnEventElement(input: BpmnEventElementInput): BpmnEventE
       eventPosition: eventData.eventPosition,
       trigger: eventData.trigger,
       direction: eventData.direction,
+      messageRef: normalizeOptionalRef(input.messageRef ?? data.messageRef),
+      signalRef: normalizeOptionalRef(input.signalRef ?? data.signalRef),
+      errorRef: normalizeOptionalRef(input.errorRef ?? data.errorRef),
+      escalationRef: normalizeOptionalRef(input.escalationRef ?? data.escalationRef),
     },
     style: input.style ? { ...input.style } : {},
   }
+}
+
+function normalizeOptionalRef(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined
 }
 
 export function resolveBpmnEventVariants(eventPosition: BpmnEventPosition): Array<BpmnEventVariantData & { id: string; title: string }> {
