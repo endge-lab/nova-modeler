@@ -5,6 +5,15 @@ import type {
 import { isModelerEdgeElement } from '@/domain/types/index'
 import { BPMN_BOUNDARY_EVENT_TYPE } from '@/elements/bpmn/boundary-event/bpmn-boundary-event.factory'
 import type { BpmnBoundaryEventElement } from '@/elements/bpmn/boundary-event/bpmn-boundary-event.types'
+import { BPMN_DATA_OBJECT_TYPE } from '@/elements/bpmn/data/data-object/bpmn-data-object.factory'
+import type { BpmnDataObjectElement } from '@/elements/bpmn/data/data-object/bpmn-data-object.types'
+import { BPMN_DATA_STORE_TYPE } from '@/elements/bpmn/data/data-store/bpmn-data-store.factory'
+import type { BpmnDataStoreElement } from '@/elements/bpmn/data/data-store/bpmn-data-store.types'
+import {
+  BPMN_DATA_ASSOCIATION_TYPE,
+  normalizeBpmnDataAssociationType,
+} from '@/elements/bpmn/data-association/bpmn-data-association.factory'
+import type { BpmnDataAssociationElement } from '@/elements/bpmn/data-association/bpmn-data-association.types'
 import { BPMN_EVENT_TYPE, normalizeBpmnEventVariantData } from '@/elements/bpmn/event/bpmn-event.factory'
 import type { BpmnEventElement } from '@/elements/bpmn/event/bpmn-event.types'
 import { BPMN_FLOW_TYPE, normalizeBpmnFlowType } from '@/elements/bpmn/flow/bpmn-flow.factory'
@@ -27,6 +36,7 @@ interface BpmnExportState {
   planeId: string
   idByElement: Map<string, string>
   defaultFlowBySource: Map<string, string>
+  dataAssociationsByActivity: Map<string, Array<BpmnDataAssociationElement>>
   geometry: ModelerExportGeometry
 }
 
@@ -76,11 +86,20 @@ export class BpmnExporter {
       idByElement.set(element.id, toBpmnElementId(element))
     }
     const defaultFlowBySource = new Map<string, string>()
+    const dataAssociationsByActivity = new Map<string, Array<BpmnDataAssociationElement>>()
     for (const element of context.model.elements) {
       if (element.type !== BPMN_FLOW_TYPE || !isModelerEdgeElement(element)) continue
       if (normalizeBpmnFlowType(element.data?.flowType) !== 'defaultSequence') continue
       const sourceId = element.source.elementId
       if (sourceId) defaultFlowBySource.set(sourceId, idByElement.get(element.id) ?? toBpmnElementId(element))
+    }
+    for (const element of context.model.elements) {
+      if (element.type !== BPMN_DATA_ASSOCIATION_TYPE || !isModelerEdgeElement(element)) continue
+      const activityId = resolveDataAssociationActivityId(element as BpmnDataAssociationElement)
+      if (!activityId) continue
+      const associations = dataAssociationsByActivity.get(activityId) ?? []
+      associations.push(element as BpmnDataAssociationElement)
+      dataAssociationsByActivity.set(activityId, associations)
     }
     return {
       processId,
@@ -88,11 +107,14 @@ export class BpmnExporter {
       planeId: `${processId}_Plane`,
       idByElement,
       defaultFlowBySource,
+      dataAssociationsByActivity,
       geometry: new ModelerExportGeometry(),
     }
   }
 
   private serializeNode(element: ModelerElement, state: BpmnExportState): string {
+    if (element.type === BPMN_DATA_OBJECT_TYPE) return this.serializeDataObject(element as BpmnDataObjectElement, state)
+    if (element.type === BPMN_DATA_STORE_TYPE) return this.serializeDataStore(element as BpmnDataStoreElement, state)
     if (element.type === BPMN_TASK_TYPE) return this.serializeTask(element as BpmnTaskElement, state)
     if (element.type === BPMN_SUB_PROCESS_TYPE) return this.serializeSubProcess(element as BpmnSubProcessElement, state)
     if (element.type === BPMN_CALL_ACTIVITY_TYPE) return this.serializeCallActivity(element as BpmnCallActivityElement, state)
@@ -125,18 +147,20 @@ export class BpmnExporter {
       element.data?.isForCompensation ? 'isForCompensation="true"' : '',
       tag === 'receiveTask' && element.data?.instantiate ? 'instantiate="true"' : '',
     ].filter(Boolean).join(' ')
-    const children = this.serializeTaskChildren(element)
+    const children = this.serializeTaskChildren(element, state)
     return children.length > 0
       ? [`<${tag} ${taskAttrs}>`, ...children.map(item => indent(item, 2)), `</${tag}>`].join('\n')
       : `<${tag} ${taskAttrs} />`
   }
 
-  private serializeTaskChildren(element: BpmnTaskElement): Array<string> {
+  private serializeTaskChildren(element: BpmnTaskElement, state: BpmnExportState): Array<string> {
+    const children: Array<string> = []
     const loopType = normalizeBpmnTaskLoopType(element.data?.loopType)
-    if (loopType === 'standard') return ['<standardLoopCharacteristics />']
-    if (loopType === 'multiInstanceParallel') return ['<multiInstanceLoopCharacteristics isSequential="false" />']
-    if (loopType === 'multiInstanceSequential') return ['<multiInstanceLoopCharacteristics isSequential="true" />']
-    return []
+    if (loopType === 'standard') children.push('<standardLoopCharacteristics />')
+    if (loopType === 'multiInstanceParallel') children.push('<multiInstanceLoopCharacteristics isSequential="false" />')
+    if (loopType === 'multiInstanceSequential') children.push('<multiInstanceLoopCharacteristics isSequential="true" />')
+    children.push(...this.serializeDataAssociationChildren(element, state))
+    return children
   }
 
   private serializeSubProcess(element: BpmnSubProcessElement, state: BpmnExportState): string {
@@ -151,7 +175,7 @@ export class BpmnExporter {
       type === 'event' ? 'triggeredByEvent="true"' : '',
       element.data?.isForCompensation ? 'isForCompensation="true"' : '',
     ].filter(Boolean).join(' ')
-    const children = this.serializeActivityLoopChildren(element)
+    const children = this.serializeActivityLoopChildren(element, state)
     return children.length > 0
       ? [`<${tag} ${attrs}>`, ...children.map(item => indent(item, 2)), `</${tag}>`].join('\n')
       : `<${tag} ${attrs} />`
@@ -162,18 +186,28 @@ export class BpmnExporter {
       this.serializeNodeAttrs(element, state),
       element.data?.isForCompensation ? 'isForCompensation="true"' : '',
     ].filter(Boolean).join(' ')
-    const children = this.serializeActivityLoopChildren(element)
+    const children = this.serializeActivityLoopChildren(element, state)
     return children.length > 0
       ? [`<callActivity ${attrs}>`, ...children.map(item => indent(item, 2)), '</callActivity>'].join('\n')
       : `<callActivity ${attrs} />`
   }
 
-  private serializeActivityLoopChildren(element: BpmnTaskElement | BpmnSubProcessElement | BpmnCallActivityElement): Array<string> {
+  private serializeActivityLoopChildren(element: BpmnTaskElement | BpmnSubProcessElement | BpmnCallActivityElement, state: BpmnExportState): Array<string> {
+    const children: Array<string> = []
     const loopType = normalizeBpmnTaskLoopType(element.data?.loopType)
-    if (loopType === 'standard') return ['<standardLoopCharacteristics />']
-    if (loopType === 'multiInstanceParallel') return ['<multiInstanceLoopCharacteristics isSequential="false" />']
-    if (loopType === 'multiInstanceSequential') return ['<multiInstanceLoopCharacteristics isSequential="true" />']
-    return []
+    if (loopType === 'standard') children.push('<standardLoopCharacteristics />')
+    if (loopType === 'multiInstanceParallel') children.push('<multiInstanceLoopCharacteristics isSequential="false" />')
+    if (loopType === 'multiInstanceSequential') children.push('<multiInstanceLoopCharacteristics isSequential="true" />')
+    children.push(...this.serializeDataAssociationChildren(element, state))
+    return children
+  }
+
+  private serializeDataObject(element: BpmnDataObjectElement, state: BpmnExportState): string {
+    return `<dataObjectReference ${this.serializeNodeAttrs(element, state)} />`
+  }
+
+  private serializeDataStore(element: BpmnDataStoreElement, state: BpmnExportState): string {
+    return `<dataStoreReference ${this.serializeNodeAttrs(element, state)} />`
   }
 
   private serializeEvent(element: BpmnEventElement, state: BpmnExportState): string {
@@ -235,6 +269,21 @@ export class BpmnExporter {
     if (trigger === 'conditional') return '<conditionalEventDefinition />'
     if (trigger === 'signal') return '<signalEventDefinition />'
     return '<timerEventDefinition />'
+  }
+
+  private serializeDataAssociationChildren(element: ModelerElement, state: BpmnExportState): Array<string> {
+    return (state.dataAssociationsByActivity.get(element.id) ?? []).map(association => {
+      const type = normalizeBpmnDataAssociationType(association.data?.dataAssociationType)
+      const tag = type === 'output' ? 'dataOutputAssociation' : 'dataInputAssociation'
+      const sourceRef = this.resolveEndpointRef(association.source.elementId, state)
+      const targetRef = this.resolveEndpointRef(association.target.elementId, state)
+      return [
+        `<${tag} id="${this.requireBpmnId(association, state)}">`,
+        `  <sourceRef>${sourceRef}</sourceRef>`,
+        `  <targetRef>${targetRef}</targetRef>`,
+        `</${tag}>`,
+      ].join('\n')
+    })
   }
 
   private serializeGateway(element: BpmnGatewayElement, state: BpmnExportState): string {
@@ -314,16 +363,27 @@ export class BpmnExporter {
 function toBpmnElementId(element: ModelerElement): string {
   const prefix = element.type === BPMN_TASK_TYPE
     ? 'Task'
-    : element.type === BPMN_BOUNDARY_EVENT_TYPE
-      ? 'BoundaryEvent'
-      : element.type === BPMN_EVENT_TYPE
-        ? 'Event'
-        : element.type === BPMN_GATEWAY_TYPE
-          ? 'Gateway'
-          : element.type === BPMN_FLOW_TYPE
-            ? 'Flow'
-            : 'Element'
+    : element.type === BPMN_DATA_OBJECT_TYPE
+      ? 'DataObject'
+      : element.type === BPMN_DATA_STORE_TYPE
+        ? 'DataStore'
+        : element.type === BPMN_DATA_ASSOCIATION_TYPE
+          ? 'DataAssociation'
+          : element.type === BPMN_BOUNDARY_EVENT_TYPE
+            ? 'BoundaryEvent'
+            : element.type === BPMN_EVENT_TYPE
+              ? 'Event'
+              : element.type === BPMN_GATEWAY_TYPE
+                ? 'Gateway'
+                : element.type === BPMN_FLOW_TYPE
+                  ? 'Flow'
+                  : 'Element'
   return toBpmnId(prefix, element.id)
+}
+
+function resolveDataAssociationActivityId(element: BpmnDataAssociationElement): string | undefined {
+  const type = normalizeBpmnDataAssociationType(element.data?.dataAssociationType)
+  return type === 'output' ? element.source.elementId : element.target.elementId
 }
 
 function toBpmnId(prefix: string, value: string): string {

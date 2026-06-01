@@ -632,6 +632,7 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
   private isConnectionPreview(element: ModelerElement, option: ModelerElementVariantOption): boolean {
     return element.type === 'bpmn.flow'
       || element.type === 'bpmn.association'
+      || element.type === 'bpmn.dataAssociation'
       || option.data?.connectionFamily === 'flow'
       || option.data?.connectionFamily === 'association'
   }
@@ -669,7 +670,7 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
     size: number,
   ): void {
     const data = { ...(element.data ?? {}), ...(option.data ?? {}) }
-    const family = data.connectionFamily === 'association' || element.type === 'bpmn.association'
+    const family = data.connectionFamily === 'association' || element.type === 'bpmn.association' || element.type === 'bpmn.dataAssociation'
       ? 'association'
       : 'flow'
     const start = { x: x + 4, y: y + size / 2 }
@@ -689,7 +690,7 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
       },
     })
     if (family === 'association') {
-      const associationType = data.associationType
+      const associationType = element.type === 'bpmn.dataAssociation' ? 'directed' : data.associationType
       if (associationType === 'directed' || associationType === 'bidirectional' || associationType === 'data') {
         this.appendOpenArrowPreview(schema, end, start, color, width)
       }

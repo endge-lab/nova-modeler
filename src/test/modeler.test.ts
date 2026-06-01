@@ -21,6 +21,7 @@ import {
   createBpmnFlowElement,
   createBpmnGatewayElement,
   createBpmnAssociationElement,
+  createBpmnDataAssociationElement,
   createBpmnDataObjectElement,
   createBpmnDataStoreElement,
   createBpmnGroupElement,
@@ -170,6 +171,41 @@ describe('nova modeler minimal kernel', () => {
     expect(xml).toContain('<messageEventDefinition />')
     expect(xml).toContain('<endEvent id="Event_terminate-end">')
     expect(xml).toContain('<terminateEventDefinition />')
+  })
+
+  it('exports BPMN data objects, data stores and data associations', () => {
+    const dataObject = createBpmnDataObjectElement({ id: 'payload', x: 80, y: 80, name: 'Payload' })
+    const task = createBpmnTaskElement({ id: 'task', x: 240, y: 90, name: 'Handle payload' })
+    const dataStore = createBpmnDataStoreElement({ id: 'archive', x: 440, y: 82, name: 'Archive' })
+    const inputAssociation = createBpmnDataAssociationElement({
+      id: 'input',
+      source: { elementId: dataObject.id, point: { x: 176, y: 140 } },
+      target: { elementId: task.id, point: { x: 240, y: 130 } },
+      dataAssociationType: 'input',
+    })
+    const outputAssociation = createBpmnDataAssociationElement({
+      id: 'output',
+      source: { elementId: task.id, point: { x: 340, y: 130 } },
+      target: { elementId: dataStore.id, point: { x: 440, y: 130 } },
+      dataAssociationType: 'output',
+    })
+    const xml = new BpmnExporter().export({
+      model: createModelerModel({
+        id: 'data-associations',
+        elements: [dataObject, task, dataStore, inputAssociation, outputAssociation],
+      }),
+    })
+
+    expect(xml).toContain('<dataObjectReference id="DataObject_payload" name="Payload" />')
+    expect(xml).toContain('<dataStoreReference id="DataStore_archive" name="Archive" />')
+    expect(xml).toContain('<task id="Task_task" name="Handle payload">')
+    expect(xml).toContain('<dataInputAssociation id="DataAssociation_input">')
+    expect(xml).toContain('<sourceRef>DataObject_payload</sourceRef>')
+    expect(xml).toContain('<targetRef>Task_task</targetRef>')
+    expect(xml).toContain('<dataOutputAssociation id="DataAssociation_output">')
+    expect(xml).toContain('<sourceRef>Task_task</sourceRef>')
+    expect(xml).toContain('<targetRef>DataStore_archive</targetRef>')
+    expect(xml).toContain('<bpmndi:BPMNEdge id="DataAssociation_input_di" bpmnElement="DataAssociation_input">')
   })
 
   it('exports PNG on a white tight canvas with padding', async () => {
@@ -1323,6 +1359,99 @@ describe('nova modeler minimal kernel', () => {
         isCollection: false,
       },
     })
+    controller.unmount()
+  })
+
+  it('creates and switches BPMN data associations through context actions and variants', () => {
+    const dataObject = createBpmnDataObjectElement({ id: 'data-object-1', x: 80, y: 120 })
+    const dataStore = createBpmnDataStoreElement({ id: 'data-store-1', x: 80, y: 260 })
+    const task = createBpmnTaskElement({ id: 'task-1', x: 260, y: 128 })
+    const association = createBpmnDataAssociationElement({
+      id: 'data-association-1',
+      dataAssociationType: 'broken' as never,
+      source: { elementId: dataObject.id, point: { x: 176, y: 180 } },
+      target: { elementId: task.id, point: { x: 260, y: 168 } },
+      waypoints: [{ x: 216, y: 180 }],
+    })
+    expect(association).toMatchObject({
+      type: 'bpmn.dataAssociation',
+      data: {
+        associationType: 'directed',
+        dataAssociationType: 'input',
+      },
+    })
+
+    const controller = createModelerController({
+      model: createModelerModel({
+        elements: [dataObject, dataStore, task, association],
+        selection: [association.id],
+      }),
+    })
+    controller.mount(createControllerHost(720, 480))
+    const context = controller.getPluginContext()
+
+    expect(context.palette.get('bpmn.dataAssociation.create')).toBeUndefined()
+    expect(context.tools.get('connect:bpmn.dataAssociation')).toMatchObject({
+      kind: 'mode',
+      title: 'Data association',
+    })
+    expect(context.actions.get('element.connect.data-association.from-selection')).toBeTruthy()
+    expect(context.elementVariants.getProvider(association)?.id).toBe('bpmn.dataAssociation.variants')
+    expect(controller.getElementRegistry().require('bpmn.dataAssociation').capabilities?.colorable).toMatchObject({
+      fill: false,
+      stroke: true,
+      custom: true,
+    })
+
+    const provider = context.elementVariants.getProvider(association)!
+    const descriptor = provider.getDescriptor(context, association, provider.createDraft?.(context, association) ?? {})
+    const typeControl = descriptor.controls.find(control => control.id === 'dataAssociationType')!
+    expect(typeControl.options.map(option => option.id)).toEqual(['input', 'output'])
+    provider.apply({
+      context,
+      element: association,
+      draft: provider.createDraft?.(context, association) ?? {},
+      control: typeControl,
+      option: typeControl.options.find(option => option.id === 'output')!,
+    })
+    expect(controller.getModel().elements.find(element => element.id === association.id)).toMatchObject({
+      type: 'bpmn.dataAssociation',
+      source: { elementId: task.id },
+      target: { elementId: dataObject.id },
+      waypoints: [{ x: 216, y: 180 }],
+      data: { dataAssociationType: 'output' },
+    })
+    expect(controller.getModel().selection).toEqual([association.id])
+
+    controller.applyCommand({ type: 'select', ids: [dataStore.id] })
+    expect(context.actions.run('element.connect.data-association.from-selection')).toBe(true)
+    expect(context.tools.getActiveId()).toBe('connect:bpmn.dataAssociation')
+    const inputCreated = MODEL_ELEMENTS_RUNTIME.connectionFlow.completeAtTarget(
+      context,
+      { type: 'element', id: task.id },
+      { x: task.x, y: task.y + task.height / 2 },
+    )
+    expect(inputCreated).toMatchObject({
+      type: 'bpmn.dataAssociation',
+      source: { elementId: dataStore.id },
+      target: { elementId: task.id },
+      data: { dataAssociationType: 'input' },
+    })
+
+    controller.applyCommand({ type: 'select', ids: [task.id] })
+    expect(context.actions.run('element.connect.data-association.from-selection')).toBe(true)
+    const outputCreated = MODEL_ELEMENTS_RUNTIME.connectionFlow.completeAtTarget(
+      context,
+      { type: 'element', id: dataStore.id },
+      { x: dataStore.x, y: dataStore.y + dataStore.height / 2 },
+    )
+    expect(outputCreated).toMatchObject({
+      type: 'bpmn.dataAssociation',
+      source: { elementId: task.id },
+      target: { elementId: dataStore.id },
+      data: { dataAssociationType: 'output' },
+    })
+    MODEL_ELEMENTS_RUNTIME.connectionFlow.clear()
     controller.unmount()
   })
 

@@ -46,6 +46,10 @@ import {
   createBpmnBoundaryEventForActivity,
   isBpmnBoundaryAttachableActivity,
 } from '@/elements/bpmn/boundary-event/bpmn-boundary-event.factory'
+import {
+  isBpmnDataAssociationActivityElement,
+  isBpmnDataAssociationDataElement,
+} from '@/elements/bpmn/data-association/bpmn-data-association.factory'
 import type {
   ContextPadApi,
   ContextPadDescriptor,
@@ -348,6 +352,13 @@ export class ContextPad<E extends EventList = Record<string, any>>
         tone: 'default',
       })
     }
+    if (isBpmnDataAssociationActivityElement(target.element) || isBpmnDataAssociationDataElement(target.element)) {
+      entries.push({
+        id: 'data-association.connect',
+        title: isBpmnDataAssociationDataElement(target.element) ? 'Connect data input' : 'Connect data output',
+        tone: 'default',
+      })
+    }
     if (resolvePluginContext(context).elementVariants.hasProvider(target.element)) {
       entries.push({
         id: 'variants',
@@ -537,6 +548,7 @@ export class ContextPad<E extends EventList = Record<string, any>>
     if (entry.id === 'swimlane.add-lane' || entry.id === 'swimlane.add-lane-below') return MODELER_ASSETS.icons.rowInsertBottom
     if (entry.id === 'swimlane.delete-lane') return MODELER_ASSETS.icons.trashX
     if (entry.id === 'boundary-event.add') return MODELER_ASSETS.icons.activityEventSubProcess
+    if (entry.id === 'data-association.connect') return MODELER_ASSETS.icons.link
     if (entry.id === 'variants') return MODELER_ASSETS.icons.tool
     if (entry.id === 'connect') return MODELER_ASSETS.icons.connectArrow
     if (entry.id === 'color') return MODELER_ASSETS.icons.brush
@@ -595,6 +607,12 @@ export class ContextPad<E extends EventList = Record<string, any>>
       context.applyCommand({ type: 'select', ids: [element.id] })
       this.closeOpenMenus()
       this.dirty({ render: true })
+      return
+    }
+    if (entry.id === 'data-association.connect') {
+      this.closeOpenMenus()
+      resolvePluginContext(context).actions.run('element.connect.data-association.from-selection')
+      this.close()
       return
     }
     if (entry.id === 'variants') {

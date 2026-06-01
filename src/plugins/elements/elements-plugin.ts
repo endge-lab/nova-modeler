@@ -9,6 +9,12 @@ import type {
 import { BPMN_TEXT_ANNOTATION_TYPE } from '@/elements/bpmn/artifacts/text-annotation/bpmn-text-annotation.factory'
 import { BPMN_DATA_OBJECT_TYPE } from '@/elements/bpmn/data/data-object/bpmn-data-object.factory'
 import { BPMN_DATA_STORE_TYPE } from '@/elements/bpmn/data/data-store/bpmn-data-store.factory'
+import {
+  canConnectBpmnDataAssociation,
+  createBpmnDataAssociationForEndpoints,
+  isBpmnDataAssociationActivityElement,
+  isBpmnDataAssociationDataElement,
+} from '@/elements/bpmn/data-association/bpmn-data-association.factory'
 import { BPMN_EVENT_TYPE } from '@/elements/bpmn/event/bpmn-event.factory'
 import { BPMN_GATEWAY_TYPE } from '@/elements/bpmn/gateway/bpmn-gateway.factory'
 import { BPMN_CALL_ACTIVITY_TYPE } from '@/elements/bpmn/call-activity/bpmn-call-activity.factory'
@@ -60,6 +66,7 @@ export class ElementsPlugin extends PluginBase {
   protected onSetup(): void {
     this.publishElementCreateTools()
     this.publishConnectTool()
+    this.publishDataAssociationConnectTool()
     this.setupWindowEvents()
     this.layer = new ElementsLayer(this.context, this.runtime)
     this.gestures = new ElementsGestures(this.context, this.runtime)
@@ -243,6 +250,55 @@ export class ElementsPlugin extends PluginBase {
       actionId: 'element.connect',
       defaults: [{ key: 'c' }],
       scope: 'canvas',
+    }))
+  }
+
+  private publishDataAssociationConnectTool(): void {
+    const edgeFactory = {
+      idPrefix: 'bpmn-data-association',
+      previewId: 'bpmn-data-association-preview',
+      create: (input: ElementsConnectionEdgeInput) => {
+        const source = input.source.elementId
+          ? this.context.getModel().elements.find(element => element.id === input.source.elementId)
+          : undefined
+        const target = input.target.elementId
+          ? this.context.getModel().elements.find(element => element.id === input.target.elementId)
+          : undefined
+        return createBpmnDataAssociationForEndpoints(input, source, target)
+      },
+      canStart: (_context: ModelerPluginContext, element: ModelerElement) =>
+        isBpmnDataAssociationActivityElement(element) || isBpmnDataAssociationDataElement(element),
+      canComplete: (_context: ModelerPluginContext, source: ModelerElement, target: ModelerElement) =>
+        canConnectBpmnDataAssociation(source, target),
+    }
+    this.addDisposer(this.context.actions.register({
+      id: 'element.connect.data-association.from-selection',
+      title: 'Connect data association',
+      run: context => {
+        const sourceId = context.getModel().selection[0]
+        if (!sourceId) return
+        this.runtime.connectionFlow.useEdgeFactory(edgeFactory)
+        context.tools.activate('connect:bpmn.dataAssociation')
+        this.beginConnectionFromElement(context, sourceId, 'context-pad')
+      },
+    }))
+    this.addDisposer(this.context.tools.register({
+      id: 'connect:bpmn.dataAssociation',
+      kind: 'mode',
+      title: 'Data association',
+      tooltip: 'Connect data association',
+      oneShot: false,
+      activate: () => {
+        this.runtime.connectionFlow.useEdgeFactory(edgeFactory)
+      },
+      deactivate: () => {
+        this.runtime.connectionFlow.clear()
+        this.runtime.connectionFlow.resetEdgeFactory()
+      },
+      onCancel: () => {
+        this.runtime.connectionFlow.clear()
+      },
+      onPointerMove: (context, event) => this.updateConnectionPreview(context, event),
     }))
   }
 
