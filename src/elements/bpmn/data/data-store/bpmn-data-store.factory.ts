@@ -16,8 +16,8 @@ export function createBpmnDataStoreElement(input: BpmnDataStoreElementInput): Bp
     type: BPMN_DATA_STORE_TYPE,
     x: finiteNumber(input.x, 0),
     y: finiteNumber(input.y, 0),
-    width: finiteNumber(input.width, BPMN_DATA_STORE_DEFAULT_WIDTH),
-    height: finiteNumber(input.height, BPMN_DATA_STORE_DEFAULT_HEIGHT),
+    width: BPMN_DATA_STORE_DEFAULT_WIDTH,
+    height: BPMN_DATA_STORE_DEFAULT_HEIGHT,
     rotation: input.rotation,
     zIndex: input.zIndex,
     data: {

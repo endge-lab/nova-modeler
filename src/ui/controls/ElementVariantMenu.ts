@@ -478,6 +478,10 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
     y: number,
     size: number,
   ): void {
+    if (this.isConnectionPreview(element, option)) {
+      this.appendConnectionPreview(schema, element, option, x, y, size)
+      return
+    }
     if (element.type === 'bpmn.task') {
       this.appendTaskPreview(schema, element, option, x, y, size)
       return
@@ -615,6 +619,118 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
       element,
       descriptor: provider.getDescriptor(pluginContext, element, this.draft),
     }
+  }
+
+  private isConnectionPreview(element: ModelerElement, option: ModelerElementVariantOption): boolean {
+    return element.type === 'bpmn.flow'
+      || element.type === 'bpmn.association'
+      || option.data?.connectionFamily === 'flow'
+      || option.data?.connectionFamily === 'association'
+  }
+
+  private appendConnectionPreview(
+    schema: NovaSchema,
+    element: ModelerElement,
+    option: ModelerElementVariantOption,
+    x: number,
+    y: number,
+    size: number,
+  ): void {
+    const data = { ...(element.data ?? {}), ...(option.data ?? {}) }
+    const family = data.connectionFamily === 'association' || element.type === 'bpmn.association'
+      ? 'association'
+      : 'flow'
+    const start = { x: x + 4, y: y + size / 2 }
+    const end = { x: x + size - 4, y: y + size / 2 }
+    const color = '#3f3f46'
+    const width = 2
+    schema.push({
+      type: 'line',
+      x1: start.x,
+      y1: start.y,
+      x2: end.x,
+      y2: end.y,
+      styles: {
+        color,
+        width,
+        dashPattern: family === 'association' ? [4, 4] : undefined,
+      },
+    })
+    if (family === 'association') {
+      const associationType = data.associationType
+      if (associationType === 'directed' || associationType === 'bidirectional' || associationType === 'data') {
+        this.appendOpenArrowPreview(schema, end, start, color, width)
+      }
+      if (associationType === 'bidirectional') this.appendOpenArrowPreview(schema, start, end, color, width)
+      return
+    }
+    this.appendFilledArrowPreview(schema, end, start, color, width)
+    if (data.flowType === 'conditionalSequence') {
+      const center = { x: start.x + 8, y: start.y }
+      schema.push({
+        type: 'polygon',
+        points: [
+          { x: center.x, y: center.y - 5 },
+          { x: center.x + 5, y: center.y },
+          { x: center.x, y: center.y + 5 },
+          { x: center.x - 5, y: center.y },
+        ],
+        styles: { background: '#ffffff', stroke: color, lineWidth: 1.5 },
+      })
+    }
+    if (data.flowType === 'defaultSequence') {
+      schema.push({
+        type: 'line',
+        x1: start.x + 5,
+        y1: start.y + 6,
+        x2: start.x + 13,
+        y2: start.y - 6,
+        styles: { color, width },
+      })
+    }
+  }
+
+  private appendOpenArrowPreview(schema: NovaSchema, point: { x: number; y: number }, previous: { x: number; y: number }, color: string, width: number): void {
+    const angle = Math.atan2(point.y - previous.y, point.x - previous.x)
+    const length = 8
+    const spread = Math.PI / 7
+    schema.push({
+      type: 'line',
+      x1: point.x,
+      y1: point.y,
+      x2: point.x - Math.cos(angle - spread) * length,
+      y2: point.y - Math.sin(angle - spread) * length,
+      styles: { color, width },
+    })
+    schema.push({
+      type: 'line',
+      x1: point.x,
+      y1: point.y,
+      x2: point.x - Math.cos(angle + spread) * length,
+      y2: point.y - Math.sin(angle + spread) * length,
+      styles: { color, width },
+    })
+  }
+
+  private appendFilledArrowPreview(schema: NovaSchema, point: { x: number; y: number }, previous: { x: number; y: number }, color: string, width: number): void {
+    const angle = Math.atan2(point.y - previous.y, point.x - previous.x)
+    const length = 9
+    const spread = Math.PI / 7
+    schema.push({
+      type: 'polygon',
+      points: [
+        point,
+        {
+          x: point.x - Math.cos(angle - spread) * length,
+          y: point.y - Math.sin(angle - spread) * length,
+        },
+        {
+          x: point.x - Math.cos(angle + spread) * length,
+          y: point.y - Math.sin(angle + spread) * length,
+        },
+      ],
+      styles: { background: color, stroke: color, lineWidth: width },
+    })
   }
 
   private resolveMenuRect(controls: Array<ModelerElementVariantControl>): ModelerRect {

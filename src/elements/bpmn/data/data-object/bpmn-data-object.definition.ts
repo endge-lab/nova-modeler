@@ -7,13 +7,11 @@ import type {
 import {
   BPMN_DATA_OBJECT_DEFAULT_HEIGHT,
   BPMN_DATA_OBJECT_DEFAULT_WIDTH,
-  BPMN_DATA_OBJECT_MIN_HEIGHT,
-  BPMN_DATA_OBJECT_MIN_WIDTH,
   BPMN_DATA_OBJECT_TYPE,
   createBpmnDataObjectElement,
 } from '@/elements/bpmn/data/data-object/bpmn-data-object.factory'
 import { createBpmnDataObjectPorts } from '@/elements/bpmn/data/data-object/bpmn-data-object.ports'
-import { BpmnDataObjectVariantProvider } from '@/elements/bpmn/data/data-object/bpmn-data-object.variants'
+import { BpmnDataVariantProvider } from '@/elements/bpmn/data/bpmn-data.variants'
 import type {
   BpmnDataObjectElement,
   BpmnDataObjectElementInput,
@@ -22,7 +20,7 @@ import type {
 export const BpmnDataObjectDefinition: ModelerElementDefinition<BpmnDataObjectElement> = {
   type: BPMN_DATA_OBJECT_TYPE,
   kind: 'node',
-  title: 'Data object',
+  title: 'Data',
   defaults: {
     width: BPMN_DATA_OBJECT_DEFAULT_WIDTH,
     height: BPMN_DATA_OBJECT_DEFAULT_HEIGHT,
@@ -30,11 +28,7 @@ export const BpmnDataObjectDefinition: ModelerElementDefinition<BpmnDataObjectEl
   capabilities: {
     selectable: true,
     draggable: true,
-    resizable: {
-      handles: ['n', 'e', 's', 'w', 'ne', 'se', 'sw', 'nw'],
-      minWidth: BPMN_DATA_OBJECT_MIN_WIDTH,
-      minHeight: BPMN_DATA_OBJECT_MIN_HEIGHT,
-    },
+    resizable: false,
     ports: false,
     connectable: {
       incoming: true,
@@ -47,19 +41,19 @@ export const BpmnDataObjectDefinition: ModelerElementDefinition<BpmnDataObjectEl
     },
   },
   createTool: {
-    id: 'create:bpmn.data-object',
-    actionId: 'element.create.bpmn.data-object',
-    shortcutId: 'bpmn.data-object.create',
-    title: 'Data object',
+    id: 'create:bpmn.data',
+    actionId: 'element.create.bpmn.data',
+    shortcutId: 'bpmn.data.create',
+    title: 'Data',
     palette: {
-      id: 'bpmn.data-object.create',
+      id: 'bpmn.data.create',
       group: 'elements',
       order: 140,
       icon: 'bpmn-data-object',
     },
     create: input => createBpmnDataObjectElement(input as BpmnDataObjectElementInput),
   },
-  variantProvider: BpmnDataObjectVariantProvider,
+  variantProvider: BpmnDataVariantProvider as ModelerElementDefinition<BpmnDataObjectElement>['variantProvider'],
   normalize: element => createBpmnDataObjectElement(element as BpmnDataObjectElementInput),
   render: (context: ModelerElementRenderContext, element) => ({
     type: Modeler.BpmnDataObjectView,

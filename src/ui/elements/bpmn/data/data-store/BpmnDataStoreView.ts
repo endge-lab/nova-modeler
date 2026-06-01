@@ -9,6 +9,7 @@ import {
   type NovaSurface,
 } from '@endge/nova'
 import type { EventList } from '@endge/utils'
+import { MODELER_ASSETS } from '@/assets/modeler-assets'
 import { Modeler } from '@/config/schema.config'
 import {
   MODELER_THEME_FALLBACKS,
@@ -17,18 +18,23 @@ import {
 } from '@/config/theme.config'
 import type { ModelerViewport } from '@/domain/types'
 import type { BpmnDataStoreElement } from '@/elements/bpmn/data/data-store/bpmn-data-store.types'
-import { resolveBpmnTaskNameLayout } from '@/ui/elements/bpmn/task/BpmnTaskView'
+import {
+  resolveBpmnTaskNameLayout,
+  type BpmnTaskNameLayout,
+} from '@/ui/elements/bpmn/task/BpmnTaskView'
 
 export interface BpmnDataStoreViewProps {
   element: BpmnDataStoreElement
   viewport: ModelerViewport
   selected?: boolean
+  hideName?: boolean
 }
 
 export interface BpmnDataStoreViewResolvedProps {
   element: BpmnDataStoreElement
   viewport: ModelerViewport
   selected: boolean
+  hideName: boolean
 }
 
 export type BpmnDataStoreViewDescriptor = NovaComponentDescriptor<
@@ -44,7 +50,7 @@ export type BpmnDataStoreViewDescriptor = NovaComponentDescriptor<
   version: '0.1.0',
   dirtyPolicy: {
     update: ['element', 'viewport'],
-    render: ['element', 'selected'],
+    render: ['element', 'selected', 'hideName'],
   },
 })
 export class BpmnDataStoreView<E extends EventList = Record<string, any>>
@@ -71,6 +77,7 @@ export class BpmnDataStoreView<E extends EventList = Record<string, any>>
       element: props.element,
       viewport: props.viewport,
       selected: props.selected ?? false,
+      hideName: props.hideName ?? false,
     }
   }
 
@@ -99,41 +106,45 @@ export class BpmnDataStoreView<E extends EventList = Record<string, any>>
     const stroke = this.props.selected
       ? String(style.selectedStroke ?? this.resolveThemeColor('elementSelectedStroke'))
       : String(style.stroke ?? this.resolveThemeColor('elementStroke'))
-    const fill = String(style.fill ?? this.resolveThemeColor('elementFill'))
-    const strokeWidth = this.resolveStyleNumber(style.strokeWidth, 'elementStrokeWidth')
+    const icon = resolveBpmnDataStoreIconLayout(this.width, this.height)
     const opacity = this.resolveStyleNumber(style.opacity, 'elementOpacity')
     const schema: NovaSchema = [{
-      type: 'rect',
-      x: -this.width / 2,
-      y: -this.height / 2,
-      width: this.width,
-      height: this.height,
+      type: 'icon',
+      icon: MODELER_ASSETS.icons.database,
+      x: icon.x,
+      y: icon.y,
+      width: icon.width,
+      height: icon.height,
       styles: {
-        background: fill,
-        border: {
-          color: stroke,
-          width: strokeWidth,
-          radius: Math.max(16, Math.min(24, this.height * 0.28)),
-        },
         opacity,
       },
     }]
-    schema.push({ type: 'line', x1: -this.width / 2 + 2, y1: -this.height / 2 + 18, x2: this.width / 2 - 2, y2: -this.height / 2 + 18, styles: { color: stroke, width: strokeWidth, opacity } })
-    schema.push({ type: 'line', x1: -this.width / 2 + 2, y1: this.height / 2 - 18, x2: this.width / 2 - 2, y2: this.height / 2 - 18, styles: { color: stroke, width: strokeWidth, opacity } })
-    this.appendLabel(schema)
+    if (this.props.selected) {
+      schema.push({
+        type: 'rect',
+        x: icon.x - 4,
+        y: icon.y - 4,
+        width: icon.width + 8,
+        height: icon.height + 8,
+        styles: {
+          background: 'rgba(0,0,0,0)',
+          border: {
+            color: stroke,
+            width: 1,
+            radius: 4,
+          },
+        },
+      })
+    }
+    if (!this.props.hideName) this.appendLabel(schema)
     return schema
   }
 
   private appendLabel(schema: NovaSchema): void {
-    const layout = resolveBpmnTaskNameLayout({
+    const layout = resolveBpmnDataStoreNameLayout({
       name: this.props.element.data?.name ?? 'Data store',
       width: this.width,
-      height: this.height - 28,
-      data: {
-        taskType: 'none',
-        loopType: 'none',
-        isForCompensation: false,
-      },
+      height: this.height,
     })
     const color = this.resolveThemeColor('bpmnTaskTextColor')
     for (const line of layout.lines) {
@@ -141,7 +152,7 @@ export class BpmnDataStoreView<E extends EventList = Record<string, any>>
         type: 'text',
         text: line.text,
         x: line.x,
-        y: line.y + 14,
+        y: line.y,
         width: line.widthLimit,
         height: line.height,
         clip: true,
@@ -175,6 +186,61 @@ export class BpmnDataStoreView<E extends EventList = Record<string, any>>
     const raw = this.nova.theme.resolve(MODELER_THEME_TOKENS[token], String(fallback)) ?? fallback
     const value = typeof raw === 'number' ? raw : Number(raw)
     return Number.isFinite(value) ? value : fallback
+  }
+}
+
+export interface BpmnDataStoreIconLayout {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+export function resolveBpmnDataStoreIconLayout(width: number, height: number): BpmnDataStoreIconLayout {
+  const size = Math.max(34, Math.min(44, Math.min(width * 0.48, height * 0.4)))
+  return {
+    x: -size / 2,
+    y: -height / 2 + 4,
+    width: size,
+    height: size,
+  }
+}
+
+export function resolveBpmnDataStoreNameLayout(input: {
+  name?: string
+  width: number
+  height: number
+}): BpmnTaskNameLayout {
+  const icon = resolveBpmnDataStoreIconLayout(input.width, input.height)
+  const labelTop = icon.y + icon.height + 6
+  const labelHeight = Math.max(28, input.height / 2 - labelTop - 2)
+  const labelRect = {
+    x: -input.width / 2 + 8,
+    y: labelTop,
+    width: Math.max(1, input.width - 16),
+    height: labelHeight,
+  }
+  const virtualHeight = labelHeight + 28
+  const virtualWidth = input.width + 8
+  const layout = resolveBpmnTaskNameLayout({
+    name: input.name ?? 'Data store',
+    width: virtualWidth,
+    height: virtualHeight,
+    data: {
+      taskType: 'none',
+      loopType: 'none',
+      isForCompensation: false,
+    },
+  })
+  return {
+    ...layout,
+    rect: labelRect,
+    lines: layout.lines.map((line, index) => ({
+      ...line,
+      x: labelRect.x,
+      y: labelRect.y + index * layout.lineHeight,
+      widthLimit: labelRect.width,
+    })),
   }
 }
 

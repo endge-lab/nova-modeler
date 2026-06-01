@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { Nova, RaphSchedulerType, RendererType, boundsContainsPoint, type NovaSchema } from '@endge/nova'
-import { NovaUIKit, type ColorPickerApi, type InputApi } from '@endge/nova-ui-kit'
+import { NovaUIKit, type ColorPickerApi, type DialogApi, type InputApi } from '@endge/nova-ui-kit'
 import {
   Modeler,
   BPMN_VALIDATION_RESULT_KEY,
@@ -48,6 +48,7 @@ describe('nova modeler minimal kernel', () => {
   beforeEach(() => {
     if (!URL.createObjectURL) URL.createObjectURL = vi.fn(() => 'blob:nova-modeler-test')
     if (!URL.revokeObjectURL) URL.revokeObjectURL = vi.fn()
+    MODEL_ELEMENTS_RUNTIME.connectionWarnings.clear()
   })
 
   it('creates and mutates viewport-only model', () => {
@@ -502,10 +503,12 @@ describe('nova modeler minimal kernel', () => {
     const group = createBpmnGroupElement({ id: 'group-1', name: '' })
     const dataObject = createBpmnDataObjectElement({
       id: 'data-object-1',
+      width: 222,
+      height: 333,
       dataObjectType: 'broken' as never,
       isCollection: true,
     })
-    const dataStore = createBpmnDataStoreElement({ id: 'data-store-1', name: '' })
+    const dataStore = createBpmnDataStoreElement({ id: 'data-store-1', name: '', width: 222, height: 333 })
     const association = createBpmnAssociationElement({
       id: 'association-1',
       associationType: 'broken' as never,
@@ -565,34 +568,154 @@ describe('nova modeler minimal kernel', () => {
       icon: 'bpmn-group',
       toolId: 'create:bpmn.group',
     })
-    expect(context.palette.get('bpmn.data-object.create')).toMatchObject({
+    expect(context.palette.get('bpmn.data.create')).toMatchObject({
       kind: 'tool',
       icon: 'bpmn-data-object',
-      toolId: 'create:bpmn.data-object',
-    })
-    expect(context.palette.get('bpmn.data-store.create')).toMatchObject({
-      kind: 'tool',
-      icon: 'bpmn-data-store',
-      toolId: 'create:bpmn.data-store',
+      toolId: 'create:bpmn.data',
     })
     expect(context.palette.get('bpmn.association.create')).toMatchObject({
-      kind: 'action',
+      kind: 'tool',
+      group: 'tools',
       icon: 'bpmn-association',
-      actionId: 'element.create.bpmn.association',
+      toolId: 'connect:bpmn.association',
     })
     expect(context.tools.get('create:bpmn.association')).toBeUndefined()
+    expect(context.tools.get('connect:bpmn.association')).toMatchObject({
+      kind: 'mode',
+      title: 'Association',
+    })
+    expect(context.palette.get('bpmn.data-object.create')).toBeUndefined()
+    expect(context.palette.get('bpmn.data-store.create')).toBeUndefined()
     expect(context.palette.get('bpmn.data-object.input.create')).toBeUndefined()
     expect(context.palette.get('bpmn.text-annotation.right.create')).toBeUndefined()
 
     expect(context.elementVariants.getProvider(textAnnotation)?.id).toBe('bpmn.textAnnotation.variants')
-    expect(context.elementVariants.getProvider(dataObject)?.id).toBe('bpmn.dataObject.variants')
+    expect(context.elementVariants.getProvider(dataObject)?.id).toBe('bpmn.data.variants')
+    expect(context.elementVariants.getProvider(dataStore)?.id).toBe('bpmn.data.variants')
     expect(context.elementVariants.getProvider(association)?.id).toBe('bpmn.association.variants')
     expect(controller.getElementRegistry().require('bpmn.association').capabilities?.colorable).toMatchObject({
       fill: false,
       stroke: true,
       custom: true,
     })
+    expect(controller.getElementRegistry().require('bpmn.dataObject').capabilities?.resizable).toBe(false)
+    expect(controller.getElementRegistry().require('bpmn.dataStore').capabilities?.resizable).toBe(false)
     expect(controller.getElementRegistry().require('bpmn.dataObject').getPorts?.(context, dataObject).map(port => port.id)).toEqual(['top', 'right', 'bottom', 'left'])
+
+    controller.applyCommand({ type: 'element.resize', id: dataObject.id, bounds: { width: 300, height: 300 } })
+    expect(controller.getModel().elements.find(element => element.id === dataObject.id)).toMatchObject({
+      width: 96,
+      height: 120,
+    })
+    controller.unmount()
+  })
+
+  it('switches BPMN data object and data store through one variant provider', () => {
+    const dataObject = createBpmnDataObjectElement({
+      id: 'data-1',
+      x: 120,
+      y: 140,
+      name: 'Customer payload',
+      style: { fill: '#ffffff', stroke: '#1f2937' },
+    })
+    const controller = createModelerController({
+      model: createModelerModel({
+        elements: [dataObject],
+        selection: [dataObject.id],
+      }),
+    })
+    controller.mount(createControllerHost(640, 420))
+    const context = controller.getPluginContext()
+    const provider = context.elementVariants.getProvider(dataObject)
+    expect(provider?.id).toBe('bpmn.data.variants')
+
+    let current = controller.getModel().elements[0]!
+    let draft = provider?.createDraft?.(context, current) ?? {}
+    let descriptor = provider?.getDescriptor(context, current, draft)
+    let dataKindControl = descriptor?.controls.find(control => control.id === 'dataKind')
+    expect(dataKindControl?.options.map(option => option.id)).toEqual(['object', 'input', 'output', 'store'])
+    expect(descriptor?.headerControls?.map(control => control.id)).toEqual(['isCollection'])
+
+    provider?.apply({
+      context,
+      element: current,
+      draft,
+      control: dataKindControl!,
+      option: dataKindControl!.options.find(option => option.id === 'input')!,
+    })
+    current = controller.getModel().elements[0]!
+    expect(current).toMatchObject({
+      id: 'data-1',
+      type: 'bpmn.dataObject',
+      x: 120,
+      y: 140,
+      data: {
+        name: 'Customer payload',
+        dataObjectType: 'input',
+      },
+      style: { fill: '#ffffff', stroke: '#1f2937' },
+    })
+
+    draft = provider?.createDraft?.(context, current) ?? {}
+    descriptor = provider?.getDescriptor(context, current, draft)
+    const collectionControl = descriptor?.headerControls?.find(control => control.id === 'isCollection')
+    provider?.apply({
+      context,
+      element: current,
+      draft,
+      control: collectionControl!,
+      option: collectionControl!.options[0]!,
+    })
+    expect(controller.getModel().elements[0]?.data?.isCollection).toBe(true)
+
+    current = controller.getModel().elements[0]!
+    draft = provider?.createDraft?.(context, current) ?? {}
+    descriptor = provider?.getDescriptor(context, current, draft)
+    dataKindControl = descriptor?.controls.find(control => control.id === 'dataKind')
+    provider?.apply({
+      context,
+      element: current,
+      draft,
+      control: dataKindControl!,
+      option: dataKindControl!.options.find(option => option.id === 'store')!,
+    })
+    current = controller.getModel().elements[0]!
+    expect(current).toMatchObject({
+      id: 'data-1',
+      type: 'bpmn.dataStore',
+      x: 120,
+      y: 140,
+      width: 120,
+      height: 96,
+      data: { name: 'Customer payload' },
+      style: { fill: '#ffffff', stroke: '#1f2937' },
+    })
+    expect(controller.getModel().selection).toEqual(['data-1'])
+    expect(context.elementVariants.getProvider(current)?.id).toBe('bpmn.data.variants')
+    expect(context.elementVariants.getProvider(current)?.getDescriptor(context, current, provider?.createDraft?.(context, current) ?? {}).headerControls).toEqual([])
+
+    const storeProvider = context.elementVariants.getProvider(current)
+    draft = storeProvider?.createDraft?.(context, current) ?? {}
+    descriptor = storeProvider?.getDescriptor(context, current, draft)
+    dataKindControl = descriptor?.controls.find(control => control.id === 'dataKind')
+    storeProvider?.apply({
+      context,
+      element: current,
+      draft,
+      control: dataKindControl!,
+      option: dataKindControl!.options.find(option => option.id === 'output')!,
+    })
+    expect(controller.getModel().elements[0]).toMatchObject({
+      id: 'data-1',
+      type: 'bpmn.dataObject',
+      width: 96,
+      height: 120,
+      data: {
+        name: 'Customer payload',
+        dataObjectType: 'output',
+        isCollection: false,
+      },
+    })
     controller.unmount()
   })
 
@@ -608,7 +731,7 @@ describe('nova modeler minimal kernel', () => {
     const context = controller.getPluginContext()
 
     context.actions.run('element.create.bpmn.association')
-    expect(context.tools.getActiveId()).toBe('connect')
+    expect(context.tools.getActiveId()).toBe('connect:bpmn.association')
     expect(MODEL_ELEMENTS_RUNTIME.connectionFlow.beginFromElement(context, start.id, 'tool')).toBe(true)
     const created = MODEL_ELEMENTS_RUNTIME.connectionFlow.completeAtTarget(
       context,
@@ -670,6 +793,8 @@ describe('nova modeler minimal kernel', () => {
     const provider = context.elementVariants.getProvider(current)
     expect(provider?.id).toBe('bpmn.flow.variants')
     const descriptor = provider?.getDescriptor(context, current, provider.createDraft?.(context, current) ?? {})
+    const familyControl = descriptor?.controls.find(control => control.id === 'connectionFamily')
+    expect(familyControl?.options.map(option => option.id)).toEqual(['flow', 'association'])
     const typeControl = descriptor?.controls.find(control => control.id === 'flowType')
     expect(typeControl?.options.map(option => option.id)).toEqual(['sequence', 'conditionalSequence', 'defaultSequence'])
 
@@ -684,6 +809,77 @@ describe('nova modeler minimal kernel', () => {
       expect(controller.getModel().elements.find(element => element.id === flow.id)?.data?.flowType).toBe(option.id)
     }
 
+    provider?.apply({
+      context,
+      element: controller.getModel().elements.find(element => element.id === flow.id)!,
+      draft: provider.createDraft?.(context, current) ?? {},
+      control: familyControl!,
+      option: familyControl!.options.find(option => option.id === 'association')!,
+    })
+    let converted = controller.getModel().elements.find(element => element.id === flow.id)!
+    expect(converted).toMatchObject({
+      type: 'bpmn.association',
+      source: { elementId: start.id },
+      target: { elementId: task.id },
+      waypoints: [{ x: 184, y: 124 }],
+      data: { associationType: 'undirected' },
+    })
+    const associationProvider = context.elementVariants.getProvider(converted)!
+    const associationDescriptor = associationProvider.getDescriptor(context, converted, associationProvider.createDraft?.(context, converted) ?? {})
+    const associationControl = associationDescriptor.controls.find(control => control.id === 'associationType')!
+    associationProvider.apply({
+      context,
+      element: converted,
+      draft: associationProvider.createDraft?.(context, converted) ?? {},
+      control: associationControl,
+      option: associationControl.options.find(option => option.id === 'bidirectional')!,
+    })
+    expect(controller.getModel().elements.find(element => element.id === flow.id)).toMatchObject({
+      type: 'bpmn.association',
+      data: { associationType: 'bidirectional' },
+    })
+    const convertedFamilyControl = associationDescriptor.controls.find(control => control.id === 'connectionFamily')!
+    const duplicateFlow = createBpmnFlowElement({
+      id: 'flow-duplicate',
+      source: { elementId: start.id, point: { x: 148, y: 124 } },
+      target: { elementId: task.id, point: { x: 220, y: 124 } },
+    })
+    controller.applyCommand({ type: 'element.add', element: duplicateFlow })
+    associationProvider.apply({
+      context,
+      element: controller.getModel().elements.find(element => element.id === flow.id)!,
+      draft: associationProvider.createDraft?.(context, converted) ?? {},
+      control: convertedFamilyControl,
+      option: convertedFamilyControl.options.find(option => option.id === 'flow')!,
+    })
+    expect(controller.getModel().elements.find(element => element.id === flow.id)).toMatchObject({
+      type: 'bpmn.association',
+      data: { associationType: 'bidirectional' },
+    })
+    expect(controller.getModel().selection).toEqual([duplicateFlow.id])
+    expect(MODEL_ELEMENTS_RUNTIME.connectionWarnings.get()).toMatchObject({
+      title: 'Connection already exists',
+      duplicateElementId: duplicateFlow.id,
+    })
+    controller.applyCommand({ type: 'element.delete', id: duplicateFlow.id })
+    MODEL_ELEMENTS_RUNTIME.connectionWarnings.clear()
+    associationProvider.apply({
+      context,
+      element: controller.getModel().elements.find(element => element.id === flow.id)!,
+      draft: associationProvider.createDraft?.(context, converted) ?? {},
+      control: convertedFamilyControl,
+      option: convertedFamilyControl.options.find(option => option.id === 'flow')!,
+    })
+    converted = controller.getModel().elements.find(element => element.id === flow.id)!
+    expect(converted).toMatchObject({
+      type: 'bpmn.flow',
+      source: { elementId: start.id },
+      target: { elementId: task.id },
+      waypoints: [{ x: 184, y: 124 }],
+      data: { flowType: 'sequence' },
+    })
+
+    controller.applyCommand({ type: 'select', ids: [flow.id] })
     expect(controller.hitTest(controller.worldToScreen({ x: 184, y: 124 }))).toEqual({
       type: 'edge-waypoint-handle',
       elementId: flow.id,
@@ -892,6 +1088,12 @@ describe('nova modeler minimal kernel', () => {
     app.raph.run()
 
     expect(rootApi.getOpenDialogIds()).toEqual(['modeler-bpmn-validation'])
+    expect(app.components.requireApi<DialogApi>('nova-root-dialog-modeler-bpmn-validation').getProps()).toMatchObject({
+      width: 760,
+      height: 520,
+      minWidth: 620,
+      minHeight: 420,
+    })
     const renderedItems = app.surfaces
       .flatMap(item => item.compileRenderFrame().items)
       .map(item => item.schemaItem)
@@ -1364,6 +1566,7 @@ describe('nova modeler minimal kernel', () => {
     app.handleEvent('mousedown', offsetMouseEvent('mousedown', 280, 140))
     app.handleEvent('mouseup', offsetMouseEvent('mouseup', 280, 140))
     app.raph.run()
+    console.log('task-edit:opened')
     const inputId = 'task-name-edit-root:task-name-editor:input'
     const input = app.components.requireApi<InputApi>(inputId)
     const interaction = app.surfaces.find(item => item.name === 'task-name-edit-root:interaction')
@@ -1373,7 +1576,7 @@ describe('nova modeler minimal kernel', () => {
       .filter(item => item?.type === 'text')
       .map(item => item?.text) ?? []
     expect(getInteractionTexts()).not.toContain('Review task')
-    expect(input.getProps()).toMatchObject({
+    expect(pickInputProps(input.getProps())).toMatchObject({
       variant: 'ghost',
       align: 'center',
       wrap: true,
@@ -1393,27 +1596,178 @@ describe('nova modeler minimal kernel', () => {
       focusBorderColor: 'rgba(255,255,255,0)',
       selectOnFocus: false,
     })
+    console.log('task-edit:props')
 
     input.setValue('Approve invoice')
     input.commit()
     app.raph.run()
+    console.log('task-edit:committed')
     expect(root.getApi().getModel().elements[0]?.data?.name).toBe('Approve invoice')
     expect(getInteractionTexts()).toContain('Approve invoice')
     expect(app.components.get(inputId)).toBeFalsy()
 
     openEditor()
+    console.log('task-edit:reopened-cancel')
     app.components.requireApi<InputApi>(inputId).setValue('Cancelled name')
-    app.handleEvent('keydown', new KeyboardEvent('keydown', { key: 'Escape' }))
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    console.log('task-edit:escape-dispatched')
     app.raph.run()
+    console.log('task-edit:escape-run')
+    console.log('task-edit:escape-state', root.getApi().getModel().elements[0]?.data?.name, Boolean(app.components.get(inputId)))
     expect(root.getApi().getModel().elements[0]?.data?.name).toBe('Approve invoice')
     expect(app.components.get(inputId)).toBeFalsy()
 
     openEditor()
+    console.log('task-edit:reopened-outside')
     app.components.requireApi<InputApi>(inputId).setValue('Committed outside\nwith notes')
     app.handleEvent('mousedown', offsetMouseEvent('mousedown', 560, 320))
     app.handleEvent('mouseup', offsetMouseEvent('mouseup', 560, 320))
     app.raph.run()
     expect(root.getApi().getModel().elements[0]?.data?.name).toBe('Committed outside\nwith notes')
+    expect(app.components.get(inputId)).toBeFalsy()
+    app.destroy()
+  })
+
+  it('renders and edits BPMN data store label below the database icon', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(createMeasured2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    const root = app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'data-store-name-edit-root',
+      props: {
+        model: createModelerModel({
+          elements: [createBpmnDataStoreElement({
+            id: 'data-store-1',
+            x: 220,
+            y: 100,
+            name: 'Customer archive data store',
+          })],
+          selection: ['data-store-1'],
+        }),
+        width: 640,
+        height: 420,
+      },
+    }) as Root
+    app.raph.run()
+    app.raph.run()
+
+    const interaction = app.surfaces.find(item => item.name === 'data-store-name-edit-root:interaction')
+    const schemaItems = interaction?.compileRenderFrame().items.map(item => item.schemaItem).filter(Boolean) ?? []
+    const icon = schemaItems.find(item => item?.type === 'icon' && item.icon === MODELER_ASSETS.icons.database)
+    const labels = schemaItems.filter(item => item?.type === 'text' && ['Customer', 'archive data', 'store'].includes(String(item.text)))
+    expect(icon).toMatchObject({ type: 'icon' })
+    expect(labels.map(item => item?.text)).toEqual(['Customer', 'archive data', 'store'])
+    expect(Number(labels[0]?.y)).toBeGreaterThan(Number(icon?.y) + Number(icon?.height))
+    expect(Number(labels[1]?.y)).toBeGreaterThan(Number(labels[0]?.y))
+
+    app.handleEvent('mousedown', offsetMouseEvent('mousedown', 280, 170))
+    app.handleEvent('mouseup', offsetMouseEvent('mouseup', 280, 170))
+    app.handleEvent('mousedown', offsetMouseEvent('mousedown', 280, 170))
+    app.handleEvent('mouseup', offsetMouseEvent('mouseup', 280, 170))
+    app.raph.run()
+
+    const inputId = 'data-store-name-edit-root:task-name-editor:input'
+    const input = app.components.requireApi<InputApi>(inputId)
+    expect(pickInputProps(input.getProps())).toMatchObject({
+      variant: 'ghost',
+      align: 'center',
+      wrap: true,
+      resize: 'none',
+      minRows: 1,
+      maxRows: 3,
+      border: { width: 0 },
+      background: 'rgba(255,255,255,0)',
+    })
+    const hiddenTexts = interaction
+      ?.compileRenderFrame().items
+      .map(item => item.schemaItem)
+      .filter(item => item?.type === 'text')
+      .map(item => item?.text) ?? []
+    expect(hiddenTexts).not.toContain('Customer')
+    expect(hiddenTexts).not.toContain('archive data')
+    expect(hiddenTexts).not.toContain('store')
+
+    input.setValue('Archive store\nwith notes')
+    input.commit()
+    app.raph.run()
+
+    expect(root.getApi().getModel().elements[0]?.data?.name).toBe('Archive store\nwith notes')
+    expect(app.components.get(inputId)).toBeFalsy()
+    app.destroy()
+  })
+
+  it('edits BPMN group title from the header and shows clipped title tooltip', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(createMeasured2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    const title = 'Very long operations group title that does not fit'
+    const root = app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'group-title-edit-root',
+      props: {
+        model: createModelerModel({
+          elements: [createBpmnGroupElement({ id: 'group-1', x: 180, y: 80, width: 240, height: 160, name: title })],
+          selection: ['group-1'],
+        }),
+        width: 640,
+        height: 420,
+      },
+    }) as Root
+    app.raph.run()
+    app.raph.run()
+
+    const tooltip = root.resolveNovaTooltipTarget({ x: 202, y: 96 })
+    expect(tooltip).toMatchObject({
+      targetType: 'modeler.bpmn.group.name',
+      tooltip: { value: title },
+    })
+
+    app.handleEvent('mousedown', offsetMouseEvent('mousedown', 202, 96))
+    app.handleEvent('mouseup', offsetMouseEvent('mouseup', 202, 96))
+    app.handleEvent('mousedown', offsetMouseEvent('mousedown', 202, 96))
+    app.handleEvent('mouseup', offsetMouseEvent('mouseup', 202, 96))
+    app.raph.run()
+
+    const inputId = 'group-title-edit-root:task-name-editor:input'
+    const input = app.components.requireApi<InputApi>(inputId)
+    expect(pickInputProps(input.getProps())).toMatchObject({
+      variant: 'ghost',
+      align: 'left',
+      wrap: true,
+      resize: 'none',
+      minRows: 1,
+      maxRows: 1,
+      border: { width: 0 },
+      background: 'rgba(255,255,255,0)',
+    })
+    const interaction = app.surfaces.find(item => item.name === 'group-title-edit-root:interaction')
+    const hiddenTexts = interaction
+      ?.compileRenderFrame().items
+      .map(item => item.schemaItem)
+      .filter(item => item?.type === 'text')
+      .map(item => item?.text) ?? []
+    expect(hiddenTexts).not.toContain(title)
+
+    input.setValue('Updated group')
+    input.commit()
+    app.raph.run()
+
+    expect(root.getApi().getModel().elements[0]?.data?.name).toBe('Updated group')
     expect(app.components.get(inputId)).toBeFalsy()
     app.destroy()
   })
@@ -1450,16 +1804,19 @@ describe('nova modeler minimal kernel', () => {
       resolveNovaTooltipTarget(input: { x: number; y: number }): { tooltip?: unknown; rect?: { x: number; y: number; width: number; height: number } } | null
     }
     const connectTooltip = palette.resolveNovaTooltipTarget({ x: 44, y: 44 })
-    const rectTooltip = palette.resolveNovaTooltipTarget({ x: 44, y: 101 })
-    const rectTooltipFromEdge = palette.resolveNovaTooltipTarget({ x: 60, y: 117 })
-    const eventTooltip = palette.resolveNovaTooltipTarget({ x: 44, y: 149 })
+    const associationTooltip = palette.resolveNovaTooltipTarget({ x: 44, y: 101 })
+    const rectTooltip = palette.resolveNovaTooltipTarget({ x: 44, y: 149 })
+    const rectTooltipFromEdge = palette.resolveNovaTooltipTarget({ x: 60, y: 165 })
+    const eventTooltip = palette.resolveNovaTooltipTarget({ x: 44, y: 197 })
     expect(connectTooltip?.tooltip).toMatchObject({ value: 'Connect elements', placement: 'cursor' })
     expect(connectTooltip?.rect).toMatchObject({ x: 24, y: 24, width: 40, height: 40 })
+    expect(associationTooltip?.tooltip).toMatchObject({ value: 'Association', placement: 'cursor' })
+    expect(associationTooltip?.rect).toMatchObject({ x: 24, y: 72, width: 40, height: 40 })
     expect(rectTooltip?.tooltip).toMatchObject({ value: 'Create Rectangle', placement: 'cursor' })
-    expect(rectTooltip?.rect).toMatchObject({ x: 24, y: 81, width: 40, height: 40 })
-    expect(rectTooltipFromEdge?.rect).toMatchObject({ x: 24, y: 81, width: 40, height: 40 })
+    expect(rectTooltip?.rect).toMatchObject({ x: 24, y: 129, width: 40, height: 40 })
+    expect(rectTooltipFromEdge?.rect).toMatchObject({ x: 24, y: 129, width: 40, height: 40 })
     expect(eventTooltip?.tooltip).toMatchObject({ value: 'Create Start event', placement: 'cursor' })
-    expect(eventTooltip?.rect).toMatchObject({ x: 24, y: 129, width: 40, height: 40 })
+    expect(eventTooltip?.rect).toMatchObject({ x: 24, y: 177, width: 40, height: 40 })
     app.destroy()
   })
 
@@ -1649,6 +2006,11 @@ describe('nova modeler minimal kernel', () => {
     expect(openDownloadItems.find(item => item.type === 'text' && item.text === 'Скачать BPMN')).toBeTruthy()
     expect(openDownloadItems.find(item => item.type === 'text' && item.text === 'Скачать PNG')).toBeTruthy()
     expect(openDownloadItems.filter(item => item.type === 'icon' && item.width === 16 && item.height === 16)).toHaveLength(2)
+    expect(app.events.hitTest(606, 34)?.componentId).toBe('partial-slots-root:download-controls')
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 606, clientY: 34, button: 0 }))
+    app.raph.run()
+    const closedDownloadItems = controls?.compileRenderFrame().items.map(item => item.schemaItem).filter(Boolean) ?? []
+    expect(closedDownloadItems.find(item => item.type === 'text' && item.text === 'Скачать BPMN')).toBeFalsy()
     expect(app.events.hitTest(606, 34)?.componentId).toContain('partial-slots-root:zoom-controls')
 
     app.setHitTestMode('spatial')
@@ -2159,7 +2521,7 @@ describe('nova modeler minimal kernel', () => {
     app.raph.run()
     expect(app.events.hitTest(448, 112)?.componentId).toBe('variant-menu-close-root:context-pad:variant-menu')
 
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    app.handleEvent('keydown', new KeyboardEvent('keydown', { key: 'Escape' }))
     app.raph.run()
     expect(app.events.hitTest(448, 112)?.componentId).not.toBe('variant-menu-close-root:context-pad:variant-menu')
     app.destroy()
@@ -2433,6 +2795,39 @@ describe('nova modeler minimal kernel', () => {
     controller.unmount()
   })
 
+  it('moves elements fully enclosed by a BPMN group together with the group', () => {
+    const controller = createModelerController({
+      model: createModelerModel({
+        elements: [
+          createBpmnGroupElement({ id: 'group-1', x: 80, y: 80, width: 260, height: 200 }),
+          createBpmnTaskElement({ id: 'task-inside', x: 130, y: 120, name: 'Inside' }),
+          createBasicRectElement({ id: 'rect-partial', x: 300, y: 120, width: 80, height: 64 }),
+        ],
+      }),
+      options: {
+        interaction: {
+          snap: false,
+        },
+      },
+    })
+    controller.mount(createControllerHost(640, 420))
+    const context = controller.getPluginContext()
+    const moveGesture = controller.getGestures().find(gesture => gesture.id === 'modeler-elements:move')
+
+    expect(moveGesture?.hitTest?.(context, offsetMouseEvent('mousedown', 92, 92), controller.hitTest({ x: 92, y: 92 }))).toBe(true)
+    moveGesture?.onPointerDown?.(context, offsetMouseEvent('mousedown', 92, 92))
+    moveGesture?.onPointerMove?.(context, offsetMouseEvent('mousemove', 132, 117))
+    moveGesture?.onPointerUp?.(context, offsetMouseEvent('mouseup', 132, 117))
+
+    expect(controller.getModel().selection).toEqual(['group-1'])
+    expect(controller.getModel().elements).toMatchObject([
+      { id: 'group-1', x: 120, y: 105 },
+      { id: 'task-inside', x: 170, y: 145 },
+      { id: 'rect-partial', x: 300, y: 120 },
+    ])
+    controller.unmount()
+  })
+
   it('renders drag shadow and restores moved elements when move is cancelled', () => {
     const controller = createModelerController({
       model: createModelerModel({
@@ -2662,6 +3057,11 @@ describe('nova modeler minimal kernel', () => {
         model: createModelerModel(),
         width: 640,
         height: 420,
+        options: {
+          branding: {
+            visible: false,
+          },
+        },
       },
     }) as Root
     app.raph.run()
@@ -2710,20 +3110,38 @@ describe('nova modeler minimal kernel', () => {
     const controls = app.surfaces.find(item => item.name === 'palette-root:controls')
     const paletteItems = controls?.compileRenderFrame().items.map(item => item.schemaItem).filter(Boolean) ?? []
     expect(paletteItems.some(item => item.type === 'icon' && item.icon === MODELER_ASSETS.icons.connectArrow)).toBe(true)
+    const palette = app.components.require('palette-root:palette') as unknown as {
+      x: number
+      y: number
+      createLayoutPlan(options: unknown): { entries: Array<{ type: string; item?: { id: string }; x: number; y: number; size: number }> }
+      resolvePaletteLayoutOptions(): unknown
+    }
+    const resolvePaletteItemPoint = (itemId: string) => {
+      const entry = palette.createLayoutPlan(palette.resolvePaletteLayoutOptions()).entries.find(item => item.type === 'item' && item.item?.id === itemId)
+      if (!entry) throw new Error(`Expected palette item ${itemId}`)
+      return {
+        x: palette.x + entry.x + entry.size / 2,
+        y: palette.y + entry.y + entry.size / 2,
+      }
+    }
+    const connectPoint = resolvePaletteItemPoint('element.connect.tool')
+    const rectPoint = resolvePaletteItemPoint('basic.rect.create')
+    const eventPoint = resolvePaletteItemPoint('bpmn.event.create')
+    const gatewayPoint = resolvePaletteItemPoint('bpmn.gateway.create')
 
-    expect(app.events.hitTest(44, 116)?.componentId).toBe('palette-root:palette')
-    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 44, clientY: 116, button: 0 }))
-    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 44, clientY: 116, button: 0 }))
+    expect(app.events.hitTest(connectPoint.x, connectPoint.y)?.componentId).toBe('palette-root:palette')
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: connectPoint.x, clientY: connectPoint.y, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: connectPoint.x, clientY: connectPoint.y, button: 0 }))
     expect(root.getApi().getModel().elements).toHaveLength(0)
     expect(controller.getPluginContext().tools.getActiveId()).toBe('connect')
 
-    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 44, clientY: 157, button: 0 }))
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: rectPoint.x, clientY: rectPoint.y, button: 0 }))
     app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 240, clientY: 220, button: 0 }))
     app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 240, clientY: 220, button: 0 }))
-    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 44, clientY: 205, button: 0 }))
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: eventPoint.x, clientY: eventPoint.y, button: 0 }))
     app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 360, clientY: 260, button: 0 }))
     app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 360, clientY: 260, button: 0 }))
-    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 44, clientY: 349, button: 0 }))
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: gatewayPoint.x, clientY: gatewayPoint.y, button: 0 }))
     app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 420, clientY: 300, button: 0 }))
     app.raph.run()
     app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 420, clientY: 300, button: 0 }))
@@ -2811,9 +3229,6 @@ describe('nova modeler minimal kernel', () => {
     expect(root.hitTest({ x: 202, y: 124 })).toEqual({ type: 'element', id: flow.id })
     app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 202, clientY: 124, button: 0 }))
     expect(app.canvas.element.style.cursor).toBe('pointer')
-    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 202, clientY: 124, button: 0 }))
-    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 202, clientY: 124, button: 0 }))
-    expect(root.getApi().getModel().selection).toEqual([flow.id])
 
     root.applyCommand({ type: 'select', ids: ['start-1', 'task-1'] })
     app.raph.run()
@@ -2900,13 +3315,25 @@ describe('nova modeler minimal kernel', () => {
     expect(interaction?.children.some(child => (child as { componentId?: string }).componentId === 'task-1:view')).toBe(true)
     app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 224, clientY: 124, button: 0 }))
     app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 224, clientY: 124, button: 0 }))
+    let flows = root.getApi().getModel().elements.filter(element => element.type === 'bpmn.flow')
+    expect(flows).toHaveLength(1)
+
+    app.handleEvent('keydown', new KeyboardEvent('keydown', { key: 'c' }))
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 144, clientY: 124, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 144, clientY: 124, button: 0 }))
+    app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 224, clientY: 124, button: 0 }))
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 224, clientY: 124, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 224, clientY: 124, button: 0 }))
+    flows = root.getApi().getModel().elements.filter(element => element.type === 'bpmn.flow')
+    expect(flows).toHaveLength(1)
+    expect(root.getApi().getModel().selection).toEqual([flows[0]?.id])
 
     app.handleEvent('keydown', new KeyboardEvent('keydown', { key: 'c' }))
     app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 336, clientY: 124, button: 0 }))
     app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 420, clientY: 124, button: 0 }))
     app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 420, clientY: 124, button: 0 }))
 
-    const flows = root.getApi().getModel().elements.filter(element => element.type === 'bpmn.flow')
+    flows = root.getApi().getModel().elements.filter(element => element.type === 'bpmn.flow')
     expect(flows).toHaveLength(2)
     expect(flows[0]).toMatchObject({
       source: { elementId: 'start-1' },
@@ -3154,10 +3581,10 @@ describe('nova modeler minimal kernel', () => {
     app.raph.run()
 
     expect(app.events.hitTest(44, 44)?.componentId).toBe('palette-no-drag-root:palette')
-    expect(app.events.hitTest(44, 380)?.componentId).not.toBe('palette-no-drag-root:palette')
-    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 44, clientY: 380, button: 0 }))
-    app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 140, clientY: 408, button: 0 }))
-    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 140, clientY: 408, button: 0 }))
+    expect(app.events.hitTest(300, 380)?.componentId).not.toBe('palette-no-drag-root:palette')
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 300, clientY: 380, button: 0 }))
+    app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 340, clientY: 408, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 340, clientY: 408, button: 0 }))
     app.raph.run()
 
     expect(app.events.hitTest(140, 180)?.componentId).not.toBe('palette-no-drag-root:palette')
@@ -3736,4 +4163,34 @@ function create2DContextStub(): CanvasRenderingContext2D {
     getLineDash: vi.fn(() => []),
     setLineDash: vi.fn(),
   } as unknown as CanvasRenderingContext2D
+}
+
+function createMeasured2DContextStub(): CanvasRenderingContext2D {
+  const context = create2DContextStub()
+  context.measureText = vi.fn((text: string) => ({ width: text.length * 7 })) as unknown as CanvasRenderingContext2D['measureText']
+  return context
+}
+
+function pickInputProps(props: Record<string, unknown>): Record<string, unknown> {
+  const keys = [
+    'variant',
+    'align',
+    'wrap',
+    'resize',
+    'minRows',
+    'maxRows',
+    'color',
+    'fontFamily',
+    'fontSize',
+    'fontWeight',
+    'lineHeight',
+    'background',
+    'border',
+    'hoverBackground',
+    'pressedBackground',
+    'activeBackground',
+    'focusBorderColor',
+    'selectOnFocus',
+  ]
+  return Object.fromEntries(keys.map(key => [key, props[key]]))
 }

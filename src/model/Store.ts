@@ -182,6 +182,10 @@ export class Store implements ModelerStore {
       this.deleteElements(command.ids)
       return this.toModel()
     }
+    if (command.type === 'element.replace') {
+      this.replaceElement(command.id, command.element)
+      return this.toModel()
+    }
     if (command.type === 'element.patch') {
       this.patchElement(command.id, command.patch)
       return this.toModel()
@@ -251,6 +255,22 @@ export class Store implements ModelerStore {
     if (!isModelerEdgeElement(element)) return false
     return Boolean(element.source.elementId && deleteIds.has(element.source.elementId))
       || Boolean(element.target.elementId && deleteIds.has(element.target.elementId))
+  }
+
+  replaceElement(id: string, nextElement: ModelerElement): void {
+    Nova.batchStore(this, () => {
+      const nextId = nextElement.id
+      this.elements.set(this.elements.items.map(element => {
+        if (element.id !== id) return element
+        return this.normalizeElement(nextElement)
+      }))
+      if (nextId !== id) {
+        this.selection.set(this.selection.ids.map(selectionId => selectionId === id ? nextId : selectionId))
+        this.selectionVersion += 1
+      }
+      this.version += 1
+      this.elementsVersion += 1
+    })
   }
 
   patchElement(id: string, patch: ModelerElementPatch): void {

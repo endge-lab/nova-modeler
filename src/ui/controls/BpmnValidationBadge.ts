@@ -20,6 +20,10 @@ import { MODELER_ASSETS } from '@/assets/modeler-assets'
 import { Modeler } from '@/config/schema.config'
 import {
   MODELER_BPMN_VALIDATION_DIALOG_TYPE,
+  MODELER_BPMN_VALIDATION_DIALOG_HEIGHT,
+  MODELER_BPMN_VALIDATION_DIALOG_MIN_HEIGHT,
+  MODELER_BPMN_VALIDATION_DIALOG_MIN_WIDTH,
+  MODELER_BPMN_VALIDATION_DIALOG_WIDTH,
   type ModelerController,
   type ModelerValidationResult,
 } from '@/domain/types/index'
@@ -231,6 +235,10 @@ export class BpmnValidationBadge<E extends EventList = Record<string, any>>
       this.resolveRootApi()?.openDialog({
         id: this.props.dialogId,
         type: this.props.dialogType,
+        width: MODELER_BPMN_VALIDATION_DIALOG_WIDTH,
+        height: MODELER_BPMN_VALIDATION_DIALOG_HEIGHT,
+        minWidth: MODELER_BPMN_VALIDATION_DIALOG_MIN_WIDTH,
+        minHeight: MODELER_BPMN_VALIDATION_DIALOG_MIN_HEIGHT,
         result,
       })
       event.preventDefault()

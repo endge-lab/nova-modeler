@@ -64,6 +64,13 @@ interface DownloadMenuItemLayout {
   height: number
 }
 
+interface DownloadControlsLayout {
+  buttonX: number
+  buttonY: number
+  menuX: number
+  menuY: number
+}
+
 type ModelerIconAsset = (typeof MODELER_ASSETS.icons)[keyof typeof MODELER_ASSETS.icons]
 
 const BUTTON_SIZE = 28
@@ -159,7 +166,10 @@ export class DownloadControls<E extends EventList = Record<string, any>>
       return
     }
     const schema: NovaSchema = []
-    if (this.openMenu) this.appendMenu(schema)
+    if (this.openMenu) {
+      this.appendOutsideCapture(schema)
+      this.appendMenu(schema)
+    }
     this.appendButtonPanel(schema)
     this.renderer.schema(schema)
     this.syncChild()
@@ -224,31 +234,54 @@ export class DownloadControls<E extends EventList = Record<string, any>>
   }
 
   private syncFrame(): void {
-    const size = this.resolveSize()
+    const size = this.resolveFrameSize()
     this.options({
-      x: this.props.offset,
-      y: Math.max(0, this.surface.height - this.props.offset - size.height),
+      x: this.openMenu ? 0 : this.props.offset,
+      y: this.openMenu ? 0 : Math.max(0, this.surface.height - this.props.offset - size.height),
       width: size.width,
       height: size.height,
       interactive: this.props.visible,
-      zIndex: this.props.zIndex,
+      zIndex: this.openMenu ? this.props.zIndex + 1 : this.props.zIndex,
     })
   }
 
-  private resolveSize(): { width: number; height: number } {
-    const menuHeight = this.resolveMenuHeight()
+  private resolveFrameSize(): { width: number; height: number } {
+    if (this.openMenu) {
+      return {
+        width: this.surface.width,
+        height: this.surface.height,
+      }
+    }
     return {
-      width: this.openMenu ? Math.max(MENU_WIDTH, BUTTON_PANEL_SIZE) : BUTTON_PANEL_SIZE,
-      height: this.openMenu ? menuHeight + MENU_GAP + BUTTON_PANEL_SIZE : BUTTON_PANEL_SIZE,
+      width: BUTTON_PANEL_SIZE,
+      height: BUTTON_PANEL_SIZE,
     }
   }
 
-  private appendButtonPanel(schema: NovaSchema): void {
-    const y = this.resolveButtonY()
+  private appendOutsideCapture(schema: NovaSchema): void {
     schema.push({
       type: 'rect',
       x: 0,
-      y,
+      y: 0,
+      width: this.surface.width,
+      height: this.surface.height,
+      styles: {
+        background: 'rgba(0,0,0,0)',
+        border: {
+          color: 'rgba(0,0,0,0)',
+          width: 0,
+          radius: 0,
+        },
+      },
+    })
+  }
+
+  private appendButtonPanel(schema: NovaSchema): void {
+    const { buttonX, buttonY } = this.resolveLayout()
+    schema.push({
+      type: 'rect',
+      x: buttonX,
+      y: buttonY,
       width: BUTTON_PANEL_SIZE,
       height: BUTTON_PANEL_SIZE,
       styles: {
@@ -262,8 +295,8 @@ export class DownloadControls<E extends EventList = Record<string, any>>
     })
     schema.push({
       type: 'rect',
-      x: BUTTON_PANEL_PADDING,
-      y: y + BUTTON_PANEL_PADDING,
+      x: buttonX + BUTTON_PANEL_PADDING,
+      y: buttonY + BUTTON_PANEL_PADDING,
       width: BUTTON_SIZE,
       height: BUTTON_SIZE,
       styles: {
@@ -280,8 +313,8 @@ export class DownloadControls<E extends EventList = Record<string, any>>
     schema.push({
       type: 'icon',
       icon: MODELER_ASSETS.icons.download,
-      x: BUTTON_PANEL_PADDING + (BUTTON_SIZE - BUTTON_ICON_SIZE) / 2,
-      y: y + BUTTON_PANEL_PADDING + (BUTTON_SIZE - BUTTON_ICON_SIZE) / 2,
+      x: buttonX + BUTTON_PANEL_PADDING + (BUTTON_SIZE - BUTTON_ICON_SIZE) / 2,
+      y: buttonY + BUTTON_PANEL_PADDING + (BUTTON_SIZE - BUTTON_ICON_SIZE) / 2,
       width: BUTTON_ICON_SIZE,
       height: BUTTON_ICON_SIZE,
       styles: { opacity: 1 },
@@ -290,10 +323,11 @@ export class DownloadControls<E extends EventList = Record<string, any>>
 
   private appendMenu(schema: NovaSchema): void {
     const menuHeight = this.resolveMenuHeight()
+    const { menuX, menuY } = this.resolveLayout()
     schema.push({
       type: 'rect',
-      x: 0,
-      y: 0,
+      x: menuX,
+      y: menuY,
       width: MENU_WIDTH,
       height: menuHeight,
       styles: {
@@ -316,12 +350,13 @@ export class DownloadControls<E extends EventList = Record<string, any>>
   }
 
   private createMenuLayout(): NovaTemplateChildSchema {
+    const { menuX, menuY } = this.resolveLayout()
     return {
       type: NovaUIKit.Flex,
       id: `${this.componentId}:menu-layout`,
       props: {
-        x: MENU_PADDING,
-        y: MENU_PADDING,
+        x: menuX + MENU_PADDING,
+        y: menuY + MENU_PADDING,
         width: MENU_WIDTH - MENU_PADDING * 2,
         height: MENU_ITEM_HEIGHT * MENU_ITEMS.length,
         col: true,
@@ -361,10 +396,11 @@ export class DownloadControls<E extends EventList = Record<string, any>>
   }
 
   private resolveMenuItems(): Array<DownloadMenuItemLayout> {
+    const { menuX, menuY } = this.resolveLayout()
     return MENU_ITEMS.map((item, index) => ({
       ...item,
-      x: MENU_PADDING,
-      y: MENU_PADDING + index * MENU_ITEM_HEIGHT,
+      x: menuX + MENU_PADDING,
+      y: menuY + MENU_PADDING + index * MENU_ITEM_HEIGHT,
       width: MENU_WIDTH - MENU_PADDING * 2,
       height: MENU_ITEM_HEIGHT,
     }))
@@ -381,15 +417,26 @@ export class DownloadControls<E extends EventList = Record<string, any>>
   }
 
   private containsButton(x: number, y: number): boolean {
-    const buttonY = this.resolveButtonY() + BUTTON_PANEL_PADDING
-    return x >= BUTTON_PANEL_PADDING
-      && x <= BUTTON_PANEL_PADDING + BUTTON_SIZE
-      && y >= buttonY
-      && y <= buttonY + BUTTON_SIZE
+    const { buttonX, buttonY } = this.resolveLayout()
+    const controlX = buttonX + BUTTON_PANEL_PADDING
+    const controlY = buttonY + BUTTON_PANEL_PADDING
+    return x >= controlX
+      && x <= controlX + BUTTON_SIZE
+      && y >= controlY
+      && y <= controlY + BUTTON_SIZE
   }
 
-  private resolveButtonY(): number {
-    return this.openMenu ? this.resolveMenuHeight() + MENU_GAP : 0
+  private resolveLayout(): DownloadControlsLayout {
+    const buttonX = this.openMenu ? this.props.offset : 0
+    const buttonY = this.openMenu
+      ? Math.max(0, this.surface.height - this.props.offset - BUTTON_PANEL_SIZE)
+      : 0
+    return {
+      buttonX,
+      buttonY,
+      menuX: this.openMenu ? this.props.offset : 0,
+      menuY: this.openMenu ? Math.max(0, buttonY - MENU_GAP - this.resolveMenuHeight()) : 0,
+    }
   }
 
   private resolveMenuHeight(): number {

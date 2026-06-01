@@ -1,10 +1,17 @@
 import { PluginBase } from '@/model/plugin-runtime/PluginBase'
 import type {
+  ModelerElement,
   ModelerEdgeElement,
   ModelerElementDefinition,
   ModelerPoint,
   ModelerPluginContext,
 } from '@/domain/types/index'
+import { BPMN_TEXT_ANNOTATION_TYPE } from '@/elements/bpmn/artifacts/text-annotation/bpmn-text-annotation.factory'
+import { BPMN_DATA_OBJECT_TYPE } from '@/elements/bpmn/data/data-object/bpmn-data-object.factory'
+import { BPMN_DATA_STORE_TYPE } from '@/elements/bpmn/data/data-store/bpmn-data-store.factory'
+import { BPMN_EVENT_TYPE } from '@/elements/bpmn/event/bpmn-event.factory'
+import { BPMN_GATEWAY_TYPE } from '@/elements/bpmn/gateway/bpmn-gateway.factory'
+import { BPMN_TASK_TYPE } from '@/elements/bpmn/task/bpmn-task.factory'
 import type { ElementsConnectionEdgeInput } from '@/plugins/elements/model/ElementsConnectionFlow'
 import { MODELER_ELEMENTS_PLUGIN_ID } from '@/plugins/elements/elements.constants'
 import { ElementsGestures } from '@/plugins/elements/elements-gestures'
@@ -26,10 +33,11 @@ export class ElementsPlugin extends PluginBase {
   private createCounter = 0
   private readonly handleWindowKeyDown = (event: KeyboardEvent): void => {
     if (event.key !== 'Escape') return
-    if (this.context.tools.getActiveId() !== 'connect') return
+    const activeToolId = this.context.tools.getActiveId()
+    if (!this.isConnectionToolId(activeToolId)) return
     event.preventDefault()
     this.runtime.connectionFlow.clear()
-    this.context.tools.deactivate('connect')
+    this.context.tools.deactivate(activeToolId ?? undefined)
   }
 
   constructor(runtime: ElementsRuntime = MODEL_ELEMENTS_RUNTIME) {
@@ -123,33 +131,57 @@ export class ElementsPlugin extends PluginBase {
     const actionId = createTool.actionId ?? `element.create.${definition.type}`
     const paletteId = createTool.palette?.id ?? `${definition.type}.create`
     const shortcutId = createTool.shortcutId ?? paletteId
+    const toolId = createTool.id?.startsWith('connect:')
+      ? createTool.id
+      : `connect:${definition.type}`
     const idPrefix = definition.type.replace(/[^a-z0-9]+/gi, '-')
+    const edgeFactory = {
+      idPrefix,
+      previewId: `${idPrefix}-preview`,
+      create: (input: ElementsConnectionEdgeInput) => createTool.create(input) as ModelerEdgeElement,
+      canStart: this.createEdgeCanStart(definition.type),
+      canComplete: this.createEdgeCanComplete(definition.type),
+    }
     this.addDisposer(this.context.actions.register({
       id: actionId,
       title: createTool.title,
       run: context => {
-        this.runtime.connectionFlow.useEdgeFactory({
-          idPrefix,
-          previewId: `${idPrefix}-preview`,
-          create: input => createTool.create(input as ElementsConnectionEdgeInput) as ModelerEdgeElement,
-        })
-        context.tools.activate('connect')
+        this.runtime.connectionFlow.useEdgeFactory(edgeFactory)
+        context.tools.activate(toolId)
       },
+    }))
+    this.addDisposer(this.context.tools.register({
+      id: toolId,
+      kind: 'mode',
+      title: createTool.title,
+      tooltip: createTool.tooltip ?? createTool.palette?.tooltip,
+      oneShot: false,
+      activate: () => {
+        this.runtime.connectionFlow.useEdgeFactory(edgeFactory)
+      },
+      deactivate: () => {
+        this.runtime.connectionFlow.clear()
+        this.runtime.connectionFlow.resetEdgeFactory()
+      },
+      onCancel: () => {
+        this.runtime.connectionFlow.clear()
+      },
+      onPointerMove: (context, event) => this.updateConnectionPreview(context, event),
     }))
     this.addDisposer(this.context.palette.register({
       id: paletteId,
-      kind: 'action',
-      group: createTool.palette?.group ?? 'elements',
+      kind: 'tool',
+      group: createTool.palette?.group ?? 'tools',
       order: createTool.palette?.order ?? 100,
       title: createTool.palette?.title ?? createTool.title,
       tooltip: createTool.palette?.tooltip ?? createTool.tooltip,
       icon: createTool.palette?.icon ?? definition.type,
-      actionId,
+      toolId,
     }))
     this.addDisposer(this.context.shortcuts.register({
       id: shortcutId,
       title: createTool.title,
-      actionId,
+      toolId,
       defaults: createTool.shortcuts ?? [],
       scope: 'canvas',
     }))
@@ -181,22 +213,17 @@ export class ElementsPlugin extends PluginBase {
       title: 'Connect',
       tooltip: 'Connect elements',
       oneShot: false,
+      activate: () => {
+        this.runtime.connectionFlow.useDefaultEdgeFactory()
+      },
       deactivate: () => {
         this.runtime.connectionFlow.clear()
+        this.runtime.connectionFlow.resetEdgeFactory()
       },
       onCancel: () => {
         this.runtime.connectionFlow.clear()
       },
-      onPointerMove: (context, event) => {
-        const state = this.runtime.connection.get()
-        if (!state) return
-        const screen = eventPoint(event)
-        this.runtime.connectionFlow.updatePreviewToPoint(
-          context,
-          context.screenToWorld(screen),
-          context.hitTest(screen),
-        )
-      },
+      onPointerMove: (context, event) => this.updateConnectionPreview(context, event),
     }))
     this.addDisposer(this.context.palette.register({
       id: 'element.connect.tool',
@@ -244,6 +271,31 @@ export class ElementsPlugin extends PluginBase {
     return this.runtime.connectionFlow.beginFromElement(context, elementId, origin, referencePoint)
   }
 
+  private updateConnectionPreview(context: ModelerPluginContext, event: MouseEvent): void {
+    const state = this.runtime.connection.get()
+    if (!state) return
+    const screen = eventPoint(event)
+    this.runtime.connectionFlow.updatePreviewToPoint(
+      context,
+      context.screenToWorld(screen),
+      context.hitTest(screen),
+    )
+  }
+
+  private createEdgeCanStart(type: string): ((context: ModelerPluginContext, element: ModelerElement) => boolean) | undefined {
+    if (type !== 'bpmn.association') return undefined
+    return (_context, element) => isAssociationNode(element)
+  }
+
+  private createEdgeCanComplete(type: string): ((context: ModelerPluginContext, source: ModelerElement, target: ModelerElement) => boolean) | undefined {
+    if (type !== 'bpmn.association') return undefined
+    return (_context, source, target) => isAssociationNode(source) && isAssociationNode(target)
+  }
+
+  private isConnectionToolId(toolId: string | null): boolean {
+    return toolId === 'connect' || toolId?.startsWith('connect:') === true
+  }
+
   /**
    * Очищает локальные runtime-ссылки.
    */
@@ -265,6 +317,15 @@ export class ElementsPlugin extends PluginBase {
     if (typeof window === 'undefined') return
     window.removeEventListener('keydown', this.handleWindowKeyDown, true)
   }
+}
+
+function isAssociationNode(element: ModelerElement): boolean {
+  return element.type === BPMN_EVENT_TYPE
+    || element.type === BPMN_GATEWAY_TYPE
+    || element.type === BPMN_TASK_TYPE
+    || element.type === BPMN_TEXT_ANNOTATION_TYPE
+    || element.type === BPMN_DATA_OBJECT_TYPE
+    || element.type === BPMN_DATA_STORE_TYPE
 }
 
 function finiteNumber(value: unknown, fallback: number): number {

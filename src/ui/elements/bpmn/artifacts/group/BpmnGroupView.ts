@@ -22,12 +22,14 @@ export interface BpmnGroupViewProps {
   element: BpmnGroupElement
   viewport: ModelerViewport
   selected?: boolean
+  hideName?: boolean
 }
 
 export interface BpmnGroupViewResolvedProps {
   element: BpmnGroupElement
   viewport: ModelerViewport
   selected: boolean
+  hideName: boolean
 }
 
 export type BpmnGroupViewDescriptor = NovaComponentDescriptor<
@@ -43,7 +45,7 @@ export type BpmnGroupViewDescriptor = NovaComponentDescriptor<
   version: '0.1.0',
   dirtyPolicy: {
     update: ['element', 'viewport'],
-    render: ['element', 'selected'],
+    render: ['element', 'selected', 'hideName'],
   },
 })
 export class BpmnGroupView<E extends EventList = Record<string, any>>
@@ -70,6 +72,7 @@ export class BpmnGroupView<E extends EventList = Record<string, any>>
       element: props.element,
       viewport: props.viewport,
       selected: props.selected ?? false,
+      hideName: props.hideName ?? false,
     }
   }
 
@@ -118,23 +121,28 @@ export class BpmnGroupView<E extends EventList = Record<string, any>>
       },
     }]
     const name = this.props.element.data?.name
-    if (name) {
+    if (name && !this.props.hideName) {
+      const layout = resolveBpmnGroupNameLayout({
+        name,
+        width: this.width,
+        height: this.height,
+      })
       schema.push({
         type: 'text',
-        text: name,
-        x: -this.width / 2 + 10,
-        y: -this.height / 2 + 8,
-        width: Math.max(1, this.width - 20),
-        height: 18,
+        text: layout.text,
+        x: layout.rect.x,
+        y: layout.rect.y,
+        width: layout.rect.width,
+        height: layout.rect.height,
         clip: true,
         styles: {
           color: this.resolveThemeColor('bpmnTaskTextColor'),
           font: {
-            family: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-            size: 12,
-            weight: '500',
+            family: layout.fontFamily,
+            size: layout.fontSize,
+            weight: layout.fontWeight,
           },
-          lineHeight: 16,
+          lineHeight: layout.lineHeight,
           align: { horizontal: 'left', vertical: 'top' },
           ellipsis: true,
         },
@@ -159,6 +167,77 @@ export class BpmnGroupView<E extends EventList = Record<string, any>>
     const value = typeof raw === 'number' ? raw : Number(raw)
     return Number.isFinite(value) ? value : fallback
   }
+}
+
+export interface BpmnGroupNameLayout {
+  text: string
+  rect: {
+    x: number
+    y: number
+    width: number
+    height: number
+  }
+  lines: Array<{
+    text: string
+    x: number
+    y: number
+    width: number
+    widthLimit: number
+    height: number
+  }>
+  clipped: boolean
+  fontFamily: string
+  fontSize: number
+  fontWeight: '500'
+  lineHeight: number
+}
+
+const BPMN_GROUP_NAME_FONT_FAMILY = 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+const BPMN_GROUP_NAME_FONT_SIZE = 12
+const BPMN_GROUP_NAME_FONT_WEIGHT = '500' as const
+const BPMN_GROUP_NAME_LINE_HEIGHT = 16
+
+export function resolveBpmnGroupNameLayout(input: {
+  name?: string
+  width: number
+  height: number
+}): BpmnGroupNameLayout {
+  const text = typeof input.name === 'string' && input.name.trim().length > 0 ? input.name : 'Group'
+  const rect = {
+    x: -input.width / 2 + 10,
+    y: -input.height / 2 + 8,
+    width: Math.max(1, input.width - 20),
+    height: 18,
+  }
+  const textWidth = measureBpmnGroupNameText(text)
+  return {
+    text,
+    rect,
+    lines: [{
+      text,
+      x: rect.x,
+      y: rect.y,
+      width: textWidth,
+      widthLimit: rect.width,
+      height: BPMN_GROUP_NAME_LINE_HEIGHT,
+    }],
+    clipped: textWidth > rect.width,
+    fontFamily: BPMN_GROUP_NAME_FONT_FAMILY,
+    fontSize: BPMN_GROUP_NAME_FONT_SIZE,
+    fontWeight: BPMN_GROUP_NAME_FONT_WEIGHT,
+    lineHeight: BPMN_GROUP_NAME_LINE_HEIGHT,
+  }
+}
+
+let bpmnGroupNameMeasureCanvas: HTMLCanvasElement | null = null
+
+function measureBpmnGroupNameText(text: string): number {
+  if (typeof document === 'undefined') return Math.ceil(text.length * BPMN_GROUP_NAME_FONT_SIZE * 0.6)
+  bpmnGroupNameMeasureCanvas ??= document.createElement('canvas')
+  const context = bpmnGroupNameMeasureCanvas.getContext('2d')
+  if (!context) return Math.ceil(text.length * BPMN_GROUP_NAME_FONT_SIZE * 0.6)
+  context.font = `normal ${BPMN_GROUP_NAME_FONT_WEIGHT} ${BPMN_GROUP_NAME_FONT_SIZE}px ${BPMN_GROUP_NAME_FONT_FAMILY}`
+  return Math.ceil(context.measureText(text).width)
 }
 
 export const MODELER_BPMN_GROUP_VIEW_DESCRIPTOR = createNovaDecoratedComponentDescriptor<

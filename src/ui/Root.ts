@@ -73,6 +73,14 @@ import {
   MODELER_SURFACE_CONFIG,
 } from '@/config/surface.config'
 import {
+  BPMN_DATA_STORE_TYPE,
+} from '@/elements/bpmn/data/data-store/bpmn-data-store.factory'
+import type { BpmnDataStoreElement } from '@/elements/bpmn/data/data-store/bpmn-data-store.types'
+import {
+  BPMN_GROUP_TYPE,
+} from '@/elements/bpmn/artifacts/group/bpmn-group.factory'
+import type { BpmnGroupElement } from '@/elements/bpmn/artifacts/group/bpmn-group.types'
+import {
   BPMN_TASK_TYPE,
 } from '@/elements/bpmn/task/bpmn-task.factory'
 import type { BpmnTaskElement } from '@/elements/bpmn/task/bpmn-task.types'
@@ -80,7 +88,12 @@ import {
   resolveBpmnTaskNameLayout,
   type BpmnTaskNameLayout,
 } from '@/ui/elements/bpmn/task/BpmnTaskView'
+import { resolveBpmnDataStoreNameLayout } from '@/ui/elements/bpmn/data/data-store/BpmnDataStoreView'
+import { resolveBpmnGroupNameLayout } from '@/ui/elements/bpmn/artifacts/group/BpmnGroupView'
 import { MODEL_ELEMENTS_RUNTIME } from '@/plugins/elements/model/ElementsRuntime'
+
+type EditableNameElement = BpmnTaskElement | BpmnDataStoreElement | BpmnGroupElement
+type EditableNameKind = 'task' | 'dataStore' | 'group'
 
 type RootDescriptor = NovaComponentDescriptor<
   RootResolvedProps,
@@ -178,7 +191,7 @@ export class Root<E extends EventList = Record<string, any>>
   private currentModelerCursor = 'default'
   private spacePressed = false
   private temporaryToolId: string | null = null
-  private taskNameEditor: { elementId: string } | null = null
+  private taskNameEditor: { elementId: string; kind: EditableNameKind } | null = null
   private hiddenTaskNameElementId: string | null = null
   private disposeTaskNameEditorLayer?: () => void
   private lastTaskNamePointerDown: { elementId: string; x: number; y: number; time: number } | null = null
@@ -365,12 +378,12 @@ export class Root<E extends EventList = Record<string, any>>
     const target = this.controllerInstance.hitTest({ x: input.x, y: input.y })
     if (target.type !== 'element') return null
     const element = this.controllerInstance.getModel().elements.find(item => item.id === target.id)
-    if (!element || element.type !== BPMN_TASK_TYPE) return null
-    const task = element as BpmnTaskElement
-    if (this.taskNameEditor?.elementId === task.id) return null
-    if (!this.containsTaskNamePoint(task, input)) return null
-    const layout = this.resolveTaskNameScreenLayout(task)
+    if (!element || !this.isEditableNameElement(element)) return null
+    if (this.taskNameEditor?.elementId === element.id) return null
+    if (!this.containsTaskNamePoint(element, input)) return null
+    const layout = this.resolveTaskNameScreenLayout(element)
     if (!layout.clipped) return null
+    const targetType = this.resolveNameEditorTargetType(element)
     return {
       tooltip: {
         value: layout.text,
@@ -378,20 +391,34 @@ export class Root<E extends EventList = Record<string, any>>
         delay: 350,
       } as TooltipInput,
       rect: layout.rect,
-      targetId: `${task.id}:name`,
-      targetType: 'modeler.bpmn.task.name',
-      targetProps: { elementId: task.id },
+      targetId: `${element.id}:name`,
+      targetType,
+      targetProps: { elementId: element.id },
     }
   }
 
-  private resolveTaskNameScreenLayout(element: BpmnTaskElement): BpmnTaskNameLayout {
+  private resolveTaskNameScreenLayout(element: EditableNameElement): BpmnTaskNameLayout {
     const viewport = this.controllerInstance.getViewport()
-    const layout = resolveBpmnTaskNameLayout({
-      name: element.data?.name,
-      width: element.width * viewport.scale,
-      height: element.height * viewport.scale,
-      data: element.data,
-    })
+    const width = element.width * viewport.scale
+    const height = element.height * viewport.scale
+    const layout = element.type === BPMN_DATA_STORE_TYPE
+      ? resolveBpmnDataStoreNameLayout({
+          name: element.data?.name,
+          width,
+          height,
+        })
+      : element.type === BPMN_GROUP_TYPE
+        ? resolveBpmnGroupNameLayout({
+            name: element.data?.name,
+            width,
+            height,
+          })
+        : resolveBpmnTaskNameLayout({
+            name: element.data?.name,
+            width,
+            height,
+            data: element.data,
+          })
     const center = this.controllerInstance.worldToScreen({
       x: element.x + element.width / 2,
       y: element.y + element.height / 2,
@@ -412,12 +439,20 @@ export class Root<E extends EventList = Record<string, any>>
     }
   }
 
-  private resolveTaskNameContentRect(element: BpmnTaskElement): ModelerRect {
+  private resolveTaskNameContentRect(element: EditableNameElement): ModelerRect {
     return this.resolveTaskNameScreenLayout(element).rect
   }
 
-  private resolveTaskNameEditorRect(element: BpmnTaskElement): ModelerRect {
+  private resolveTaskNameEditorRect(element: EditableNameElement): ModelerRect {
     const layout = this.resolveTaskNameScreenLayout(element)
+    if (element.type === BPMN_DATA_STORE_TYPE || element.type === BPMN_GROUP_TYPE) {
+      return {
+        x: layout.rect.x - 10,
+        y: layout.rect.y - 8,
+        width: layout.rect.width + 20,
+        height: layout.rect.height + 16,
+      }
+    }
     const firstLineY = layout.lines[0]?.y ?? layout.rect.y
     return {
       x: layout.rect.x - 10,
@@ -427,15 +462,15 @@ export class Root<E extends EventList = Record<string, any>>
     }
   }
 
-  private resolveTaskNameEditorFontSize(element: BpmnTaskElement): number {
+  private resolveTaskNameEditorFontSize(element: EditableNameElement): number {
     return this.resolveTaskNameScreenLayout(element).fontSize
   }
 
-  private resolveTaskNameEditorLineHeight(element: BpmnTaskElement): number {
+  private resolveTaskNameEditorLineHeight(element: EditableNameElement): number {
     return this.resolveTaskNameScreenLayout(element).lineHeight
   }
 
-  private resolveTaskNameEditorMaxRows(element: BpmnTaskElement): number {
+  private resolveTaskNameEditorMaxRows(element: EditableNameElement): number {
     const layout = this.resolveTaskNameScreenLayout(element)
     return Math.max(1, Math.floor(layout.rect.height / layout.lineHeight))
   }
@@ -899,10 +934,9 @@ export class Root<E extends EventList = Record<string, any>>
     const target = this.hitTest(point)
     if (target.type !== 'element') return false
     const element = this.controllerInstance.getModel().elements.find(item => item.id === target.id)
-    if (!element || element.type !== BPMN_TASK_TYPE) return false
-    const task = element as BpmnTaskElement
-    if (!this.containsTaskNamePoint(task, point)) return false
-    this.taskNameEditor = { elementId: task.id }
+    if (!element || !this.isEditableNameElement(element)) return false
+    if (!this.containsTaskNamePoint(element, point)) return false
+    this.taskNameEditor = { elementId: element.id, kind: this.resolveNameEditorKind(element) }
     this.syncTaskNameEditor()
     return true
   }
@@ -913,7 +947,7 @@ export class Root<E extends EventList = Record<string, any>>
       return false
     }
     const element = this.controllerInstance.getModel().elements.find(item => item.id === target.id)
-    if (!element || element.type !== BPMN_TASK_TYPE || !this.containsTaskNamePoint(element as BpmnTaskElement, point)) {
+    if (!element || !this.isEditableNameElement(element) || !this.containsTaskNamePoint(element, point)) {
       this.lastTaskNamePointerDown = null
       return false
     }
@@ -926,7 +960,7 @@ export class Root<E extends EventList = Record<string, any>>
     this.lastTaskNamePointerDown = { elementId: element.id, x: point.x, y: point.y, time: now }
     if (!isDouble) return false
     this.lastTaskNamePointerDown = null
-    this.taskNameEditor = { elementId: element.id }
+    this.taskNameEditor = { elementId: element.id, kind: this.resolveNameEditorKind(element) }
     this.syncTaskNameEditor()
     return true
   }
@@ -937,13 +971,12 @@ export class Root<E extends EventList = Record<string, any>>
       return
     }
     const element = this.controllerInstance.getModel().elements.find(item => item.id === this.taskNameEditor?.elementId)
-    if (!element || element.type !== BPMN_TASK_TYPE) {
+    if (!element || !this.isEditableNameElement(element)) {
       this.closeTaskNameEditor({ commit: false })
       return
     }
-    const task = element as BpmnTaskElement
-    const rect = this.resolveTaskNameEditorRect(task)
-    this.setTaskNameViewLabelHidden(task.id)
+    const rect = this.resolveTaskNameEditorRect(element)
+    this.setTaskNameViewLabelHidden(element.id)
     this.clearTaskNameEditorLayer()
     this.disposeTaskNameEditorLayer = this.reconcileLayerOwner('controls', `${this.componentId}:task-name-editor`, [{
       type: NovaUIKit.TextArea,
@@ -953,20 +986,20 @@ export class Root<E extends EventList = Record<string, any>>
         y: rect.y,
         width: rect.width,
         height: rect.height,
-        value: task.data?.name ?? 'Task',
+        value: element.data?.name ?? this.resolveNameEditorFallback(element),
         inputEngine: 'canvas',
         size: 'sm',
         variant: 'ghost',
-        align: 'center',
+        align: this.resolveNameEditorAlign(element),
         wrap: true,
         resize: 'none',
         minRows: 1,
-        maxRows: this.resolveTaskNameEditorMaxRows(task),
+        maxRows: this.resolveTaskNameEditorMaxRows(element),
         color: 'var(--modeler-bpmn-task-text-color, #111827)',
         fontFamily: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-        fontSize: this.resolveTaskNameEditorFontSize(task),
+        fontSize: this.resolveTaskNameEditorFontSize(element),
         fontWeight: '500',
-        lineHeight: this.resolveTaskNameEditorLineHeight(task),
+        lineHeight: this.resolveTaskNameEditorLineHeight(element),
         background: 'rgba(255,255,255,0)',
         border: { width: 0 },
         hoverBackground: 'rgba(255,255,255,0)',
@@ -1020,9 +1053,9 @@ export class Root<E extends EventList = Record<string, any>>
     const elementId = this.taskNameEditor?.elementId
     if (!elementId) return
     const element = this.controllerInstance.getModel().elements.find(item => item.id === elementId)
-    if (!element || element.type !== BPMN_TASK_TYPE) return
-    const nextName = normalizeTaskName(value)
-    if ((element.data?.name ?? 'Task') === nextName) return
+    if (!element || !this.isEditableNameElement(element)) return
+    const nextName = normalizeEditableName(value, this.resolveNameEditorFallback(element))
+    if ((element.data?.name ?? this.resolveNameEditorFallback(element)) === nextName) return
     this.controllerInstance.applyCommand({
       type: 'element.patch',
       id: element.id,
@@ -1041,7 +1074,7 @@ export class Root<E extends EventList = Record<string, any>>
     return targetId === this.taskNameEditorInputId() || targetId.startsWith(`${this.taskNameEditorInputId()}:`)
   }
 
-  private containsTaskNamePoint(element: BpmnTaskElement, point: ModelerPoint): boolean {
+  private containsTaskNamePoint(element: EditableNameElement, point: ModelerPoint): boolean {
     const rect = this.resolveTaskNameContentRect(element)
     return point.x >= rect.x
       && point.x <= rect.x + rect.width
@@ -1051,6 +1084,32 @@ export class Root<E extends EventList = Record<string, any>>
 
   private taskNameEditorInputId(): string {
     return `${this.componentId}:task-name-editor:input`
+  }
+
+  private isEditableNameElement(element: { type: string }): element is EditableNameElement {
+    return element.type === BPMN_TASK_TYPE || element.type === BPMN_DATA_STORE_TYPE || element.type === BPMN_GROUP_TYPE
+  }
+
+  private resolveNameEditorKind(element: EditableNameElement): EditableNameKind {
+    if (element.type === BPMN_DATA_STORE_TYPE) return 'dataStore'
+    if (element.type === BPMN_GROUP_TYPE) return 'group'
+    return 'task'
+  }
+
+  private resolveNameEditorFallback(element: EditableNameElement): string {
+    if (element.type === BPMN_DATA_STORE_TYPE) return 'Data store'
+    if (element.type === BPMN_GROUP_TYPE) return 'Group'
+    return 'Task'
+  }
+
+  private resolveNameEditorAlign(element: EditableNameElement): 'left' | 'center' {
+    return element.type === BPMN_GROUP_TYPE ? 'left' : 'center'
+  }
+
+  private resolveNameEditorTargetType(element: EditableNameElement): string {
+    if (element.type === BPMN_DATA_STORE_TYPE) return 'modeler.bpmn.data-store.name'
+    if (element.type === BPMN_GROUP_TYPE) return 'modeler.bpmn.group.name'
+    return 'modeler.bpmn.task.name'
   }
 
   private closeContextPadMenus(): void {
@@ -1173,7 +1232,7 @@ export const MODELER_ROOT_DESCRIPTOR = createNovaDecoratedComponentDescriptor<
   RootProps
 >(Root as never) as RootDescriptor
 
-function normalizeTaskName(value: string): string {
+function normalizeEditableName(value: string, fallback: string): string {
   const next = value.trim()
-  return next.length > 0 ? next : 'Task'
+  return next.length > 0 ? next : fallback
 }

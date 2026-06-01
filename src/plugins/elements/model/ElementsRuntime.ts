@@ -2,6 +2,8 @@ import { ConnectionAnchorResolver } from '@/plugins/elements/model/ConnectionAnc
 import { ElementsBounds } from '@/plugins/elements/model/ElementsBounds'
 import { ElementsConnection } from '@/plugins/elements/model/ElementsConnection'
 import { ElementsConnectionFlow } from '@/plugins/elements/model/ElementsConnectionFlow'
+import { ElementsConnectionWarnings } from '@/plugins/elements/model/ElementsConnectionWarnings'
+import { ElementsContextPadAnchors } from '@/plugins/elements/model/ElementsContextPadAnchors'
 import { ElementsDragShadow } from '@/plugins/elements/model/ElementsDragShadow'
 import { ElementsEdgeSegmentHover } from '@/plugins/elements/model/ElementsEdgeSegmentHover'
 import { ElementsEdgePreview } from '@/plugins/elements/model/ElementsEdgePreview'
@@ -26,6 +28,8 @@ export class ElementsRuntime {
   readonly dragShadow = new ElementsDragShadow()
   readonly edgeSegmentHover = new ElementsEdgeSegmentHover()
   readonly edgePreview = new ElementsEdgePreview()
+  readonly contextPadAnchors = new ElementsContextPadAnchors()
+  readonly connectionWarnings = new ElementsConnectionWarnings()
   readonly connectionFlow = new ElementsConnectionFlow(this.connection, this.edgePreview)
 }
 

@@ -9,6 +9,7 @@ export type ModelerCommand =
   | { type: 'element.add'; element: ModelerElement }
   | { type: 'element.delete'; id: string }
   | { type: 'element.deleteMany'; ids: Array<string> }
+  | { type: 'element.replace'; id: string; element: ModelerElement }
   | { type: 'element.patch'; id: string; patch: ModelerElementPatch }
   | { type: 'element.resize'; id: string; bounds: Partial<ModelerRect> }
   | { type: 'element.move'; id: string; dx: number; dy: number }

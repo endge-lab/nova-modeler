@@ -17,8 +17,8 @@ export function createBpmnDataObjectElement(input: BpmnDataObjectElementInput): 
     type: BPMN_DATA_OBJECT_TYPE,
     x: finiteNumber(input.x, 0),
     y: finiteNumber(input.y, 0),
-    width: finiteNumber(input.width, BPMN_DATA_OBJECT_DEFAULT_WIDTH),
-    height: finiteNumber(input.height, BPMN_DATA_OBJECT_DEFAULT_HEIGHT),
+    width: BPMN_DATA_OBJECT_DEFAULT_WIDTH,
+    height: BPMN_DATA_OBJECT_DEFAULT_HEIGHT,
     rotation: input.rotation,
     zIndex: input.zIndex,
     data: {

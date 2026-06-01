@@ -11,6 +11,7 @@ import { SnapRuntime } from '@/model/snap/SnapRuntime'
 import { SelectionRuntime } from '@/model/selection/SelectionRuntime'
 import { eventPoint } from '@/tools/event-point'
 import type { ElementsRuntime } from '@/plugins/elements/model/ElementsRuntime'
+import { BPMN_GROUP_TYPE } from '@/elements/bpmn/artifacts/group/bpmn-group.factory'
 
 export class ElementsGestures {
   private activeResize: {
@@ -59,17 +60,17 @@ export class ElementsGestures {
       hitTest: (context, event, target) => {
         if (event.button !== 0) return false
         if (target.type === 'port') return true
-        if (context.tools.getActiveId() !== 'connect' || target.type !== 'element') return false
+        if (!this.isConnectionToolActive(context.tools.getActiveId()) || target.type !== 'element') return false
         const state = this.runtime.connection.get()
         return state
-          ? this.runtime.connection.canCompleteElement(context, target.id)
-          : this.runtime.connection.canStart(context, target.id)
+          ? this.runtime.connectionFlow.canCompleteElement(context, target.id)
+          : this.runtime.connectionFlow.canStart(context, target.id)
       },
       onPointerDown: (context, event) => {
         const point = eventPoint(event)
         const target = context.hitTest(point)
         const world = context.screenToWorld(point)
-        if (context.tools.getActiveId() === 'connect' && this.runtime.connection.get()) {
+        if (this.isConnectionToolActive(context.tools.getActiveId()) && this.runtime.connection.get()) {
           this.completeConnection(context, target, world)
           return false
         }
@@ -78,11 +79,11 @@ export class ElementsGestures {
             context,
             target.elementId,
             target.portId,
-            context.tools.getActiveId() === 'connect' ? 'tool' : 'port-drag',
+            this.isConnectionToolActive(context.tools.getActiveId()) ? 'tool' : 'port-drag',
           )
           return false
         }
-        if (context.tools.getActiveId() === 'connect' && target.type === 'element') {
+        if (this.isConnectionToolActive(context.tools.getActiveId()) && target.type === 'element') {
           this.runtime.connectionFlow.beginFromElement(context, target.id, 'tool', world)
           return false
         }
@@ -184,8 +185,10 @@ export class ElementsGestures {
       priority: 40,
       hitTest: (_context, event, target) => event.button === 0 && target.type === 'element',
       onPointerDown: (context, event) => {
-        const target = context.hitTest(eventPoint(event))
+        const point = eventPoint(event)
+        const target = context.hitTest(point)
         if (target.type !== 'element') return false
+        this.runtime.contextPadAnchors.set(target.id, point)
         context.applyCommand({
           type: 'select',
           ids: SelectionRuntime.resolvePointerSelection({
@@ -226,11 +229,7 @@ export class ElementsGestures {
           type: 'select',
           ids: nextSelection,
         })
-        const selected = new Set(nextSelection)
-        const elements = model.elements
-          .filter(item => selected.has(item.id))
-          .filter(item => context.getElementRegistry().get(item.type)?.capabilities?.draggable !== false)
-          .map(item => ({ ...item, data: { ...item.data }, style: { ...item.style } }))
+        const elements = this.resolveMoveElements(context, model.elements, nextSelection)
         this.activeMove = {
           primary: { ...element, data: { ...element.data }, style: { ...element.style } },
           elements,
@@ -415,6 +414,49 @@ export class ElementsGestures {
       && !event.ctrlKey
       && !event.metaKey
       && !event.altKey
+  }
+
+  private isConnectionToolActive(activeToolId: string | null): boolean {
+    return activeToolId === 'connect' || activeToolId?.startsWith('connect:') === true
+  }
+
+  private resolveMoveElements(
+    context: ModelerPluginContext,
+    modelElements: Array<ModelerElement>,
+    selection: Array<string>,
+  ): Array<ModelerElement> {
+    const selected = new Set(selection)
+    const moveIds = new Set<string>()
+    for (const element of modelElements) {
+      if (selected.has(element.id) && this.isElementDraggable(context, element)) moveIds.add(element.id)
+    }
+    const selectedGroups = modelElements.filter(element => selected.has(element.id) && element.type === BPMN_GROUP_TYPE)
+    for (const group of selectedGroups) {
+      for (const element of modelElements) {
+        if (moveIds.has(element.id) || element.id === group.id || isModelerEdgeElement(element)) continue
+        if (!this.isElementDraggable(context, element)) continue
+        if (this.isElementFullyInsideGroup(element, group)) moveIds.add(element.id)
+      }
+    }
+    return modelElements
+      .filter(element => moveIds.has(element.id))
+      .map(element => this.cloneElement(element))
+  }
+
+  private isElementDraggable(context: ModelerPluginContext, element: ModelerElement): boolean {
+    return context.getElementRegistry().get(element.type)?.capabilities?.draggable !== false
+  }
+
+  private isElementFullyInsideGroup(element: ModelerElement, group: ModelerElement): boolean {
+    return element.x >= group.x
+      && element.y >= group.y
+      && element.x + element.width <= group.x + group.width
+      && element.y + element.height <= group.y + group.height
+  }
+
+  private cloneElement(element: ModelerElement): ModelerElement {
+    if (isModelerEdgeElement(element)) return this.cloneEdge(element)
+    return { ...element, data: { ...element.data }, style: { ...element.style } }
   }
 
   private optimizeActiveWaypoints(context: ModelerPluginContext, elementId: string): void {

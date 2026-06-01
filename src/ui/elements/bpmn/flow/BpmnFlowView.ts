@@ -107,7 +107,10 @@ export class BpmnFlowView<E extends EventList = Record<string, any>>
     const schema: NovaSchema = []
     for (let index = 0; index < path.length - 1; index += 1) {
       const start = path[index]!
-      const end = path[index + 1]!
+      const rawEnd = path[index + 1]!
+      const end = index === path.length - 2
+        ? this.resolveTargetArrowLineEnd(start, rawEnd)
+        : rawEnd
       schema.push({
         type: 'line',
         x1: start.x,
@@ -118,7 +121,7 @@ export class BpmnFlowView<E extends EventList = Record<string, any>>
       })
     }
     this.appendSegmentJoins(schema, path, color, width, opacity)
-    this.appendTargetArrow(schema, path, color, width, opacity)
+    this.appendTargetArrow(schema, path, color, opacity)
     this.appendSourceMarker(schema, path, color, width, opacity)
     return schema
   }
@@ -139,12 +142,12 @@ export class BpmnFlowView<E extends EventList = Record<string, any>>
     }
   }
 
-  private appendTargetArrow(schema: NovaSchema, path: Array<ModelerPoint>, color: string, width: number, opacity: number): void {
+  private appendTargetArrow(schema: NovaSchema, path: Array<ModelerPoint>, color: string, opacity: number): void {
     const end = path[path.length - 1]!
     const previous = this.findPreviousDistinctPoint(path, path.length - 2, end)
     if (!previous) return
     const angle = Math.atan2(end.y - previous.y, end.x - previous.x)
-    const length = 12
+    const length = this.resolveTargetArrowLength()
     const spread = Math.PI / 7
     schema.push({
       type: 'polygon',
@@ -161,11 +164,28 @@ export class BpmnFlowView<E extends EventList = Record<string, any>>
       ],
       styles: {
         background: color,
-        stroke: color,
-        lineWidth: width,
+        stroke: 'rgba(0,0,0,0)',
+        lineWidth: 0,
         opacity,
       },
     })
+  }
+
+  private resolveTargetArrowLineEnd(start: ModelerPoint, end: ModelerPoint): ModelerPoint {
+    const dx = end.x - start.x
+    const dy = end.y - start.y
+    const distance = Math.hypot(dx, dy)
+    if (distance <= 0.001) return end
+    const baseOffset = Math.cos(Math.PI / 7) * this.resolveTargetArrowLength()
+    if (distance <= baseOffset + 1) return start
+    return {
+      x: end.x - dx / distance * baseOffset,
+      y: end.y - dy / distance * baseOffset,
+    }
+  }
+
+  private resolveTargetArrowLength(): number {
+    return 12
   }
 
   private appendSourceMarker(schema: NovaSchema, path: Array<ModelerPoint>, color: string, width: number, opacity: number): void {

@@ -211,16 +211,20 @@ export class ContextPad<E extends EventList = Record<string, any>>
     if (!element) return null
     const definition = context.getElementRegistry().get(element.type)
     if (!definition) return null
-    if (definition.kind === 'edge' && !definition.capabilities?.colorable) return null
     if (this.closedForSelectionKey === `${model.id}:${model.selectionVersion}:${element.id}`) return null
     const screenBounds = definition.kind === 'edge' && isModelerEdgeElement(element)
       ? this.resolveEdgeScreenBounds(context, element)
       : this.resolveNodeScreenBounds(context, element)
     if (!screenBounds) return null
+    const anchor = definition.kind === 'edge'
+      ? MODEL_ELEMENTS_RUNTIME.contextPadAnchors.get(element.id)
+      : undefined
+    if (definition.kind === 'edge' && !anchor && !definition.capabilities?.colorable) return null
     return {
       type: 'element',
       element,
       screenBounds,
+      anchor,
     }
   }
 
@@ -265,8 +269,8 @@ export class ContextPad<E extends EventList = Record<string, any>>
   private resolvePosition(target: ContextPadTarget): ContextPadPosition {
     const width = 136
     const height = 40
-    const preferredX = target.screenBounds.x + target.screenBounds.width + this.props.offset
-    const preferredY = target.screenBounds.y
+    const preferredX = (target.anchor?.x ?? target.screenBounds.x + target.screenBounds.width) + this.props.offset
+    const preferredY = target.anchor ? target.anchor.y - height / 2 : target.screenBounds.y
     return {
       x: clamp(preferredX, 0, Math.max(0, this.surface.width - width)),
       y: clamp(preferredY, 0, Math.max(0, this.surface.height - height)),

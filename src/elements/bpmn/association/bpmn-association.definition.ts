@@ -45,8 +45,8 @@ export const BpmnAssociationDefinition: ModelerElementDefinition<BpmnAssociation
     title: 'Association',
     palette: {
       id: 'bpmn.association.create',
-      group: 'elements',
-      order: 150,
+      group: 'tools',
+      order: 30,
       icon: 'bpmn-association',
     },
     create: input => createBpmnAssociationElement(input as BpmnAssociationElementInput),

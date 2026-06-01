@@ -7,12 +7,11 @@ import type {
 import {
   BPMN_DATA_STORE_DEFAULT_HEIGHT,
   BPMN_DATA_STORE_DEFAULT_WIDTH,
-  BPMN_DATA_STORE_MIN_HEIGHT,
-  BPMN_DATA_STORE_MIN_WIDTH,
   BPMN_DATA_STORE_TYPE,
   createBpmnDataStoreElement,
 } from '@/elements/bpmn/data/data-store/bpmn-data-store.factory'
 import { createBpmnDataStorePorts } from '@/elements/bpmn/data/data-store/bpmn-data-store.ports'
+import { BpmnDataVariantProvider } from '@/elements/bpmn/data/bpmn-data.variants'
 import type {
   BpmnDataStoreElement,
   BpmnDataStoreElementInput,
@@ -29,11 +28,7 @@ export const BpmnDataStoreDefinition: ModelerElementDefinition<BpmnDataStoreElem
   capabilities: {
     selectable: true,
     draggable: true,
-    resizable: {
-      handles: ['n', 'e', 's', 'w', 'ne', 'se', 'sw', 'nw'],
-      minWidth: BPMN_DATA_STORE_MIN_WIDTH,
-      minHeight: BPMN_DATA_STORE_MIN_HEIGHT,
-    },
+    resizable: false,
     ports: false,
     connectable: {
       incoming: true,
@@ -45,19 +40,7 @@ export const BpmnDataStoreDefinition: ModelerElementDefinition<BpmnDataStoreElem
       drag: 'grabbing',
     },
   },
-  createTool: {
-    id: 'create:bpmn.data-store',
-    actionId: 'element.create.bpmn.data-store',
-    shortcutId: 'bpmn.data-store.create',
-    title: 'Data store',
-    palette: {
-      id: 'bpmn.data-store.create',
-      group: 'elements',
-      order: 145,
-      icon: 'bpmn-data-store',
-    },
-    create: input => createBpmnDataStoreElement(input as BpmnDataStoreElementInput),
-  },
+  variantProvider: BpmnDataVariantProvider as ModelerElementDefinition<BpmnDataStoreElement>['variantProvider'],
   normalize: element => createBpmnDataStoreElement(element as BpmnDataStoreElementInput),
   render: (context: ModelerElementRenderContext, element) => ({
     type: Modeler.BpmnDataStoreView,

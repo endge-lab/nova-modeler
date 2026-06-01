@@ -1,4 +1,5 @@
 import type { NovaTemplateChildSchema } from '@endge/nova'
+import { NovaUIKit } from '@endge/nova-ui-kit'
 import { Modeler } from '@/config/schema.config'
 import type {
   ModelerEdgeElement,
@@ -12,10 +13,12 @@ import type { ElementsRuntime } from '@/plugins/elements/model/ElementsRuntime'
 export class ElementsLayer {
   private disposeLinksLayer: (() => void) | undefined
   private disposeInteractionLayer: (() => void) | undefined
+  private disposeWarningLayer: (() => void) | undefined
   private readonly disposeShadow: () => void
   private readonly disposePreview: () => void
   private readonly disposeConnection: () => void
   private readonly disposeSegmentHover: () => void
+  private readonly disposeConnectionWarning: () => void
 
   constructor(
     private readonly context: ModelerPluginContext,
@@ -25,6 +28,7 @@ export class ElementsLayer {
     this.disposePreview = this.runtime.edgePreview.subscribe(() => this.sync())
     this.disposeConnection = this.runtime.connection.subscribe(() => this.sync())
     this.disposeSegmentHover = this.runtime.edgeSegmentHover.subscribe(() => this.sync())
+    this.disposeConnectionWarning = this.runtime.connectionWarnings.subscribe(() => this.sync())
   }
 
   sync(): void {
@@ -62,6 +66,7 @@ export class ElementsLayer {
     }
     this.disposeLinksLayer = this.context.layers.reconcile('links', 'modeler-elements-links', linkSchemas)
     this.disposeInteractionLayer = this.context.layers.reconcile('interaction', 'modeler-elements', interactionSchemas)
+    this.syncConnectionWarning()
     this.context.invalidate('render')
   }
 
@@ -139,10 +144,114 @@ export class ElementsLayer {
     this.disposePreview()
     this.disposeConnection()
     this.disposeSegmentHover()
+    this.disposeConnectionWarning()
     this.disposeLinksLayer?.()
     this.disposeInteractionLayer?.()
+    this.disposeWarningLayer?.()
     this.disposeLinksLayer = undefined
     this.disposeInteractionLayer = undefined
+    this.disposeWarningLayer = undefined
+  }
+
+  private syncConnectionWarning(): void {
+    const warning = this.runtime.connectionWarnings.get()
+    if (!warning) {
+      this.disposeWarningLayer?.()
+      this.disposeWarningLayer = undefined
+      return
+    }
+    const layout = this.context.getLayout()
+    const width = Math.min(392, Math.max(280, layout.width - 32))
+    const height = 148
+    const x = Math.max(16, Math.round((layout.width - width) / 2))
+    const y = Math.max(16, Math.round((layout.height - height) / 2))
+    this.disposeWarningLayer = this.context.layers.reconcile('controls', 'modeler-elements-connection-warning', [
+      {
+        type: 'rect',
+        id: `${warning.id}:dimmer`,
+        x: 0,
+        y: 0,
+        width: layout.width,
+        height: layout.height,
+        styles: {
+          background: 'rgba(15, 23, 42, 0.22)',
+        },
+      },
+      {
+        type: NovaUIKit.Flex,
+        id: `${warning.id}:dialog`,
+        props: {
+          position: 'fixed',
+          inset: { left: x, top: y },
+          width,
+          height,
+          col: true,
+          gap: 10,
+          padding: { top: 18, right: 18, bottom: 16, left: 18 },
+          zIndex: 4200,
+          background: '#ffffff',
+          border: {
+            color: 'rgba(15, 23, 42, 0.14)',
+            width: 1,
+            radius: 10,
+          },
+        },
+        children: [
+          {
+            type: NovaUIKit.TextBlock,
+            id: `${warning.id}:title`,
+            props: {
+              position: 'static',
+              width: width - 36,
+              height: 24,
+              text: warning.title,
+              fontSize: 16,
+              fontWeight: '800',
+              color: '#172033',
+            },
+          },
+          {
+            type: NovaUIKit.TextBlock,
+            id: `${warning.id}:message`,
+            props: {
+              position: 'static',
+              width: width - 36,
+              height: 42,
+              text: warning.message,
+              fontSize: 13,
+              lineHeight: 18,
+              color: '#4b5563',
+            },
+          },
+          {
+            type: NovaUIKit.Flex,
+            id: `${warning.id}:footer`,
+            props: {
+              position: 'static',
+              row: true,
+              justifyContent: 'end',
+              alignItems: 'center',
+              width: width - 36,
+              height: 34,
+            },
+            children: [{
+              type: NovaUIKit.Button,
+              id: `${warning.id}:ok`,
+              props: {
+                position: 'static',
+                width: 76,
+                height: 34,
+                text: 'OK',
+                variant: 'primary',
+                onPress: () => {
+                  this.runtime.connectionWarnings.clear()
+                },
+              },
+            }],
+          },
+        ],
+      },
+    ])
   }
 
   private createShadowElement(element: ModelerElement): ModelerElement {

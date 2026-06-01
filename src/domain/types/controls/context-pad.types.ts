@@ -3,7 +3,10 @@ import type {
   NovaTemplateChildSchema,
 } from '@endge/nova'
 import type { ModelerElement } from '@/domain/types/elements/element.types'
-import type { ModelerRect } from '@/domain/types/model/geometry.types'
+import type {
+  ModelerPoint,
+  ModelerRect,
+} from '@/domain/types/model/geometry.types'
 import type {
   ModelerController,
 } from '@/domain/types/plugins/controller.types'
@@ -20,6 +23,7 @@ export interface ContextPadTarget {
   type: 'element'
   element: ModelerElement
   screenBounds: ModelerRect
+  anchor?: ModelerPoint
 }
 
 export interface ContextPadEntry {

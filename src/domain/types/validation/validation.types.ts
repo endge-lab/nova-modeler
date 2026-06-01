@@ -32,6 +32,10 @@ export interface ModelerValidationResult {
 }
 
 export const MODELER_BPMN_VALIDATION_DIALOG_TYPE = 'modeler-bpmn-validation'
+export const MODELER_BPMN_VALIDATION_DIALOG_WIDTH = 760
+export const MODELER_BPMN_VALIDATION_DIALOG_HEIGHT = 520
+export const MODELER_BPMN_VALIDATION_DIALOG_MIN_WIDTH = 620
+export const MODELER_BPMN_VALIDATION_DIALOG_MIN_HEIGHT = 420
 
 export interface BpmnValidationDialogProps {
   type?: string
