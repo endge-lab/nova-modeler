@@ -17,6 +17,7 @@ import {
   appendGridSchema,
   createBpmnEventElement,
   createBpmnEventVariantOptions,
+  createBpmnBoundaryEventElement,
   createBpmnFlowElement,
   createBpmnGatewayElement,
   createBpmnAssociationElement,
@@ -435,6 +436,96 @@ describe('nova modeler minimal kernel', () => {
       trigger: 'message',
       direction: 'throw',
     })
+  })
+
+  it('adds, changes, moves and exports BPMN boundary events attached to activities', () => {
+    const task = createBpmnTaskElement({ id: 'task-1', x: 220, y: 100, name: 'Task' })
+    const boundary = createBpmnBoundaryEventElement({
+      id: 'boundary-1',
+      x: 262,
+      y: 162,
+      attachedToRef: task.id,
+      trigger: 'timer',
+    })
+    expect(boundary).toMatchObject({
+      type: 'bpmn.boundaryEvent',
+      width: 36,
+      height: 36,
+      data: {
+        attachedToRef: 'task-1',
+        eventPosition: 'intermediate',
+        trigger: 'timer',
+        direction: 'catch',
+        isInterrupting: true,
+      },
+    })
+
+    const controller = createModelerController({
+      model: createModelerModel({
+        elements: [task, boundary],
+        selection: [boundary.id],
+      }),
+      options: {
+        interaction: { snap: false },
+      },
+    })
+    controller.mount(createControllerHost(760, 420))
+    const context = controller.getPluginContext()
+    expect(context.palette.get('bpmn.boundaryEvent.create')).toBeUndefined()
+    const provider = context.elementVariants.getProvider(boundary)
+    expect(provider?.id).toBe('bpmn.boundaryEvent.variants')
+    const draft = provider?.createDraft?.(context, boundary) ?? {}
+    const descriptor = provider?.getDescriptor(context, boundary, draft)
+    const definitionControl = descriptor?.controls.find(control => control.id === 'trigger')
+    const interruptingControl = descriptor?.headerControls?.find(control => control.id === 'isInterrupting')
+    expect(definitionControl?.options.map(option => option.id)).toEqual([
+      'message',
+      'timer',
+      'error',
+      'escalation',
+      'cancel',
+      'compensation',
+      'conditional',
+      'signal',
+    ])
+    expect(definitionControl?.options.some(option => option.id === 'none')).toBe(false)
+    provider?.apply({
+      context,
+      element: boundary,
+      draft,
+      control: interruptingControl!,
+      option: interruptingControl!.options[0]!,
+    })
+    expect(controller.getModel().elements[1]).toMatchObject({
+      id: 'boundary-1',
+      data: {
+        isInterrupting: false,
+        trigger: 'timer',
+      },
+    })
+
+    controller.applyCommand({ type: 'select', ids: ['task-1'] })
+    const moveGesture = controller.getGestures().find(gesture => gesture.id === 'modeler-elements:move')
+    moveGesture?.onPointerDown?.(context, offsetMouseEvent('mousedown', 240, 120))
+    moveGesture?.onPointerMove?.(context, offsetMouseEvent('mousemove', 270, 150))
+    moveGesture?.onPointerUp?.(context, offsetMouseEvent('mouseup', 270, 150))
+    expect(controller.getModel().elements).toMatchObject([
+      { id: 'task-1', x: 250, y: 130 },
+      { id: 'boundary-1', x: 292, y: 192 },
+    ])
+
+    const xml = new BpmnExporter().export({
+      model: createModelerModel({
+        id: 'boundary-export',
+        elements: controller.getModel().elements,
+      }),
+    })
+    expect(xml).toContain('<boundaryEvent id="BoundaryEvent_boundary-1" attachedToRef="Task_task-1" cancelActivity="false">')
+    expect(xml).toContain('<timerEventDefinition />')
+
+    controller.applyCommand({ type: 'element.delete', id: 'task-1' })
+    expect(controller.getModel().elements.find(element => element.id === 'boundary-1')).toBeUndefined()
+    controller.unmount()
   })
 
   it('normalizes BPMN task data, variants, ports and fixed bounds', () => {
@@ -2797,6 +2888,52 @@ describe('nova modeler minimal kernel', () => {
 
     expect(root.getApi().getModel().elements).toEqual([])
     expect(root.getApi().getModel().selection).toEqual([])
+    app.destroy()
+  })
+
+  it('adds a BPMN boundary event from the activity context pad', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 760, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    const root = app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'boundary-context-pad-root',
+      props: {
+        model: createModelerModel({
+          elements: [createBpmnTaskElement({ id: 'task-1', x: 220, y: 100, name: 'Task' })],
+          selection: ['task-1'],
+        }),
+        width: 760,
+        height: 420,
+      },
+    }) as Root
+    app.raph.run()
+    app.raph.run()
+
+    expect(app.events.hitTest(376, 120)?.componentId).toBe('boundary-context-pad-root:context-pad')
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 376, clientY: 120, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 376, clientY: 120, button: 0 }))
+    app.raph.run()
+
+    const model = root.getApi().getModel()
+    expect(model.elements[1]).toMatchObject({
+      type: 'bpmn.boundaryEvent',
+      x: 262,
+      y: 162,
+      data: {
+        attachedToRef: 'task-1',
+        trigger: 'timer',
+        isInterrupting: true,
+      },
+    })
+    expect(model.selection).toEqual([model.elements[1]?.id])
     app.destroy()
   })
 

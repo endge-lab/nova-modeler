@@ -8,6 +8,7 @@ import type {
   ModelerPoint,
 } from '@/domain/types/index'
 import { isModelerEdgeElement } from '@/domain/types/index'
+import { BPMN_BOUNDARY_EVENT_TYPE } from '@/elements/bpmn/boundary-event/bpmn-boundary-event.factory'
 import { BPMN_EVENT_TYPE } from '@/elements/bpmn/event/bpmn-event.factory'
 import { createBpmnFlowElement } from '@/elements/bpmn/flow/bpmn-flow.factory'
 import { BPMN_GATEWAY_TYPE } from '@/elements/bpmn/gateway/bpmn-gateway.factory'
@@ -202,6 +203,7 @@ export class ElementsConnectionFlow {
 
 function isBpmnFlowNode(element: ModelerElement): boolean {
   return element.type === BPMN_EVENT_TYPE
+    || element.type === BPMN_BOUNDARY_EVENT_TYPE
     || element.type === BPMN_GATEWAY_TYPE
     || element.type === BPMN_TASK_TYPE
     || element.type === BPMN_SUB_PROCESS_TYPE

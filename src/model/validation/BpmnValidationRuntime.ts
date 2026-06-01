@@ -7,6 +7,7 @@ import type {
   ModelerModel,
 } from '@/domain/types/index'
 import { BPMN_EVENT_TYPE } from '@/elements/bpmn/event/bpmn-event.factory'
+import { BPMN_BOUNDARY_EVENT_TYPE } from '@/elements/bpmn/boundary-event/bpmn-boundary-event.factory'
 import { BPMN_FLOW_TYPE } from '@/elements/bpmn/flow/bpmn-flow.factory'
 import { BPMN_GATEWAY_TYPE } from '@/elements/bpmn/gateway/bpmn-gateway.factory'
 import { BPMN_CALL_ACTIVITY_TYPE } from '@/elements/bpmn/call-activity/bpmn-call-activity.factory'
@@ -103,6 +104,12 @@ export class BpmnValidationRuntime {
         }
         continue
       }
+      if (node.type === BPMN_BOUNDARY_EVENT_TYPE) {
+        if (incomingCount > 0) {
+          issues.push(createIssue(node.id, 'bpmn.invalidFlowTarget', 'error', 'Boundary Event must not have incoming sequence flows.', [node.id]))
+        }
+        continue
+      }
       if ((isBpmnActivityElement(node) || node.type === BPMN_GATEWAY_TYPE) && incomingCount === 0) {
         issues.push(createIssue(node.id, 'bpmn.nodeNoIncoming', 'error', 'BPMN Task or Gateway must have at least one incoming sequence flow.', [node.id]))
       }
@@ -127,7 +134,7 @@ export class BpmnValidationRuntime {
 }
 
 function isBpmnNodeElement(element: ModelerElement): boolean {
-  return element.type === BPMN_EVENT_TYPE || isBpmnActivityElement(element) || element.type === BPMN_GATEWAY_TYPE
+  return element.type === BPMN_EVENT_TYPE || element.type === BPMN_BOUNDARY_EVENT_TYPE || isBpmnActivityElement(element) || element.type === BPMN_GATEWAY_TYPE
 }
 
 function isBpmnActivityElement(element: ModelerElement): boolean {

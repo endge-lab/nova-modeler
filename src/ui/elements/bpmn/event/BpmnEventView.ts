@@ -337,6 +337,7 @@ export class BpmnEventView<E extends EventList = Record<string, any>>
   }
 
   private createCircle(radius: number, fill: string, stroke: string, strokeWidth: number): NovaSchema[number] {
+    const dashPattern = this.props.element.data?.isInterrupting === false ? [5, 4] as [number, number] : undefined
     return {
       type: 'circle',
       x: 0,
@@ -347,6 +348,7 @@ export class BpmnEventView<E extends EventList = Record<string, any>>
         border: {
           color: stroke,
           width: strokeWidth,
+          dashPattern,
         },
         opacity: this.resolveStyleNumber(this.props.element.style?.opacity, 'elementOpacity'),
       },

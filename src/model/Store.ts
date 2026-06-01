@@ -22,6 +22,7 @@ import {
 } from '@/config/model.config'
 import type { ModelerElementRegistry } from '@/domain/types'
 import { createModelerElementRegistry } from '@/model/ElementRegistry'
+import { isBpmnBoundaryEventAttachedTo } from '@/elements/bpmn/boundary-event/bpmn-boundary-event.factory'
 
 @NovaStore()
 export class ViewportStore {
@@ -243,6 +244,9 @@ export class Store implements ModelerStore {
       this.elements.items
         .filter(element => this.shouldDeleteWithConnectedNode(element, deleteIds))
         .forEach(element => deleteIds.add(element.id))
+      this.elements.items
+        .filter(element => this.shouldDeleteWithAttachedNode(element, deleteIds))
+        .forEach(element => deleteIds.add(element.id))
       this.elements.set(this.elements.items.filter(element => !deleteIds.has(element.id)))
       this.selection.set(this.selection.ids.filter(selectionId => !deleteIds.has(selectionId)))
       this.version += 1
@@ -255,6 +259,13 @@ export class Store implements ModelerStore {
     if (!isModelerEdgeElement(element)) return false
     return Boolean(element.source.elementId && deleteIds.has(element.source.elementId))
       || Boolean(element.target.elementId && deleteIds.has(element.target.elementId))
+  }
+
+  private shouldDeleteWithAttachedNode(element: ModelerElement, deleteIds: Set<string>): boolean {
+    for (const id of deleteIds) {
+      if (isBpmnBoundaryEventAttachedTo(element, id)) return true
+    }
+    return false
   }
 
   replaceElement(id: string, nextElement: ModelerElement): void {

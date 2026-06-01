@@ -17,6 +17,9 @@ import {
   isElementInsideBpmnParticipantContent,
 } from '@/elements/bpmn/participant/bpmn-participant.factory'
 import type { BpmnParticipantElement } from '@/elements/bpmn/participant/bpmn-participant.types'
+import {
+  isBpmnBoundaryEventAttachedTo,
+} from '@/elements/bpmn/boundary-event/bpmn-boundary-event.factory'
 
 export class ElementsGestures {
   private activeResize: {
@@ -459,6 +462,12 @@ export class ElementsGestures {
         if (moveIds.has(element.id) || element.id === participant.id || isModelerEdgeElement(element)) continue
         if (!this.isElementDraggable(context, element)) continue
         if (isElementInsideBpmnParticipantContent(element, participant)) moveIds.add(element.id)
+      }
+    }
+    for (const selectedId of selected) {
+      for (const element of modelElements) {
+        if (moveIds.has(element.id) || isModelerEdgeElement(element)) continue
+        if (isBpmnBoundaryEventAttachedTo(element, selectedId)) moveIds.add(element.id)
       }
     }
     return modelElements

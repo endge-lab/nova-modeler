@@ -3,6 +3,8 @@ import type {
   ModelerExportContext,
 } from '@/domain/types/index'
 import { isModelerEdgeElement } from '@/domain/types/index'
+import { BPMN_BOUNDARY_EVENT_TYPE } from '@/elements/bpmn/boundary-event/bpmn-boundary-event.factory'
+import type { BpmnBoundaryEventElement } from '@/elements/bpmn/boundary-event/bpmn-boundary-event.types'
 import { BPMN_EVENT_TYPE, normalizeBpmnEventVariantData } from '@/elements/bpmn/event/bpmn-event.factory'
 import type { BpmnEventElement } from '@/elements/bpmn/event/bpmn-event.types'
 import { BPMN_FLOW_TYPE, normalizeBpmnFlowType } from '@/elements/bpmn/flow/bpmn-flow.factory'
@@ -94,6 +96,7 @@ export class BpmnExporter {
     if (element.type === BPMN_TASK_TYPE) return this.serializeTask(element as BpmnTaskElement, state)
     if (element.type === BPMN_SUB_PROCESS_TYPE) return this.serializeSubProcess(element as BpmnSubProcessElement, state)
     if (element.type === BPMN_CALL_ACTIVITY_TYPE) return this.serializeCallActivity(element as BpmnCallActivityElement, state)
+    if (element.type === BPMN_BOUNDARY_EVENT_TYPE) return this.serializeBoundaryEvent(element as BpmnBoundaryEventElement, state)
     if (element.type === BPMN_EVENT_TYPE) return this.serializeEvent(element as BpmnEventElement, state)
     if (element.type === BPMN_GATEWAY_TYPE) return this.serializeGateway(element as BpmnGatewayElement, state)
     throw new Error(`[BpmnExporter] Unsupported BPMN element type: ${element.type}`)
@@ -208,6 +211,32 @@ export class BpmnExporter {
     return ''
   }
 
+  private serializeBoundaryEvent(element: BpmnBoundaryEventElement, state: BpmnExportState): string {
+    const attachedToRef = this.resolveEndpointRef(element.data?.attachedToRef, state)
+    const attrs = [
+      this.serializeNodeAttrs(element, state),
+      `attachedToRef="${attachedToRef}"`,
+      element.data?.isInterrupting === false ? 'cancelActivity="false"' : '',
+    ].filter(Boolean).join(' ')
+    const eventDefinition = this.serializeBoundaryEventDefinition(element)
+    return eventDefinition
+      ? [`<boundaryEvent ${attrs}>`, `  ${eventDefinition}`, '</boundaryEvent>'].join('\n')
+      : `<boundaryEvent ${attrs} />`
+  }
+
+  private serializeBoundaryEventDefinition(element: BpmnBoundaryEventElement): string {
+    const trigger = element.data?.trigger ?? 'timer'
+    if (trigger === 'message') return '<messageEventDefinition />'
+    if (trigger === 'timer') return '<timerEventDefinition />'
+    if (trigger === 'error') return '<errorEventDefinition />'
+    if (trigger === 'escalation') return '<escalationEventDefinition />'
+    if (trigger === 'cancel') return '<cancelEventDefinition />'
+    if (trigger === 'compensation') return '<compensateEventDefinition />'
+    if (trigger === 'conditional') return '<conditionalEventDefinition />'
+    if (trigger === 'signal') return '<signalEventDefinition />'
+    return '<timerEventDefinition />'
+  }
+
   private serializeGateway(element: BpmnGatewayElement, state: BpmnExportState): string {
     const type = normalizeBpmnGatewayType(element.data?.gatewayType)
     const tag = type === 'parallel'
@@ -285,13 +314,15 @@ export class BpmnExporter {
 function toBpmnElementId(element: ModelerElement): string {
   const prefix = element.type === BPMN_TASK_TYPE
     ? 'Task'
-    : element.type === BPMN_EVENT_TYPE
-      ? 'Event'
-      : element.type === BPMN_GATEWAY_TYPE
-        ? 'Gateway'
-        : element.type === BPMN_FLOW_TYPE
-          ? 'Flow'
-          : 'Element'
+    : element.type === BPMN_BOUNDARY_EVENT_TYPE
+      ? 'BoundaryEvent'
+      : element.type === BPMN_EVENT_TYPE
+        ? 'Event'
+        : element.type === BPMN_GATEWAY_TYPE
+          ? 'Gateway'
+          : element.type === BPMN_FLOW_TYPE
+            ? 'Flow'
+            : 'Element'
   return toBpmnId(prefix, element.id)
 }
 

@@ -42,6 +42,10 @@ import {
   removeBpmnParticipantLane,
 } from '@/elements/bpmn/participant/bpmn-participant.factory'
 import type { BpmnParticipantElement } from '@/elements/bpmn/participant/bpmn-participant.types'
+import {
+  createBpmnBoundaryEventForActivity,
+  isBpmnBoundaryAttachableActivity,
+} from '@/elements/bpmn/boundary-event/bpmn-boundary-event.factory'
 import type {
   ContextPadApi,
   ContextPadDescriptor,
@@ -74,6 +78,7 @@ export class ContextPad<E extends EventList = Record<string, any>>
   private pressedEntryId: string | null = null
   private variantMenuOpen = false
   private colorMenuOpen = false
+  private boundaryEventCounter = 0
   private disposeVariantMenuLayer?: () => void
   private disposeColorMenuLayer?: () => void
   private readonly handleWindowMouseDown = (event: MouseEvent): void => {
@@ -336,6 +341,13 @@ export class ContextPad<E extends EventList = Record<string, any>>
         })
       }
     }
+    if (isBpmnBoundaryAttachableActivity(target.element)) {
+      entries.push({
+        id: 'boundary-event.add',
+        title: 'Add boundary event',
+        tone: 'default',
+      })
+    }
     if (resolvePluginContext(context).elementVariants.hasProvider(target.element)) {
       entries.push({
         id: 'variants',
@@ -524,6 +536,7 @@ export class ContextPad<E extends EventList = Record<string, any>>
   private resolveEntryIcon(entry: ContextPadEntry) {
     if (entry.id === 'swimlane.add-lane' || entry.id === 'swimlane.add-lane-below') return MODELER_ASSETS.icons.rowInsertBottom
     if (entry.id === 'swimlane.delete-lane') return MODELER_ASSETS.icons.trashX
+    if (entry.id === 'boundary-event.add') return MODELER_ASSETS.icons.activityEventSubProcess
     if (entry.id === 'variants') return MODELER_ASSETS.icons.tool
     if (entry.id === 'connect') return MODELER_ASSETS.icons.connectArrow
     if (entry.id === 'color') return MODELER_ASSETS.icons.brush
@@ -570,6 +583,16 @@ export class ContextPad<E extends EventList = Record<string, any>>
           element: removeBpmnParticipantLane(target.element as BpmnParticipantElement, laneId),
         })
       }
+      this.closeOpenMenus()
+      this.dirty({ render: true })
+      return
+    }
+    if (entry.id === 'boundary-event.add') {
+      const element = createBpmnBoundaryEventForActivity(target.element, {
+        id: `bpmn-boundary-event-${Date.now().toString(36)}-${this.boundaryEventCounter += 1}`,
+      })
+      context.applyCommand({ type: 'element.add', element })
+      context.applyCommand({ type: 'select', ids: [element.id] })
       this.closeOpenMenus()
       this.dirty({ render: true })
       return
