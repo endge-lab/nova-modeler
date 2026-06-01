@@ -12,7 +12,12 @@ import {
   type NovaTemplateChildSchema,
 } from '@endge/nova'
 import type { EventList } from '@endge/utils'
-import { NovaUIKit } from '@endge/nova-ui-kit'
+import {
+  NovaUIKit,
+  type NovaTooltipTargetResolver,
+  type TooltipInput,
+  type TooltipTargetResolution,
+} from '@endge/nova-ui-kit'
 import { MODELER_ASSETS } from '@/assets/modeler-assets'
 import { Modeler } from '@/config/schema.config'
 import { MODELER_CONTEXT } from '@/config/context.config'
@@ -30,6 +35,13 @@ import type {
 } from '@/domain/types/index'
 import { isModelerEdgeElement } from '@/domain/types/index'
 import { MODEL_ELEMENTS_RUNTIME } from '@/plugins/elements/model/ElementsRuntime'
+import {
+  addBpmnParticipantLane,
+  BPMN_PARTICIPANT_TYPE,
+  isElementInsideBpmnParticipantLane,
+  removeBpmnParticipantLane,
+} from '@/elements/bpmn/participant/bpmn-participant.factory'
+import type { BpmnParticipantElement } from '@/elements/bpmn/participant/bpmn-participant.types'
 import type {
   ContextPadApi,
   ContextPadDescriptor,
@@ -52,7 +64,8 @@ import type {
   },
 })
 export class ContextPad<E extends EventList = Record<string, any>>
-  extends NovaComponentNode<ContextPadResolvedProps, ContextPadApi, Record<string, never>, ContextPadProps, E> {
+  extends NovaComponentNode<ContextPadResolvedProps, ContextPadApi, Record<string, never>, ContextPadProps, E>
+  implements NovaTooltipTargetResolver {
   private readonly childRuntime: NovaTemplateRuntime<E>
   private slots: NovaElementSlots = {}
   private closedForSelectionKey: string | null = null
@@ -167,6 +180,29 @@ export class ContextPad<E extends EventList = Record<string, any>>
     return x >= rect.x && x <= rect.x + rect.width && y >= rect.y && y <= rect.y + rect.height
   }
 
+  resolveNovaTooltipTarget(input: { x: number; y: number; event?: MouseEvent }): TooltipTargetResolution | null {
+    if (this.hasCustomSlots()) return null
+    const context = this.props.controller ?? this.injectOptional(MODELER_CONTEXT)
+    const target = context ? this.resolveTarget(context) : null
+    if (!this.props.visible || !context || !target) return null
+    const hit = this.resolveEntryAtPoint(context, target, input.x, input.y)
+    if (!hit) return null
+    return {
+      tooltip: {
+        value: hit.entry.title,
+        placement: 'bottom',
+        delay: 250,
+      } as TooltipInput,
+      rect: hit.rect,
+      targetId: `${this.componentId}:${hit.entry.id}`,
+      targetType: 'modeler.context-pad.entry',
+      targetProps: {
+        entryId: hit.entry.id,
+        elementId: target.element.id,
+      },
+    }
+  }
+
   protected override onUnmount(): void {
     this.teardownWindowEvents()
     this.clearDefaultVariantMenu()
@@ -216,7 +252,8 @@ export class ContextPad<E extends EventList = Record<string, any>>
       ? this.resolveEdgeScreenBounds(context, element)
       : this.resolveNodeScreenBounds(context, element)
     if (!screenBounds) return null
-    const anchor = definition.kind === 'edge'
+    const part = MODEL_ELEMENTS_RUNTIME.contextPadAnchors.getPart(element.id)
+    const anchor = definition.kind === 'edge' || part
       ? MODEL_ELEMENTS_RUNTIME.contextPadAnchors.get(element.id)
       : undefined
     if (definition.kind === 'edge' && !anchor && !definition.capabilities?.colorable) return null
@@ -225,6 +262,7 @@ export class ContextPad<E extends EventList = Record<string, any>>
       element,
       screenBounds,
       anchor,
+      part,
     }
   }
 
@@ -282,6 +320,22 @@ export class ContextPad<E extends EventList = Record<string, any>>
     target: ContextPadTarget,
   ): Array<ContextPadEntry> {
     const entries: Array<ContextPadEntry> = []
+    const deleteEntries: Array<ContextPadEntry> = []
+    if (target.element.type === BPMN_PARTICIPANT_TYPE) {
+      const lanePart = target.part?.partType === 'bpmn.swimlane.lane' ? target.part : null
+      entries.push({
+        id: lanePart ? 'swimlane.add-lane-below' : 'swimlane.add-lane',
+        title: lanePart ? 'Add lane below' : 'Add lane',
+        tone: 'default',
+      })
+      if (lanePart && this.canDeleteParticipantLane(context, target.element as BpmnParticipantElement, lanePart.partId)) {
+        deleteEntries.push({
+          id: 'swimlane.delete-lane',
+          title: 'Delete lane',
+          tone: 'danger',
+        })
+      }
+    }
     if (resolvePluginContext(context).elementVariants.hasProvider(target.element)) {
       entries.push({
         id: 'variants',
@@ -289,11 +343,6 @@ export class ContextPad<E extends EventList = Record<string, any>>
         tone: 'default',
       })
     }
-    entries.push({
-      id: 'delete',
-      title: 'Delete',
-      tone: 'danger',
-    })
     if (this.isColorable(context, target.element)) {
       entries.push({
         id: 'color',
@@ -308,7 +357,12 @@ export class ContextPad<E extends EventList = Record<string, any>>
         tone: 'default',
       })
     }
-    return entries
+    deleteEntries.push({
+      id: 'delete',
+      title: target.element.type === BPMN_PARTICIPANT_TYPE ? 'Delete pool' : 'Delete element',
+      tone: 'danger',
+    })
+    return [...entries, ...deleteEntries]
   }
 
   private resolveContent(slotProps: ContextPadSlotProps): Array<NovaTemplateChildSchema> {
@@ -468,6 +522,8 @@ export class ContextPad<E extends EventList = Record<string, any>>
   }
 
   private resolveEntryIcon(entry: ContextPadEntry) {
+    if (entry.id === 'swimlane.add-lane' || entry.id === 'swimlane.add-lane-below') return MODELER_ASSETS.icons.rowInsertBottom
+    if (entry.id === 'swimlane.delete-lane') return MODELER_ASSETS.icons.trashX
     if (entry.id === 'variants') return MODELER_ASSETS.icons.tool
     if (entry.id === 'connect') return MODELER_ASSETS.icons.connectArrow
     if (entry.id === 'color') return MODELER_ASSETS.icons.brush
@@ -495,6 +551,29 @@ export class ContextPad<E extends EventList = Record<string, any>>
     target: ContextPadTarget,
     entry: ContextPadEntry,
   ): void {
+    if (entry.id === 'swimlane.add-lane' || entry.id === 'swimlane.add-lane-below') {
+      context.applyCommand({
+        type: 'element.replace',
+        id: target.element.id,
+        element: addBpmnParticipantLane(target.element as BpmnParticipantElement, target.part?.partId),
+      })
+      this.closeOpenMenus()
+      this.dirty({ render: true })
+      return
+    }
+    if (entry.id === 'swimlane.delete-lane') {
+      const laneId = target.part?.partId
+      if (laneId && this.canDeleteParticipantLane(context, target.element as BpmnParticipantElement, laneId)) {
+        context.applyCommand({
+          type: 'element.replace',
+          id: target.element.id,
+          element: removeBpmnParticipantLane(target.element as BpmnParticipantElement, laneId),
+        })
+      }
+      this.closeOpenMenus()
+      this.dirty({ render: true })
+      return
+    }
     if (entry.id === 'variants') {
       this.variantMenuOpen = !this.variantMenuOpen
       if (this.variantMenuOpen) {
@@ -696,12 +775,24 @@ export class ContextPad<E extends EventList = Record<string, any>>
     event: MouseEvent,
   ): ContextPadEntry | undefined {
     const { x, y } = this.events.getCanvasMousePosition(event)
+    return this.resolveEntryAtPoint(context, target, x, y)?.entry
+  }
+
+  private resolveEntryAtPoint(
+    context: ModelerController | ModelerPluginContext,
+    target: ContextPadTarget,
+    x: number,
+    y: number,
+  ): { entry: ContextPadEntry; rect: ModelerRect } | null {
     const layout = this.resolvePadRect(context, target)
     const entries = this.createEntries(context, target)
-    return entries.find((_entry, index) => {
+    for (let index = 0; index < entries.length; index += 1) {
+      const entry = entries[index]
+      if (!entry) continue
       const rect = this.resolveEntryRect(layout, index)
-      return x >= rect.x && x <= rect.x + rect.width && y >= rect.y && y <= rect.y + rect.height
-    })
+      if (x >= rect.x && x <= rect.x + rect.width && y >= rect.y && y <= rect.y + rect.height) return { entry, rect }
+    }
+    return null
   }
 
   private resolveEntryHoverBackground(entry: ContextPadEntry): string {
@@ -714,6 +805,19 @@ export class ContextPad<E extends EventList = Record<string, any>>
     return entry.tone === 'danger'
       ? this.resolveColor('contextPadDangerPressedBackground')
       : 'rgba(15, 23, 42, 0.12)'
+  }
+
+  private canDeleteParticipantLane(
+    context: ModelerController | ModelerPluginContext,
+    participant: BpmnParticipantElement,
+    laneId: string,
+  ): boolean {
+    if ((participant.data?.lanes?.length ?? 0) <= 1) return false
+    return !context.getModel().elements.some(element =>
+      element.id !== participant.id
+      && !isModelerEdgeElement(element)
+      && isElementInsideBpmnParticipantLane(element, participant, laneId),
+    )
   }
 
   private resolveColor(token: keyof typeof MODELER_THEME_FALLBACKS): string {

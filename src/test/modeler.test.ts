@@ -22,6 +22,8 @@ import {
   createBpmnDataObjectElement,
   createBpmnDataStoreElement,
   createBpmnGroupElement,
+  addBpmnParticipantLane,
+  createBpmnParticipantElement,
   createBpmnCallActivityElement,
   createBpmnSubProcessElement,
   createBpmnTextAnnotationElement,
@@ -43,6 +45,7 @@ import {
   registerModeler,
   resolveBpmnActivityNameLayout,
   resolveBpmnTaskNameLayout,
+  type ModelerRect,
   type ModelerSettingsDialogApi,
   type ModelerValidationResult,
 } from '@/index'
@@ -875,6 +878,82 @@ describe('nova modeler minimal kernel', () => {
       width: 96,
       height: 120,
     })
+    controller.unmount()
+  })
+
+  it('publishes BPMN swimlane as one palette block with lane geometry and variants', () => {
+    const participant = createBpmnParticipantElement({ id: 'pool-1', x: 80, y: 80 })
+    const withSecondLane = addBpmnParticipantLane(participant)
+    expect(participant).toMatchObject({
+      type: 'bpmn.participant',
+      width: 520,
+      height: 260,
+      data: {
+        name: 'Participant',
+        orientation: 'horizontal',
+      },
+    })
+    expect(participant.data.lanes).toHaveLength(1)
+    expect(withSecondLane.data.lanes.map(lane => lane.name)).toEqual(['Lane 1', 'Lane 2'])
+
+    const controller = createModelerController({
+      model: createModelerModel({
+        elements: [withSecondLane],
+        selection: ['pool-1'],
+      }),
+    })
+    controller.mount(createControllerHost(800, 520))
+    const context = controller.getPluginContext()
+    const provider = context.elementVariants.getProvider(withSecondLane)
+
+    expect(context.palette.get('bpmn.swimlane.create')).toMatchObject({
+      kind: 'tool',
+      icon: 'bpmn-swimlane',
+      toolId: 'create:bpmn.swimlane',
+    })
+    expect(provider?.id).toBe('bpmn.swimlane.variants')
+    const draft = provider?.createDraft?.(context, withSecondLane) ?? {}
+    const descriptor = provider?.getDescriptor(context, withSecondLane, draft)
+    const orientationControl = descriptor?.controls.find(control => control.id === 'orientation')
+    expect(orientationControl?.kind).toBe('choice')
+    expect(orientationControl?.options.map(option => option.id)).toEqual(['horizontal', 'vertical'])
+    expect(orientationControl?.options.every(option => Boolean(option.icon))).toBe(true)
+
+    expect(controller.hitTest(controller.worldToScreen({ x: 90, y: 120 }))).toEqual({
+      type: 'element-part',
+      id: 'pool-1',
+      partType: 'bpmn.swimlane.participant',
+      partId: 'participant',
+    })
+    expect(controller.hitTest(controller.worldToScreen({ x: 125, y: 120 }))).toEqual({
+      type: 'element-part',
+      id: 'pool-1',
+      partType: 'bpmn.swimlane.lane',
+      partId: withSecondLane.data.lanes[0]?.id,
+    })
+    expect(controller.hitTest(controller.worldToScreen({ x: 260, y: 120 }))).toEqual({ type: 'element', id: 'pool-1' })
+
+    provider?.apply({
+      context,
+      element: withSecondLane,
+      draft,
+      control: orientationControl!,
+      option: orientationControl!.options[1]!,
+    })
+    expect(controller.getModel().elements[0]).toMatchObject({
+      id: 'pool-1',
+      type: 'bpmn.participant',
+      data: { orientation: 'vertical' },
+    })
+    expect(controller.getModel().selection).toEqual(['pool-1'])
+    controller.applyCommand({
+      type: 'element.resize',
+      id: 'pool-1',
+      bounds: { width: 80, height: 80 },
+    })
+    expect(controller.getModel().elements[0]?.width).toBeGreaterThanOrEqual(128)
+    expect(controller.getModel().elements[0]?.height).toBeGreaterThanOrEqual(248)
+    expect(context.tools.createAt('create:bpmn.swimlane', { x: 720, y: 420 })?.type).toBe('bpmn.participant')
     controller.unmount()
   })
 
@@ -2501,14 +2580,63 @@ describe('nova modeler minimal kernel', () => {
     app.raph.run()
     app.raph.run()
 
-    const target = app.events.hitTest(292, 120)
+    const target = app.events.hitTest(384, 120)
     expect(target?.componentId).toBe('context-pad-root:context-pad')
-    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 292, clientY: 120, button: 0 }))
-    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 292, clientY: 120, button: 0 }))
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 384, clientY: 120, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 384, clientY: 120, button: 0 }))
     app.raph.run()
 
     expect(root.getApi().getModel().elements).toEqual([])
     expect(root.getApi().getModel().selection).toEqual([])
+    app.destroy()
+  })
+
+  it('keeps context pad delete actions last and labels swimlane delete buttons clearly', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 720, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    const participant = addBpmnParticipantLane(createBpmnParticipantElement({ id: 'pool-1', x: 80, y: 80 }))
+    app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'swimlane-context-pad-root',
+      props: {
+        model: createModelerModel({
+          elements: [participant],
+          selection: ['pool-1'],
+        }),
+        width: 720,
+        height: 420,
+      },
+    })
+    MODEL_ELEMENTS_RUNTIME.contextPadAnchors.set('pool-1', { x: 126, y: 120 }, {
+      partType: 'bpmn.swimlane.lane',
+      partId: participant.data.lanes[0]!.id,
+    })
+    app.raph.run()
+    app.raph.run()
+
+    const contextPad = app.components.require('swimlane-context-pad-root:context-pad') as unknown as {
+      resolveNovaTooltipTarget(input: { x: number; y: number }): { tooltip?: unknown; rect?: ModelerRect } | null
+    }
+    expect(contextPad.resolveNovaTooltipTarget({ x: 150, y: 104 })?.tooltip).toMatchObject({
+      value: 'Add lane below',
+      placement: 'bottom',
+    })
+    expect(contextPad.resolveNovaTooltipTarget({ x: 282, y: 104 })?.tooltip).toMatchObject({
+      value: 'Delete lane',
+      placement: 'bottom',
+    })
+    expect(contextPad.resolveNovaTooltipTarget({ x: 326, y: 104 })?.tooltip).toMatchObject({
+      value: 'Delete pool',
+      placement: 'bottom',
+    })
     app.destroy()
   })
 
@@ -2538,9 +2666,9 @@ describe('nova modeler minimal kernel', () => {
     app.raph.run()
     app.raph.run()
 
-    expect(app.events.hitTest(336, 120)?.componentId).toBe('color-menu-root:context-pad')
-    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 336, clientY: 120, button: 0 }))
-    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 336, clientY: 120, button: 0 }))
+    expect(app.events.hitTest(296, 120)?.componentId).toBe('color-menu-root:context-pad')
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 296, clientY: 120, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 296, clientY: 120, button: 0 }))
     app.raph.run()
 
     expect(app.events.hitTest(350, 216)?.componentId).toBe('color-menu-root:context-pad:color-menu:picker')
@@ -2588,8 +2716,8 @@ describe('nova modeler minimal kernel', () => {
     app.raph.run()
     app.raph.run()
 
-    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 336, clientY: 120, button: 0 }))
-    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 336, clientY: 120, button: 0 }))
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 296, clientY: 120, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 296, clientY: 120, button: 0 }))
     app.raph.run()
 
     expect(app.events.hitTest(308, 338)?.componentId).not.toBe('color-menu-custom-root:context-pad:color-menu:picker')
@@ -2642,8 +2770,8 @@ describe('nova modeler minimal kernel', () => {
     app.raph.run()
     app.raph.run()
 
-    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 336, clientY: 120, button: 0 }))
-    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 336, clientY: 120, button: 0 }))
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 296, clientY: 120, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 296, clientY: 120, button: 0 }))
     app.raph.run()
     app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 308, clientY: 306, button: 0 }))
     app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 308, clientY: 306, button: 0 }))
@@ -2694,9 +2822,9 @@ describe('nova modeler minimal kernel', () => {
     app.raph.run()
     app.raph.run()
 
-    expect(app.events.hitTest(344, 148)?.componentId).toBe('association-color-root:context-pad')
-    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 344, clientY: 148, button: 0 }))
-    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 344, clientY: 148, button: 0 }))
+    expect(app.events.hitTest(300, 148)?.componentId).toBe('association-color-root:context-pad')
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 300, clientY: 148, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 300, clientY: 148, button: 0 }))
     app.raph.run()
 
     const picker = app.components.requireApi<ColorPickerApi>('association-color-root:context-pad:color-menu:picker')
@@ -2878,8 +3006,8 @@ describe('nova modeler minimal kernel', () => {
     app.raph.run()
     app.raph.run()
 
-    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 336, clientY: 120, button: 0 }))
-    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 336, clientY: 120, button: 0 }))
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 296, clientY: 120, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 296, clientY: 120, button: 0 }))
     app.raph.run()
     expect(app.components.get('color-menu-pan-close-root:context-pad:color-menu:picker')).toBeTruthy()
 
@@ -2929,8 +3057,8 @@ describe('nova modeler minimal kernel', () => {
     app.raph.run()
     app.raph.run()
 
-    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 336, clientY: 120, button: 0 }))
-    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 336, clientY: 120, button: 0 }))
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 296, clientY: 120, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 296, clientY: 120, button: 0 }))
     app.raph.run()
     expect(app.components.get('external-context-pad:color-menu:picker')).toBeTruthy()
 
@@ -3149,6 +3277,41 @@ describe('nova modeler minimal kernel', () => {
       { id: 'group-1', x: 120, y: 105 },
       { id: 'task-inside', x: 170, y: 145 },
       { id: 'rect-partial', x: 300, y: 120 },
+    ])
+    controller.unmount()
+  })
+
+  it('moves elements fully enclosed by BPMN participant content together with the pool', () => {
+    const controller = createModelerController({
+      model: createModelerModel({
+        elements: [
+          createBpmnParticipantElement({ id: 'pool-1', x: 80, y: 80, width: 520, height: 260 }),
+          createBpmnTaskElement({ id: 'task-inside-pool', x: 240, y: 120, name: 'Inside pool' }),
+          createBasicRectElement({ id: 'rect-in-header', x: 92, y: 120, width: 24, height: 24 }),
+          createBasicRectElement({ id: 'rect-outside', x: 660, y: 120, width: 80, height: 64 }),
+        ],
+      }),
+      options: {
+        interaction: {
+          snap: false,
+        },
+      },
+    })
+    controller.mount(createControllerHost(900, 560))
+    const context = controller.getPluginContext()
+    const moveGesture = controller.getGestures().find(gesture => gesture.id === 'modeler-elements:move')
+
+    expect(moveGesture?.hitTest?.(context, offsetMouseEvent('mousedown', 92, 92), controller.hitTest({ x: 92, y: 92 }))).toBe(true)
+    moveGesture?.onPointerDown?.(context, offsetMouseEvent('mousedown', 92, 92))
+    moveGesture?.onPointerMove?.(context, offsetMouseEvent('mousemove', 122, 112))
+    moveGesture?.onPointerUp?.(context, offsetMouseEvent('mouseup', 122, 112))
+
+    expect(controller.getModel().selection).toEqual(['pool-1'])
+    expect(controller.getModel().elements).toMatchObject([
+      { id: 'pool-1', x: 110, y: 100 },
+      { id: 'task-inside-pool', x: 270, y: 140 },
+      { id: 'rect-in-header', x: 92, y: 120 },
+      { id: 'rect-outside', x: 660, y: 120 },
     ])
     controller.unmount()
   })
@@ -3716,8 +3879,8 @@ describe('nova modeler minimal kernel', () => {
     app.raph.run()
     app.raph.run()
 
-    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 316, clientY: 124, button: 0 }))
-    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 316, clientY: 124, button: 0 }))
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 272, clientY: 124, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 272, clientY: 124, button: 0 }))
     app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 224, clientY: 124, button: 0 }))
     app.raph.run()
     let interaction = app.surfaces.find(item => item.name === 'flow-context-pad-root:interaction')
@@ -3734,8 +3897,8 @@ describe('nova modeler minimal kernel', () => {
 
     root.applyCommand({ type: 'select', ids: ['start-1'] })
     app.raph.run()
-    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 316, clientY: 124, button: 0 }))
-    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 316, clientY: 124, button: 0 }))
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 272, clientY: 124, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 272, clientY: 124, button: 0 }))
     app.handleEvent('mousemove', new MouseEvent('mousemove', { clientX: 224, clientY: 124, button: 0 }))
     app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 224, clientY: 124, button: 0 }))
     app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 224, clientY: 124, button: 0 }))

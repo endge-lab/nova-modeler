@@ -2,6 +2,7 @@ import { NovaAssets } from '@endge/nova'
 import toolIconSource from '@/assets/icons/tool.svg?raw'
 import brushIconSource from '@/assets/icons/brush.svg?raw'
 import trashIconSource from '@/assets/icons/trash.svg?raw'
+import trashXIconSource from '@/assets/icons/trash-x.svg?raw'
 import settingsIconSource from '@/assets/icons/settings.svg?raw'
 import connectArrowIconSource from '@/assets/icons/arrow-right-circle.svg?raw'
 import downloadIconSource from '@/assets/icons/download.svg?raw'
@@ -25,6 +26,9 @@ import circleDashedIconSource from '@/assets/icons/circle-dashed.svg?raw'
 import arrowsExchangeIconSource from '@/assets/icons/arrows-exchange.svg?raw'
 import tildeIconSource from '@/assets/icons/tilde.svg?raw'
 import externalLinkIconSource from '@/assets/icons/external-link.svg?raw'
+import layoutRowsIconSource from '@/assets/icons/layout-rows.svg?raw'
+import layoutColumnsIconSource from '@/assets/icons/layout-columns.svg?raw'
+import rowInsertBottomIconSource from '@/assets/icons/row-insert-bottom.svg?raw'
 import signalIconSource from '@/assets/icons/signal.svg?raw'
 import terminateIconSource from '@/assets/icons/terminate.svg?raw'
 import multipleIconSource from '@/assets/icons/multiple.svg?raw'
@@ -48,6 +52,7 @@ export const MODELER_ASSETS = NovaAssets.define('nova-modeler', {
     tool: NovaAssets.svg(toolIconSource, { width: 24, height: 24, color: '#3f3f46' }),
     brush: NovaAssets.svg(brushIconSource, { width: 24, height: 24, color: '#3f3f46' }),
     trash: NovaAssets.svg(trashIconSource, { width: 24, height: 24, color: '#dc2626' }),
+    trashX: NovaAssets.svg(trashXIconSource, { width: 24, height: 24, color: '#dc2626' }),
     settings: NovaAssets.svg(settingsIconSource, { width: 24, height: 24, color: '#111827' }),
     connectArrow: NovaAssets.svg(connectArrowIconSource, { width: 24, height: 24, color: '#3f3f46' }),
     download: NovaAssets.svg(downloadIconSource, { width: 24, height: 24, color: '#3f3f46' }),
@@ -72,6 +77,10 @@ export const MODELER_ASSETS = NovaAssets.define('nova-modeler', {
     activityTransaction: NovaAssets.svg(arrowsExchangeIconSource, { width: 24, height: 24, color: '#3f3f46' }),
     activityAdHoc: NovaAssets.svg(tildeIconSource, { width: 24, height: 24, color: '#3f3f46' }),
     activityCall: NovaAssets.svg(externalLinkIconSource, { width: 24, height: 24, color: '#3f3f46' }),
+    swimlane: NovaAssets.svg(layoutRowsIconSource, { width: 24, height: 24, color: '#3f3f46' }),
+    swimlaneHorizontal: NovaAssets.svg(layoutRowsIconSource, { width: 24, height: 24, color: '#3f3f46' }),
+    swimlaneVertical: NovaAssets.svg(layoutColumnsIconSource, { width: 24, height: 24, color: '#3f3f46' }),
+    rowInsertBottom: NovaAssets.svg(rowInsertBottomIconSource, { width: 24, height: 24, color: '#3f3f46' }),
     signal: NovaAssets.svg(signalIconSource, { width: 24, height: 24, color: '#3f3f46' }),
     terminate: NovaAssets.svg(terminateIconSource, { width: 24, height: 24, color: '#3f3f46' }),
     multiple: NovaAssets.svg(multipleIconSource, { width: 24, height: 24, color: '#3f3f46' }),

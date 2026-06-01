@@ -92,6 +92,11 @@ import {
   BPMN_TASK_TYPE,
 } from '@/elements/bpmn/task/bpmn-task.factory'
 import type { BpmnTaskElement } from '@/elements/bpmn/task/bpmn-task.types'
+import {
+  BPMN_PARTICIPANT_TYPE,
+  renameBpmnParticipantLane,
+} from '@/elements/bpmn/participant/bpmn-participant.factory'
+import type { BpmnParticipantElement } from '@/elements/bpmn/participant/bpmn-participant.types'
 import { resolveBpmnActivityNameLayout } from '@/ui/elements/bpmn/activity/BpmnActivityView'
 import {
   resolveBpmnTaskNameLayout,
@@ -99,10 +104,12 @@ import {
 } from '@/ui/elements/bpmn/task/BpmnTaskView'
 import { resolveBpmnDataStoreNameLayout } from '@/ui/elements/bpmn/data/data-store/BpmnDataStoreView'
 import { resolveBpmnGroupNameLayout } from '@/ui/elements/bpmn/artifacts/group/BpmnGroupView'
+import { resolveBpmnParticipantNameLayout } from '@/ui/elements/bpmn/participant/BpmnParticipantView'
 import { MODEL_ELEMENTS_RUNTIME } from '@/plugins/elements/model/ElementsRuntime'
 
-type EditableNameElement = BpmnTaskElement | BpmnSubProcessElement | BpmnCallActivityElement | BpmnDataStoreElement | BpmnGroupElement
-type EditableNameKind = 'task' | 'activity' | 'dataStore' | 'group'
+type EditableNameElement = BpmnTaskElement | BpmnSubProcessElement | BpmnCallActivityElement | BpmnDataStoreElement | BpmnGroupElement | BpmnParticipantElement
+type EditableNameKind = 'task' | 'activity' | 'dataStore' | 'group' | 'participant' | 'lane'
+type EditableNamePart = { partType?: string; partId?: string }
 
 type RootDescriptor = NovaComponentDescriptor<
   RootResolvedProps,
@@ -200,10 +207,10 @@ export class Root<E extends EventList = Record<string, any>>
   private currentModelerCursor = 'default'
   private spacePressed = false
   private temporaryToolId: string | null = null
-  private taskNameEditor: { elementId: string; kind: EditableNameKind } | null = null
+  private taskNameEditor: { elementId: string; kind: EditableNameKind; part?: EditableNamePart } | null = null
   private hiddenTaskNameElementId: string | null = null
   private disposeTaskNameEditorLayer?: () => void
-  private lastTaskNamePointerDown: { elementId: string; x: number; y: number; time: number } | null = null
+  private lastTaskNamePointerDown: { elementId: string; partKey: string; x: number; y: number; time: number } | null = null
   private readonly handleWindowKeyDown = (event: KeyboardEvent): void => {
     if (event.key !== 'Escape') return
     if (this.handleEscapeKey(event)) event.preventDefault()
@@ -391,12 +398,14 @@ export class Root<E extends EventList = Record<string, any>>
 
   resolveNovaTooltipTarget(input: { x: number; y: number; event?: MouseEvent }): TooltipTargetResolution | null {
     const target = this.controllerInstance.hitTest({ x: input.x, y: input.y })
-    if (target.type !== 'element') return null
-    const element = this.controllerInstance.getModel().elements.find(item => item.id === target.id)
+    const elementId = this.resolveHitTargetElementId(target)
+    if (!elementId) return null
+    const element = this.controllerInstance.getModel().elements.find(item => item.id === elementId)
     if (!element || !this.isEditableNameElement(element)) return null
     if (this.taskNameEditor?.elementId === element.id) return null
-    if (!this.containsTaskNamePoint(element, input)) return null
-    const layout = this.resolveTaskNameScreenLayout(element)
+    const part = target.type === 'element-part' ? { partType: target.partType, partId: target.partId } : undefined
+    if (!this.containsTaskNamePoint(element, input, part)) return null
+    const layout = this.resolveTaskNameScreenLayout(element, part)
     if (!layout.clipped) return null
     const targetType = this.resolveNameEditorTargetType(element)
     return {
@@ -412,35 +421,47 @@ export class Root<E extends EventList = Record<string, any>>
     }
   }
 
-  private resolveTaskNameScreenLayout(element: EditableNameElement): BpmnTaskNameLayout {
+  private resolveTaskNameScreenLayout(element: EditableNameElement, part: EditableNamePart | undefined = this.taskNameEditor?.part): BpmnTaskNameLayout {
     const viewport = this.controllerInstance.getViewport()
     const width = element.width * viewport.scale
     const height = element.height * viewport.scale
-    const layout = element.type === BPMN_DATA_STORE_TYPE
-      ? resolveBpmnDataStoreNameLayout({
+    let layout: BpmnTaskNameLayout
+    if (element.type === BPMN_PARTICIPANT_TYPE) {
+      const participant = element as BpmnParticipantElement
+      layout = resolveBpmnParticipantNameLayout({
+        element: participant,
+        width,
+        height,
+        partType: part?.partType,
+        partId: part?.partId,
+      })
+    } else if (element.type === BPMN_DATA_STORE_TYPE) {
+      layout = resolveBpmnDataStoreNameLayout({
           name: element.data?.name,
           width,
           height,
         })
-      : element.type === BPMN_GROUP_TYPE
-        ? resolveBpmnGroupNameLayout({
+    } else if (element.type === BPMN_GROUP_TYPE) {
+      layout = resolveBpmnGroupNameLayout({
             name: element.data?.name,
             width,
             height,
           })
-        : element.type === BPMN_SUB_PROCESS_TYPE || element.type === BPMN_CALL_ACTIVITY_TYPE
-          ? resolveBpmnActivityNameLayout({
+    } else if (element.type === BPMN_SUB_PROCESS_TYPE || element.type === BPMN_CALL_ACTIVITY_TYPE) {
+      layout = resolveBpmnActivityNameLayout({
               name: element.data?.name,
               width,
               height,
               data: element.data,
             })
-          : resolveBpmnTaskNameLayout({
+    } else {
+      layout = resolveBpmnTaskNameLayout({
               name: element.data?.name,
               width,
               height,
               data: element.data,
             })
+    }
     const center = this.controllerInstance.worldToScreen({
       x: element.x + element.width / 2,
       y: element.y + element.height / 2,
@@ -461,13 +482,13 @@ export class Root<E extends EventList = Record<string, any>>
     }
   }
 
-  private resolveTaskNameContentRect(element: EditableNameElement): ModelerRect {
-    return this.resolveTaskNameScreenLayout(element).rect
+  private resolveTaskNameContentRect(element: EditableNameElement, part?: EditableNamePart): ModelerRect {
+    return this.resolveTaskNameScreenLayout(element, part).rect
   }
 
   private resolveTaskNameEditorRect(element: EditableNameElement): ModelerRect {
     const layout = this.resolveTaskNameScreenLayout(element)
-    if (element.type === BPMN_DATA_STORE_TYPE || element.type === BPMN_GROUP_TYPE) {
+    if (element.type === BPMN_DATA_STORE_TYPE || element.type === BPMN_GROUP_TYPE || element.type === BPMN_PARTICIPANT_TYPE) {
       return {
         x: layout.rect.x - 10,
         y: layout.rect.y - 8,
@@ -972,35 +993,41 @@ export class Root<E extends EventList = Record<string, any>>
 
   private openTaskNameEditorFromPoint(point: ModelerPoint): boolean {
     const target = this.hitTest(point)
-    if (target.type !== 'element') return false
-    const element = this.controllerInstance.getModel().elements.find(item => item.id === target.id)
+    const elementId = this.resolveHitTargetElementId(target)
+    if (!elementId) return false
+    const element = this.controllerInstance.getModel().elements.find(item => item.id === elementId)
     if (!element || !this.isEditableNameElement(element)) return false
-    if (!this.containsTaskNamePoint(element, point)) return false
-    this.taskNameEditor = { elementId: element.id, kind: this.resolveNameEditorKind(element) }
+    const part = target.type === 'element-part' ? { partType: target.partType, partId: target.partId } : undefined
+    if (!this.containsTaskNamePoint(element, point, part)) return false
+    this.taskNameEditor = { elementId: element.id, kind: this.resolveNameEditorKind(element, part), part }
     this.syncTaskNameEditor()
     return true
   }
 
   private openTaskNameEditorOnDoublePointerDown(target: ModelerHitTarget, point: ModelerPoint): boolean {
-    if (target.type !== 'element') {
+    const elementId = this.resolveHitTargetElementId(target)
+    if (!elementId) {
       this.lastTaskNamePointerDown = null
       return false
     }
-    const element = this.controllerInstance.getModel().elements.find(item => item.id === target.id)
-    if (!element || !this.isEditableNameElement(element) || !this.containsTaskNamePoint(element, point)) {
+    const element = this.controllerInstance.getModel().elements.find(item => item.id === elementId)
+    const part = target.type === 'element-part' ? { partType: target.partType, partId: target.partId } : undefined
+    if (!element || !this.isEditableNameElement(element) || !this.containsTaskNamePoint(element, point, part)) {
       this.lastTaskNamePointerDown = null
       return false
     }
     const now = Date.now()
     const previous = this.lastTaskNamePointerDown
+    const partKey = `${part?.partType ?? ''}:${part?.partId ?? ''}`
     const isDouble = previous?.elementId === element.id
+      && previous.partKey === partKey
       && now - previous.time <= 500
       && Math.abs(previous.x - point.x) <= 4
       && Math.abs(previous.y - point.y) <= 4
-    this.lastTaskNamePointerDown = { elementId: element.id, x: point.x, y: point.y, time: now }
+    this.lastTaskNamePointerDown = { elementId: element.id, partKey, x: point.x, y: point.y, time: now }
     if (!isDouble) return false
     this.lastTaskNamePointerDown = null
-    this.taskNameEditor = { elementId: element.id, kind: this.resolveNameEditorKind(element) }
+    this.taskNameEditor = { elementId: element.id, kind: this.resolveNameEditorKind(element, part), part }
     this.syncTaskNameEditor()
     return true
   }
@@ -1026,7 +1053,7 @@ export class Root<E extends EventList = Record<string, any>>
         y: rect.y,
         width: rect.width,
         height: rect.height,
-        value: element.data?.name ?? this.resolveNameEditorFallback(element),
+        value: this.resolveEditableNameValue(element),
         inputEngine: 'canvas',
         size: 'sm',
         variant: 'ghost',
@@ -1095,7 +1122,16 @@ export class Root<E extends EventList = Record<string, any>>
     const element = this.controllerInstance.getModel().elements.find(item => item.id === elementId)
     if (!element || !this.isEditableNameElement(element)) return
     const nextName = normalizeEditableName(value, this.resolveNameEditorFallback(element))
-    if ((element.data?.name ?? this.resolveNameEditorFallback(element)) === nextName) return
+    if (this.resolveEditableNameValue(element) === nextName) return
+    if (element.type === BPMN_PARTICIPANT_TYPE && this.taskNameEditor?.part?.partType === 'bpmn.swimlane.lane') {
+      const participant = element as BpmnParticipantElement
+      this.controllerInstance.applyCommand({
+        type: 'element.replace',
+        id: element.id,
+        element: renameBpmnParticipantLane(participant, this.taskNameEditor.part.partId ?? '', nextName),
+      })
+      return
+    }
     this.controllerInstance.applyCommand({
       type: 'element.patch',
       id: element.id,
@@ -1114,8 +1150,9 @@ export class Root<E extends EventList = Record<string, any>>
     return targetId === this.taskNameEditorInputId() || targetId.startsWith(`${this.taskNameEditorInputId()}:`)
   }
 
-  private containsTaskNamePoint(element: EditableNameElement, point: ModelerPoint): boolean {
-    const rect = this.resolveTaskNameContentRect(element)
+  private containsTaskNamePoint(element: EditableNameElement, point: ModelerPoint, part?: EditableNamePart): boolean {
+    if (element.type === BPMN_PARTICIPANT_TYPE && !part?.partType) return false
+    const rect = this.resolveTaskNameContentRect(element, part)
     return point.x >= rect.x
       && point.x <= rect.x + rect.width
       && point.y >= rect.y
@@ -1132,9 +1169,12 @@ export class Root<E extends EventList = Record<string, any>>
       || element.type === BPMN_CALL_ACTIVITY_TYPE
       || element.type === BPMN_DATA_STORE_TYPE
       || element.type === BPMN_GROUP_TYPE
+      || element.type === BPMN_PARTICIPANT_TYPE
   }
 
-  private resolveNameEditorKind(element: EditableNameElement): EditableNameKind {
+  private resolveNameEditorKind(element: EditableNameElement, part?: EditableNamePart): EditableNameKind {
+    if (element.type === BPMN_PARTICIPANT_TYPE && part?.partType === 'bpmn.swimlane.lane') return 'lane'
+    if (element.type === BPMN_PARTICIPANT_TYPE) return 'participant'
     if (element.type === BPMN_DATA_STORE_TYPE) return 'dataStore'
     if (element.type === BPMN_GROUP_TYPE) return 'group'
     if (element.type === BPMN_SUB_PROCESS_TYPE || element.type === BPMN_CALL_ACTIVITY_TYPE) return 'activity'
@@ -1142,6 +1182,8 @@ export class Root<E extends EventList = Record<string, any>>
   }
 
   private resolveNameEditorFallback(element: EditableNameElement): string {
+    if (element.type === BPMN_PARTICIPANT_TYPE && this.taskNameEditor?.part?.partType === 'bpmn.swimlane.lane') return 'Lane'
+    if (element.type === BPMN_PARTICIPANT_TYPE) return 'Participant'
     if (element.type === BPMN_DATA_STORE_TYPE) return 'Data store'
     if (element.type === BPMN_GROUP_TYPE) return 'Group'
     if (element.type === BPMN_SUB_PROCESS_TYPE) return 'Sub-process'
@@ -1154,11 +1196,28 @@ export class Root<E extends EventList = Record<string, any>>
   }
 
   private resolveNameEditorTargetType(element: EditableNameElement): string {
+    if (element.type === BPMN_PARTICIPANT_TYPE && this.taskNameEditor?.part?.partType === 'bpmn.swimlane.lane') return 'modeler.bpmn.participant.lane.name'
+    if (element.type === BPMN_PARTICIPANT_TYPE) return 'modeler.bpmn.participant.name'
     if (element.type === BPMN_DATA_STORE_TYPE) return 'modeler.bpmn.data-store.name'
     if (element.type === BPMN_GROUP_TYPE) return 'modeler.bpmn.group.name'
     if (element.type === BPMN_SUB_PROCESS_TYPE) return 'modeler.bpmn.sub-process.name'
     if (element.type === BPMN_CALL_ACTIVITY_TYPE) return 'modeler.bpmn.call-activity.name'
     return 'modeler.bpmn.task.name'
+  }
+
+  private resolveEditableNameValue(element: EditableNameElement): string {
+    if (element.type === BPMN_PARTICIPANT_TYPE && this.taskNameEditor?.part?.partType === 'bpmn.swimlane.lane') {
+      const participant = element as BpmnParticipantElement
+      const lane = participant.data?.lanes.find(item => item.id === this.taskNameEditor?.part?.partId)
+      return lane?.name ?? this.resolveNameEditorFallback(element)
+    }
+    return element.data?.name ?? this.resolveNameEditorFallback(element)
+  }
+
+  private resolveHitTargetElementId(target: ModelerHitTarget): string | null {
+    if (target.type === 'element') return target.id
+    if (target.type === 'element-part') return target.id
+    return null
   }
 
   private closeContextPadMenus(): void {
@@ -1193,6 +1252,7 @@ export class Root<E extends EventList = Record<string, any>>
     if (target.type === 'edge-waypoint-handle' || target.type === 'edge-segment-handle') return 'edge-handle'
     if (target.type === 'port') return 'port'
     if (target.type === 'element') return this.resolveElementCursor(target.id)
+    if (target.type === 'element-part') return this.resolveElementCursor(target.id)
     return 'default'
   }
 
@@ -1201,13 +1261,13 @@ export class Root<E extends EventList = Record<string, any>>
       MODEL_ELEMENTS_RUNTIME.edgeSegmentHover.clear()
       return
     }
-    if (target.type !== 'edge-segment-handle' && target.type !== 'element') {
+    if (target.type !== 'edge-segment-handle' && target.type !== 'element' && target.type !== 'element-part') {
       MODEL_ELEMENTS_RUNTIME.edgeSegmentHover.clear()
       return
     }
     const elementId = target.type === 'edge-segment-handle' ? target.elementId : target.id
     const model = this.controllerInstance.getModel()
-    if (target.type === 'element' && !model.selection.includes(elementId)) {
+    if ((target.type === 'element' || target.type === 'element-part') && !model.selection.includes(elementId)) {
       MODEL_ELEMENTS_RUNTIME.edgeSegmentHover.clear()
       return
     }

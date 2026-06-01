@@ -55,6 +55,7 @@ type PaletteDragPreviewShape =
   | 'bpmn-gateway'
   | 'bpmn-text-annotation'
   | 'bpmn-group'
+  | 'bpmn-swimlane'
   | 'bpmn-data-object'
   | 'bpmn-data-store'
 
@@ -900,6 +901,10 @@ export class Palette<E extends EventList = Record<string, any>>
       this.appendAssetIcon(schema, MODELER_ASSETS.icons.activity, x, y, size)
       return
     }
+    if (item.icon === 'bpmn-swimlane') {
+      this.appendAssetIcon(schema, MODELER_ASSETS.icons.swimlane, x, y, size)
+      return
+    }
     if (item.icon === 'bpmn-association') {
       this.appendAssetIcon(schema, MODELER_ASSETS.icons.link, x, y, size)
       return
@@ -1145,6 +1150,31 @@ export class Palette<E extends EventList = Record<string, any>>
       return
     }
 
+    if (shape === 'bpmn-swimlane') {
+      const width = 260 * scale
+      const height = 140 * scale
+      const left = this.dragPreviewPoint.x - width / 2
+      const top = this.dragPreviewPoint.y - height / 2
+      const color = this.resolvePaletteColor('palettePreviewStroke')
+      const opacity = this.resolvePaletteNumber('palettePreviewOpacity')
+      schema.push({
+        type: 'rect',
+        x: left,
+        y: top,
+        width,
+        height,
+        styles: {
+          background: this.resolvePaletteColor('palettePreviewFill'),
+          border: { color, width: 1.5, radius: 4 },
+          opacity,
+        },
+      })
+      schema.push({ type: 'line', x1: left + 18 * scale, y1: top, x2: left + 18 * scale, y2: top + height, styles: { color, width: 1.5, opacity } })
+      schema.push({ type: 'line', x1: left + 70 * scale, y1: top, x2: left + 70 * scale, y2: top + height, styles: { color, width: 1.5, opacity } })
+      schema.push({ type: 'line', x1: left + 18 * scale, y1: top + height / 2, x2: left + width, y2: top + height / 2, styles: { color, width: 1.5, opacity } })
+      return
+    }
+
     if (shape === 'bpmn-data-object') {
       const width = 96 * scale
       const height = 120 * scale
@@ -1240,6 +1270,7 @@ export class Palette<E extends EventList = Record<string, any>>
     const signature = `${id} ${icon} ${toolId} ${actionId}`
     if (signature.includes('bpmn.textAnnotation') || icon === 'bpmn-text-annotation') return 'bpmn-text-annotation'
     if (signature.includes('bpmn.group') || icon === 'bpmn-group') return 'bpmn-group'
+    if (signature.includes('bpmn.swimlane') || signature.includes('bpmn.participant') || icon === 'bpmn-swimlane') return 'bpmn-swimlane'
     if (signature.includes('bpmn.dataObject') || icon === 'bpmn-data-object') return 'bpmn-data-object'
     if (signature.includes('bpmn.dataStore') || icon === 'bpmn-data-store') return 'bpmn-data-store'
     if (signature.includes('bpmn.gateway') || icon === 'bpmn-gateway') return 'bpmn-gateway'

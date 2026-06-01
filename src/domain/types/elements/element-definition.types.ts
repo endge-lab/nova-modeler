@@ -6,6 +6,7 @@ import type {
   ModelerElementInput,
 } from '@/domain/types/elements/element.types'
 import type { ModelerElementVariantProvider } from '@/domain/types/elements/element-variant.types'
+import type { ModelerHitTarget } from '@/domain/types/interaction/hit-target.types'
 import type { ModelerKeyboardShortcut } from '@/domain/types/keyboard/shortcut.types'
 import type { ModelerPoint } from '@/domain/types/model/geometry.types'
 import type { ModelerPaletteItemDefinition } from '@/domain/types/palette/palette.types'
@@ -44,5 +45,6 @@ export interface ModelerElementDefinition<TElement extends ModelerElement = Mode
   render(context: ModelerElementRenderContext, element: TElement): NovaTemplateChildSchema
   getPorts?(context: ModelerElementPortContext, element: TElement): Array<ModelerPort>
   hitTest?(context: ModelerElementHitTestContext, element: TElement, localPoint: ModelerPoint): boolean
+  hitTestPart?(context: ModelerElementHitTestContext, element: TElement, localPoint: ModelerPoint): ModelerHitTarget | null | undefined
   getTooltip?(context: ModelerElementHitTestContext, element: TElement): TooltipInput | null | undefined
 }

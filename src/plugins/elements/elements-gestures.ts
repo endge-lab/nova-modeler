@@ -12,6 +12,11 @@ import { SelectionRuntime } from '@/model/selection/SelectionRuntime'
 import { eventPoint } from '@/tools/event-point'
 import type { ElementsRuntime } from '@/plugins/elements/model/ElementsRuntime'
 import { BPMN_GROUP_TYPE } from '@/elements/bpmn/artifacts/group/bpmn-group.factory'
+import {
+  BPMN_PARTICIPANT_TYPE,
+  isElementInsideBpmnParticipantContent,
+} from '@/elements/bpmn/participant/bpmn-participant.factory'
+import type { BpmnParticipantElement } from '@/elements/bpmn/participant/bpmn-participant.types'
 
 export class ElementsGestures {
   private activeResize: {
@@ -183,17 +188,20 @@ export class ElementsGestures {
     addDisposer(this.context.gestures.add({
       id: 'modeler-elements:select',
       priority: 40,
-      hitTest: (_context, event, target) => event.button === 0 && target.type === 'element',
+      hitTest: (_context, event, target) => event.button === 0 && this.resolveTargetElementId(target) !== null,
       onPointerDown: (context, event) => {
         const point = eventPoint(event)
         const target = context.hitTest(point)
-        if (target.type !== 'element') return false
-        this.runtime.contextPadAnchors.set(target.id, point)
+        const elementId = this.resolveTargetElementId(target)
+        if (!elementId) return false
+        this.runtime.contextPadAnchors.set(elementId, point, target.type === 'element-part'
+          ? { partType: target.partType, partId: target.partId }
+          : undefined)
         context.applyCommand({
           type: 'select',
           ids: SelectionRuntime.resolvePointerSelection({
             current: context.getModel().selection,
-            elementId: target.id,
+            elementId,
             event,
             options: context.getOptions().interaction?.selection,
           }),
@@ -205,23 +213,29 @@ export class ElementsGestures {
       id: 'modeler-elements:move',
       priority: 90,
       hitTest: (context, event, target) => {
-        if (event.button !== 0 || target.type !== 'element') return false
-        const element = context.getModel().elements.find(item => item.id === target.id)
+        const elementId = this.resolveTargetElementId(target)
+        if (event.button !== 0 || !elementId) return false
+        const element = context.getModel().elements.find(item => item.id === elementId)
         const definition = element ? context.getElementRegistry().get(element.type) : undefined
         return !!element && definition?.capabilities?.draggable !== false
       },
       onPointerDown: (context, event) => {
-        const target = context.hitTest(eventPoint(event))
-        if (target.type !== 'element') return false
+        const point = eventPoint(event)
+        const target = context.hitTest(point)
+        const elementId = this.resolveTargetElementId(target)
+        if (!elementId) return false
         const model = context.getModel()
-        const element = model.elements.find(item => item.id === target.id)
+        const element = model.elements.find(item => item.id === elementId)
         const definition = element ? context.getElementRegistry().get(element.type) : undefined
         if (!element || definition?.capabilities?.draggable === false) return false
-        const nextSelection = this.shouldKeepCurrentSelection(model.selection, target.id, event)
+        this.runtime.contextPadAnchors.set(elementId, point, target.type === 'element-part'
+          ? { partType: target.partType, partId: target.partId }
+          : undefined)
+        const nextSelection = this.shouldKeepCurrentSelection(model.selection, elementId, event)
           ? model.selection
           : SelectionRuntime.resolvePointerSelection({
               current: model.selection,
-              elementId: target.id,
+              elementId,
               event,
               options: context.getOptions().interaction?.selection,
             })
@@ -438,9 +452,24 @@ export class ElementsGestures {
         if (this.isElementFullyInsideGroup(element, group)) moveIds.add(element.id)
       }
     }
+    const selectedParticipants = modelElements
+      .filter((element): element is BpmnParticipantElement => selected.has(element.id) && element.type === BPMN_PARTICIPANT_TYPE)
+    for (const participant of selectedParticipants) {
+      for (const element of modelElements) {
+        if (moveIds.has(element.id) || element.id === participant.id || isModelerEdgeElement(element)) continue
+        if (!this.isElementDraggable(context, element)) continue
+        if (isElementInsideBpmnParticipantContent(element, participant)) moveIds.add(element.id)
+      }
+    }
     return modelElements
       .filter(element => moveIds.has(element.id))
       .map(element => this.cloneElement(element))
+  }
+
+  private resolveTargetElementId(target: ModelerHitTarget): string | null {
+    if (target.type === 'element') return target.id
+    if (target.type === 'element-part') return target.id
+    return null
   }
 
   private isElementDraggable(context: ModelerPluginContext, element: ModelerElement): boolean {

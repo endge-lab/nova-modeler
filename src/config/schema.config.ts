@@ -16,6 +16,7 @@ export const Modeler = {
   BpmnGroupView: 'Modeler.BpmnGroupView',
   BpmnDataObjectView: 'Modeler.BpmnDataObjectView',
   BpmnDataStoreView: 'Modeler.BpmnDataStoreView',
+  BpmnParticipantView: 'Modeler.BpmnParticipantView',
   PortView: 'Modeler.PortView',
   EdgeWaypointHandleView: 'Modeler.EdgeWaypointHandleView',
   ResizeHandleView: 'Modeler.ResizeHandleView',

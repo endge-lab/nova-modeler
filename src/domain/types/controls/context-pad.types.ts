@@ -24,6 +24,10 @@ export interface ContextPadTarget {
   element: ModelerElement
   screenBounds: ModelerRect
   anchor?: ModelerPoint
+  part?: {
+    partType: string
+    partId: string
+  }
 }
 
 export interface ContextPadEntry {

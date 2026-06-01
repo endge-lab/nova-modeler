@@ -3,6 +3,7 @@ import type { ModelerResizeHandle } from '@/domain/types/interaction/resize.type
 export type ModelerHitTarget =
   | { type: 'canvas' | 'empty' }
   | { type: 'element'; id: string }
+  | { type: 'element-part'; id: string; partType: string; partId: string }
   | { type: 'port'; elementId: string; portId: string }
   | { type: 'resize-handle'; elementId: string; handle: ModelerResizeHandle }
   | { type: 'rotate-handle'; elementId: string }

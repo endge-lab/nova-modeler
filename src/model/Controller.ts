@@ -544,6 +544,8 @@ export class Controller implements ModelerController {
           local.y >= element.y &&
           local.y <= element.y + element.height
       if (contains) {
+        const partTarget = definition.hitTestPart?.(this.pluginContext, element, local)
+        if (partTarget) return partTarget
         return { type: 'element', id: element.id }
       }
     }

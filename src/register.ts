@@ -23,6 +23,7 @@ import { BpmnDataStoreView } from '@/ui/elements/bpmn/data/data-store/BpmnDataSt
 import { BpmnEventView } from '@/ui/elements/bpmn/event/BpmnEventView'
 import { BpmnFlowView } from '@/ui/elements/bpmn/flow/BpmnFlowView'
 import { BpmnGatewayView } from '@/ui/elements/bpmn/gateway/BpmnGatewayView'
+import { BpmnParticipantView } from '@/ui/elements/bpmn/participant/BpmnParticipantView'
 import { BpmnActivityView } from '@/ui/elements/bpmn/activity/BpmnActivityView'
 import { BpmnTaskView } from '@/ui/elements/bpmn/task/BpmnTaskView'
 import { EdgeWaypointHandleView } from '@/ui/handles/EdgeWaypointHandleView'
@@ -51,6 +52,7 @@ export function registerModeler(registry: NovaSchemaRegistry): void {
   registry.registerDecorated(BpmnGroupView as never, { override: true })
   registry.registerDecorated(BpmnDataObjectView as never, { override: true })
   registry.registerDecorated(BpmnDataStoreView as never, { override: true })
+  registry.registerDecorated(BpmnParticipantView as never, { override: true })
   registry.registerDecorated(EdgeWaypointHandleView as never, { override: true })
   registry.registerDecorated(PortView as never, { override: true })
   registry.registerDecorated(ResizeHandleView as never, { override: true })
