@@ -396,7 +396,7 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
       this.appendText(schema, control.title, x, y, width, 18, { size: 11, weight: '700', color: '#64748b' })
       y += CONTROL_LABEL_HEIGHT
     }
-    const listHeight = LIST_VISIBLE_HEIGHT
+    const listHeight = this.resolveListHeight(control)
     schema.push({
       type: 'rect',
       x,
@@ -784,7 +784,7 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
     }
     if (control.kind === 'toggle') return this.resolveToggleRowHeight()
     if (control.kind === 'iconToggle') return 0
-    return label + LIST_VISIBLE_HEIGHT
+    return label + this.resolveListHeight(control) + CONTROL_BOTTOM_GAP
   }
 
   private resolveControlsHeight(controls: Array<ModelerElementVariantControl>): number {
@@ -944,12 +944,13 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
       }
       rowY += control.title ? CONTROL_LABEL_HEIGHT : 0
       const listY = rowY
-      if (x >= rect.x + MENU_PADDING && x <= rect.x + rect.width - MENU_PADDING && y >= listY && y <= listY + LIST_VISIBLE_HEIGHT) {
+      const listHeight = this.resolveListHeight(control)
+      if (x >= rect.x + MENU_PADDING && x <= rect.x + rect.width - MENU_PADDING && y >= listY && y <= listY + listHeight) {
         const index = Math.floor((y - listY + this.resolveControlScrollY(control)) / LIST_ROW_HEIGHT)
         const option = control.options[index]
         if (option) return { control, option, headerOptionId: null, choiceId: null, listOptionId: option.id }
       }
-      rowY += LIST_VISIBLE_HEIGHT + 8
+      rowY += listHeight + CONTROL_BOTTOM_GAP
     }
     return { headerOptionId: null, choiceId: null, listOptionId: null }
   }
@@ -1048,7 +1049,7 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
   }
 
   private resolveMaxScroll(control: ModelerElementVariantControl): number {
-    return Math.max(0, control.options.length * LIST_ROW_HEIGHT - LIST_VISIBLE_HEIGHT)
+    return Math.max(0, control.options.length * LIST_ROW_HEIGHT - this.resolveListHeight(control))
   }
 
   private resolveControlScrollY(control: ModelerElementVariantControl): number {
@@ -1084,12 +1085,17 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
         continue
       }
       rowY += control.title ? CONTROL_LABEL_HEIGHT : 0
-      if (x >= rect.x + MENU_PADDING && x <= rect.x + rect.width - MENU_PADDING && y >= rowY && y <= rowY + LIST_VISIBLE_HEIGHT) {
+      const listHeight = this.resolveListHeight(control)
+      if (x >= rect.x + MENU_PADDING && x <= rect.x + rect.width - MENU_PADDING && y >= rowY && y <= rowY + listHeight) {
         return control
       }
-      rowY += LIST_VISIBLE_HEIGHT + 8
+      rowY += listHeight + CONTROL_BOTTOM_GAP
     }
     return null
+  }
+
+  private resolveListHeight(control: ModelerElementVariantControl): number {
+    return Math.min(LIST_VISIBLE_HEIGHT, Math.max(0, control.options.length * LIST_ROW_HEIGHT))
   }
 
   private close(): void {
