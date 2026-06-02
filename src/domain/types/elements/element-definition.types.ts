@@ -7,11 +7,11 @@ import type {
 } from '@/domain/types/elements/element.types'
 import type { ModelerElementVariantProvider } from '@/domain/types/elements/element-variant.types'
 import type { ModelerHitTarget } from '@/domain/types/interaction/hit-target.types'
-import type { ModelerKeyboardShortcut } from '@/domain/types/keyboard/shortcut.types'
+import type { ModelerKeyboardShortcut } from '@/domain/types/shortcut.types'
 import type { ModelerPoint } from '@/domain/types/model/geometry.types'
-import type { ModelerPaletteItemDefinition } from '@/domain/types/palette/palette.types'
+import type { ModelerPaletteItemDefinition } from '@/domain/types/palette.types'
 import type { ModelerPluginContext } from '@/domain/types/plugins/plugin.types'
-import type { ModelerPort } from '@/domain/types/ports/port.types'
+import type { ModelerPort } from '@/domain/types/port.types'
 
 export interface ModelerElementRenderContext extends ModelerPluginContext {
   selected: boolean

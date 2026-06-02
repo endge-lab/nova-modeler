@@ -28,6 +28,7 @@ import { clamp } from '@/tools/number'
 import { Store } from '@/model/Store'
 import { createModelerElementRegistry } from '@/model/ElementRegistry'
 import { createPluginRuntime } from '@/model/plugin-runtime/PluginRuntime'
+import { ModelerVisibilityRuntime } from '@/model/ModelerVisibilityRuntime'
 import { ActionRegistry } from '@/model/registry/ActionRegistry'
 import { ElementVariantRegistry } from '@/model/registry/ElementVariantRegistry'
 import { PaletteRegistry } from '@/model/registry/PaletteRegistry'
@@ -48,6 +49,7 @@ export class Controller implements ModelerController {
   readonly store: ModelerStore
   private options: ModelerOptionsRef
   private readonly elementRegistry: ModelerElementRegistry
+  private readonly visibilityRuntime: ModelerVisibilityRuntime
   private host: ControllerHost | null = null
   private layout: ModelerLayout
 
@@ -77,6 +79,7 @@ export class Controller implements ModelerController {
   constructor(options: ControllerOptions = {}) {
     this.elementRegistry = options.elementRegistry ?? createModelerElementRegistry()
     this.store = options.store ?? new Store(options.model, { elementRegistry: this.elementRegistry })
+    this.visibilityRuntime = new ModelerVisibilityRuntime()
     this.options = normalizeModelerOptions(options.options)
     this.pluginRuntime = options.pluginRuntime ?? createPluginRuntime()
     this.actions = new ActionRegistry(() => this.pluginContext)
@@ -351,6 +354,7 @@ export class Controller implements ModelerController {
       screenToWorld: (point) => this.screenToWorld(point),
       worldToScreen: (point) => this.worldToScreen(point),
       invalidate: (phase) => this.invalidate(phase),
+      visibility: this.visibilityRuntime,
       layers: {
         add: (layer) => this.addLayer(layer),
         get: (name) => this.requireHost().layers.get(name),

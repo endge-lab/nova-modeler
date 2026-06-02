@@ -55,6 +55,11 @@ const PARTICIPANT_LABEL_FONT_FAMILY = 'Inter, system-ui, -apple-system, BlinkMac
 const PARTICIPANT_LABEL_FONT_SIZE = 12
 const PARTICIPANT_LABEL_FONT_WEIGHT = '500' as const
 const PARTICIPANT_LABEL_LINE_HEIGHT = 16
+const HORIZONTAL_PARTICIPANT_LABEL_ROTATION = -Math.PI / 2
+
+type BpmnParticipantLabelLayout = BpmnTaskNameLayout & {
+  rotation?: number
+}
 
 export function resolveBpmnParticipantNameLayout(input: {
   element: BpmnParticipantElement
@@ -217,7 +222,7 @@ export class BpmnParticipantView<E extends EventList = Record<string, any>>
     })
   }
 
-  private appendLabel(schema: NovaSchema, layout: BpmnTaskNameLayout): void {
+  private appendLabel(schema: NovaSchema, layout: BpmnParticipantLabelLayout): void {
     const color = this.resolveThemeColor('bpmnTaskTextColor')
     for (const line of layout.lines) {
       schema.push({
@@ -227,6 +232,7 @@ export class BpmnParticipantView<E extends EventList = Record<string, any>>
         y: line.y,
         width: line.widthLimit,
         height: line.height,
+        rotation: layout.rotation,
         clip: true,
         styles: {
           color,
@@ -338,37 +344,35 @@ function createRenderLabelLayout(
   rect: ModelerRect,
   orientation: unknown,
   scale = 1,
-): BpmnTaskNameLayout {
+): BpmnParticipantLabelLayout {
   if (normalizeBpmnParticipantOrientation(orientation) !== 'horizontal') {
     return createLabelLayout(text, rect, orientation, scale)
   }
   const normalizedText = typeof text === 'string' && text.trim().length > 0 ? text : 'Lane'
-  const characters = [...normalizedText.replace(/\s+/g, ' ')]
   const fontSize = Math.max(1, PARTICIPANT_LABEL_FONT_SIZE * scale)
   const lineHeight = Math.max(1, PARTICIPANT_LABEL_LINE_HEIGHT * scale)
-  const inset = 4 * scale
-  const maxLines = Math.max(1, Math.floor((rect.height - inset * 2) / lineHeight))
-  const visible = characters.slice(0, maxLines)
-  const clipped = characters.length > maxLines
-  if (clipped && visible.length > 0) visible[visible.length - 1] = '.'
-  const contentHeight = visible.length * lineHeight
-  const startY = rect.y + Math.max(inset, (rect.height - contentHeight) / 2)
+  const inset = 8 * scale
+  const widthLimit = Math.max(1, rect.height - inset * 2)
+  const textWidth = measureParticipantLabelText(normalizedText, fontSize)
+  const centerX = rect.x + rect.width / 2
+  const centerY = rect.y + rect.height / 2
   return {
     text: normalizedText,
     rect,
-    lines: visible.map((character, index) => ({
-      text: character,
-      x: rect.x + 2 * scale,
-      y: startY + index * lineHeight,
-      width: fontSize,
-      widthLimit: Math.max(1, rect.width - 4 * scale),
+    lines: [{
+      text: normalizedText,
+      x: centerX - widthLimit / 2,
+      y: centerY - lineHeight / 2,
+      width: textWidth,
+      widthLimit,
       height: lineHeight,
-    })),
-    clipped,
+    }],
+    clipped: textWidth > widthLimit,
     fontFamily: PARTICIPANT_LABEL_FONT_FAMILY,
     fontSize,
     fontWeight: PARTICIPANT_LABEL_FONT_WEIGHT,
     lineHeight,
+    rotation: HORIZONTAL_PARTICIPANT_LABEL_ROTATION,
   }
 }
 

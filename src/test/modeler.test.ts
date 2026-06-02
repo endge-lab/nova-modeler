@@ -44,15 +44,25 @@ import {
   MODELER_SURFACE_CONFIG,
   MODEL_ELEMENTS_RUNTIME,
   ModelerPngExporter,
+  BpmnBatchRuntime,
+  ModelerVisibilityRuntime,
   PluginBase,
+  createModelerVisibleWorldRect,
+  isBpmnRecipeNodeType,
+  isBpmnRecipeRenderableNode,
   normalizeModelerModel,
+  normalizeBpmnRecipeRenderingOptions,
   normalizeModelerOptions,
   registerModeler,
+  shouldUseBpmnRecipeRendering,
   resolveBpmnActivityNameLayout,
   resolveBpmnTaskNameLayout,
   type ModelerRect,
+  type ModelerLayout,
   type ModelerSettingsDialogApi,
   type ModelerValidationResult,
+  type ModelerViewport,
+  type BpmnRecipeLayerDiagnostics,
 } from '@/index'
 
 describe('nova modeler minimal kernel', () => {
@@ -665,13 +675,16 @@ describe('nova modeler minimal kernel', () => {
     const signalEvent = model.elements[0] as typeof event
     const signalDraft = provider.createDraft?.(context, signalEvent) ?? {}
     const signalDescriptor = provider.getDescriptor(context, signalEvent, signalDraft)
-    const signalOption = signalDescriptor.controls.find(control => control.id === 'trigger')?.options.find(option => option.id === 'start:signal:catch')!
+    const signalOption = signalDescriptor.controls
+      .find(control => control.id === 'trigger')
+      ?.options.find(option => option.id === 'start:signal:catch')
+    expect(signalOption).toBeDefined()
     provider.apply({
       context,
       element: signalEvent,
       draft: signalDraft,
       control: triggerControl,
-      option: signalOption,
+      option: signalOption!,
     })
     expect(controller.getModel().elements[0]).toMatchObject({
       data: {
@@ -1447,6 +1460,11 @@ describe('nova modeler minimal kernel', () => {
         model: createModelerModel({
           elements: [task, participant],
         }),
+        options: {
+          rendering: {
+            bpmnRecipes: { enabled: false },
+          },
+        },
         width: 800,
         height: 520,
       },
@@ -1504,6 +1522,58 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
+  it('renders BPMN participant and lane labels rotated by 90 degrees', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const participant = createBpmnParticipantElement({
+      id: 'pool-rotated-labels',
+      x: 80,
+      y: 80,
+      width: 520,
+      height: 260,
+      name: 'Название пула',
+      lanes: [
+        { id: 'lane-a', name: 'Название lane', size: 260 },
+      ],
+    })
+    const app = Nova.createApp({
+      target: document.createElement('canvas'),
+      size: { width: 800, height: 520, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'swimlane-rotated-label-root',
+      props: {
+        model: createModelerModel({
+          elements: [participant],
+        }),
+        options: {
+          rendering: {
+            bpmnRecipes: { enabled: false },
+          },
+        },
+        width: 800,
+        height: 520,
+      },
+    })
+    app.raph.run()
+    app.raph.run()
+
+    const interaction = app.surfaces.find(item => item.name === 'swimlane-rotated-label-root:interaction')
+    const textItems = interaction?.compileRenderFrame().items
+      .map(item => item.schemaItem)
+      .filter(item => item?.type === 'text') ?? []
+    expect(textItems.filter(item => item.text === 'Название пула')).toHaveLength(1)
+    expect(textItems.filter(item => item.text === 'Название lane')).toHaveLength(1)
+    expect(textItems.find(item => item.text === 'Название пула')).toMatchObject({ rotation: -Math.PI / 2 })
+    expect(textItems.find(item => item.text === 'Название lane')).toMatchObject({ rotation: -Math.PI / 2 })
+    expect(textItems.some(item => item.text === 'Н')).toBe(false)
+    app.destroy()
+  })
+
   it('updates BPMN participant geometry when viewport scale changes', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const participant = createBpmnParticipantElement({
@@ -1551,7 +1621,179 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('uses the BPMN recipe layer for unselected nodes at low zoom', () => {
+  it('normalizes BPMN recipe rendering options', () => {
+    expect(normalizeBpmnRecipeRenderingOptions({})).toMatchObject({
+      enabled: true,
+      mode: 'auto',
+      nodes: true,
+      edges: false,
+      text: 'batch',
+      culling: true,
+    })
+    expect(shouldUseBpmnRecipeRendering({ rendering: { bpmnRecipes: { mode: 'auto' } } }, { x: 0, y: 0, scale: 1 })).toBe(true)
+    expect(shouldUseBpmnRecipeRendering({ rendering: { bpmnRecipes: { mode: 'lod', lodScale: 0.35 } } }, { x: 0, y: 0, scale: 1 })).toBe(false)
+    expect(shouldUseBpmnRecipeRendering({ rendering: { bpmnRecipes: { mode: 'lod', lodScale: 0.35 } } }, { x: 0, y: 0, scale: 0.1 })).toBe(true)
+    expect(shouldUseBpmnRecipeRendering({ rendering: { bpmnRecipes: { enabled: false } } }, { x: 0, y: 0, scale: 0.1 })).toBe(false)
+    expect(shouldUseBpmnRecipeRendering({ rendering: { bpmnRecipes: { nodes: false } } }, { x: 0, y: 0, scale: 0.1 })).toBe(false)
+  })
+
+  it('keeps BPMN batch objects and revisions stable for unchanged payloads', () => {
+    const runtime = new BpmnBatchRuntime()
+    const rect: ModelerRect = { x: 120, y: 90, width: 160, height: 100 }
+    let writers = runtime.begin()
+    expect(writers.fill.write('task-1', 'fill', rect, '#ffffff')).toBe(true)
+    writers.text.write('task-1', 'label', 'Review request', rect)
+    runtime.finalize({
+      recipeElements: 1,
+      visibleElements: 1,
+      culledElements: 0,
+      schemaFallbacks: 0,
+      schemaItems: 0,
+      textEnabled: true,
+      textColor: '#172033',
+    })
+    const fillBatch = runtime.getFillBatch()
+    const textBatch = runtime.getTextBatch()
+    const firstRevision = fillBatch.revision
+
+    writers = runtime.begin()
+    expect(writers.fill.write('task-1', 'fill', rect, '#ffffff')).toBe(true)
+    writers.text.write('task-1', 'label', 'Review request', rect)
+    runtime.finalize({
+      recipeElements: 1,
+      visibleElements: 1,
+      culledElements: 0,
+      schemaFallbacks: 0,
+      schemaItems: 0,
+      textEnabled: true,
+      textColor: '#172033',
+    })
+    expect(runtime.getFillBatch()).toBe(fillBatch)
+    expect(runtime.getTextBatch()).toBe(textBatch)
+    expect(runtime.getFillBatch().revision).toBe(firstRevision)
+    expect(runtime.getDiagnostics()).toMatchObject({ dirtySlots: 0, panZoomRenderSkips: 1 })
+
+    writers = runtime.begin()
+    expect(writers.fill.write('task-1', 'fill', { ...rect, x: 124 }, '#ffffff')).toBe(true)
+    writers.text.write('task-1', 'label', 'Review request', { ...rect, x: 124 })
+    runtime.finalize({
+      recipeElements: 1,
+      visibleElements: 1,
+      culledElements: 0,
+      schemaFallbacks: 0,
+      schemaItems: 0,
+      textEnabled: true,
+      textColor: '#172033',
+    })
+    expect(runtime.getFillBatch().revision).toBeGreaterThan(firstRevision)
+    expect(runtime.getDiagnostics().dirtySlots).toBeGreaterThan(0)
+    expect(runtime.getSlotMap().get('task-1')).toEqual({ fill: [0], text: [0] })
+  })
+
+  it('queries visible BPMN modeler elements through the visibility runtime', () => {
+    const runtime = new ModelerVisibilityRuntime()
+    const visibleTask = createBpmnTaskElement({ id: 'visible-task', x: 120, y: 90 })
+    const hiddenTask = createBpmnTaskElement({ id: 'hidden-task', x: 1200, y: 900 })
+    const viewport = { x: -80, y: -40, scale: 1 }
+    const snapshot = runtime.resolve({
+      model: createModelerModel({ viewport, elements: [visibleTask, hiddenTask] }),
+      layout: createVisibilityLayout(viewport, 400, 240),
+      viewport,
+      useBpmnRecipes: true,
+      recipeCulling: true,
+      classifier: createVisibilityClassifier(),
+    })
+    expect(snapshot.recipeNodes.map(element => element.id)).toEqual(['visible-task'])
+    expect(snapshot.visibleIds.has('hidden-task')).toBe(false)
+    expect(runtime.getDiagnostics()).toMatchObject({ indexedNodes: 2, indexedEdges: 0, visibleNodes: 1 })
+    expect(createModelerVisibleWorldRect(viewport, createVisibilityLayout(viewport, 400, 240), 0)).toMatchObject({
+      x: 80,
+      y: 40,
+      width: 400,
+      height: 240,
+    })
+  })
+
+  it('keeps BPMN edges visible when viewport intersects route bounds', () => {
+    const runtime = new ModelerVisibilityRuntime()
+    const flow = createBpmnFlowElement({
+      id: 'route-visible-flow',
+      source: { elementId: 'source', point: { x: -1200, y: 140 } },
+      target: { elementId: 'target', point: { x: 1400, y: 140 } },
+      waypoints: [{ x: 140, y: 140 }],
+    })
+    const viewport = { x: 0, y: 0, scale: 1 }
+    const snapshot = runtime.resolve({
+      model: createModelerModel({ viewport, elements: [flow] }),
+      layout: createVisibilityLayout(viewport, 300, 220),
+      viewport,
+      useBpmnRecipes: true,
+      recipeCulling: true,
+      classifier: createVisibilityClassifier(),
+    })
+    expect(snapshot.edges.map(element => element.id)).toEqual(['route-visible-flow'])
+    expect(snapshot.diagnostics.visibleEdges).toBe(1)
+  })
+
+  it('forces selected and active hover elements into visibility outside viewport', () => {
+    const runtime = new ModelerVisibilityRuntime()
+    const hiddenTask = createBpmnTaskElement({ id: 'forced-task', x: 4000, y: 4000 })
+    const hiddenFlow = createBpmnFlowElement({
+      id: 'forced-flow',
+      source: { point: { x: 4200, y: 4200 } },
+      target: { point: { x: 4400, y: 4200 } },
+    })
+    const viewport = { x: 0, y: 0, scale: 1 }
+    const snapshot = runtime.resolve({
+      model: createModelerModel({
+        viewport,
+        elements: [hiddenTask, hiddenFlow],
+        selection: [hiddenTask.id],
+      }),
+      layout: createVisibilityLayout(viewport, 300, 220),
+      viewport,
+      selectedIds: [hiddenTask.id],
+      edgeSegmentHoverElementId: hiddenFlow.id,
+      useBpmnRecipes: true,
+      recipeCulling: true,
+      classifier: createVisibilityClassifier(),
+    })
+    expect(snapshot.schemaNodes.map(element => element.id)).toEqual(['forced-task'])
+    expect(snapshot.edges.map(element => element.id)).toEqual(['forced-flow'])
+    expect(snapshot.forcedIds).toEqual(new Set(['forced-task', 'forced-flow']))
+    expect(snapshot.diagnostics.forcedElements).toBe(2)
+  })
+
+  it('keeps visibility signature stable when viewport-only query returns same elements', () => {
+    const runtime = new ModelerVisibilityRuntime()
+    const task = createBpmnTaskElement({ id: 'stable-task', x: 120, y: 90 })
+    const hiddenTask = createBpmnTaskElement({ id: 'stable-hidden-task', x: 4000, y: 4000 })
+    const viewport = { x: 0, y: 0, scale: 1 }
+    const model = createModelerModel({ viewport, elements: [task, hiddenTask] })
+    const first = runtime.resolve({
+      model,
+      layout: createVisibilityLayout(viewport, 400, 240),
+      viewport,
+      useBpmnRecipes: true,
+      recipeCulling: true,
+      classifier: createVisibilityClassifier(),
+    })
+    const secondViewport = { x: -24, y: -12, scale: 1 }
+    const second = runtime.resolve({
+      model: { ...model, viewport: secondViewport, viewportVersion: model.viewportVersion + 1 },
+      layout: createVisibilityLayout(secondViewport, 400, 240),
+      viewport: secondViewport,
+      useBpmnRecipes: true,
+      recipeCulling: true,
+      classifier: createVisibilityClassifier(),
+    })
+    expect(second.recipeNodes.map(element => element.id)).toEqual(first.recipeNodes.map(element => element.id))
+    expect(second.signature).toBe(first.signature)
+    expect(second.revision).toBe(first.revision)
+    expect(second.diagnostics.indexRebuilds).toBe(1)
+  })
+
+  it('uses the BPMN recipe layer for unselected nodes at normal zoom', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const task = createBpmnTaskElement({ id: 'recipe-task', x: 120, y: 120, name: 'Recipe task' })
     const event = createBpmnEventElement({ id: 'recipe-event', x: 80, y: 136 })
@@ -1568,7 +1810,7 @@ describe('nova modeler minimal kernel', () => {
       id: 'recipe-root',
       props: {
         model: createModelerModel({
-          viewport: { x: 0, y: 0, scale: 0.1 },
+          viewport: { x: 0, y: 0, scale: 1 },
           elements: [event, task],
         }),
         width: 640,
@@ -1621,6 +1863,85 @@ describe('nova modeler minimal kernel', () => {
     expect(childIds).toContain('modeler-elements:bpmn-recipe-layer')
     expect(childIds).toContain('selected-recipe-task:view')
     expect(childIds).not.toContain('unselected-recipe-event:view')
+    app.destroy()
+  })
+
+  it('renders BPMN event trigger markers in the recipe layer without selection', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const event = createBpmnEventElement({
+      id: 'recipe-event-signal',
+      x: 140,
+      y: 120,
+      eventPosition: 'intermediate',
+      trigger: 'signal',
+      direction: 'throw',
+    })
+    const app = Nova.createApp({
+      target: document.createElement('canvas'),
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'recipe-event-marker-root',
+      props: {
+        model: createModelerModel({
+          viewport: { x: 0, y: 0, scale: 1 },
+          elements: [event],
+        }),
+        width: 640,
+        height: 420,
+      },
+    })
+    app.raph.run()
+    app.raph.run()
+
+    const interaction = app.surfaces.find(item => item.name === 'recipe-event-marker-root:interaction')
+    const childIds = interaction?.children.map(child => (child as { componentId?: string }).componentId) ?? []
+    const schemaItems = interaction?.compileRenderFrame().items.map(item => item.schemaItem).filter(Boolean) ?? []
+    expect(childIds).toContain('modeler-elements:bpmn-recipe-layer')
+    expect(childIds).not.toContain('recipe-event-signal:view')
+    expect(schemaItems.filter(item => item.type === 'circle').length).toBeGreaterThanOrEqual(2)
+    expect(schemaItems.some(item => item.type === 'polygon')).toBe(true)
+    app.destroy()
+  })
+
+  it('reports culled sparse BPMN recipe nodes in layer diagnostics', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const visibleTask = createBpmnTaskElement({ id: 'diagnostic-visible-task', x: 120, y: 120 })
+    const hiddenTask = createBpmnTaskElement({ id: 'diagnostic-hidden-task', x: 6000, y: 6000 })
+    const app = Nova.createApp({
+      target: document.createElement('canvas'),
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'recipe-diagnostics-root',
+      props: {
+        model: createModelerModel({
+          viewport: { x: 0, y: 0, scale: 1 },
+          elements: [visibleTask, hiddenTask],
+        }),
+        width: 640,
+        height: 420,
+      },
+    })
+    app.raph.run()
+    app.raph.run()
+
+    const layer = app.components.require('modeler-elements:bpmn-recipe-layer') as unknown as {
+      batchRuntime: { getDiagnostics(): BpmnRecipeLayerDiagnostics }
+    }
+    const diagnostics = layer.batchRuntime.getDiagnostics()
+    expect(diagnostics.visibleElements).toBeLessThan(diagnostics.visibleElements + diagnostics.culledElements)
+    expect(diagnostics).toMatchObject({ visibleElements: 1, culledElements: 1 })
     app.destroy()
   })
 
@@ -2559,6 +2880,11 @@ describe('nova modeler minimal kernel', () => {
             createBpmnEventElement({ id: 'end', x: 300, y: 80, eventPosition: 'end', trigger: 'terminate', direction: 'throw' }),
           ],
         }),
+        options: {
+          rendering: {
+            bpmnRecipes: { enabled: false },
+          },
+        },
         width: 520,
         height: 220,
       },
@@ -2708,6 +3034,47 @@ describe('nova modeler minimal kernel', () => {
     const schema = [] as unknown as NovaSchema
     appendGridSchema(schema, tiny, '#94a3b8')
     expect(schema.length).toBeLessThanOrEqual(tiny.dotCount)
+  })
+
+  it('renders modeler grid as one procedural pattern rect', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const app = Nova.createApp({
+      target: document.createElement('canvas'),
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'grid-pattern-root',
+      props: {
+        model: createModelerModel({
+          viewport: { x: -13, y: 21, scale: 0.1 },
+        }),
+        width: 640,
+        height: 420,
+      },
+    })
+    app.raph.run()
+    app.raph.run()
+
+    const background = app.surfaces.find(item => item.name === 'grid-pattern-root:background')
+    const schemaItems = background?.compileRenderFrame().items.map(item => item.schemaItem).filter(Boolean) ?? []
+    const patternRects = schemaItems.filter(item => item.type === 'pattern-rect')
+    expect(patternRects).toHaveLength(1)
+    expect(schemaItems.some(item => item.type === 'circle')).toBe(false)
+    expect(patternRects[0]).toMatchObject({
+      width: 640,
+      height: 420,
+      pattern: {
+        type: 'dot-grid',
+        scale: 0.1,
+        shape: 'circle',
+      },
+    })
+    app.destroy()
   })
 
   it('registers root and renders grid with minimap plugin', () => {
@@ -2864,6 +3231,11 @@ describe('nova modeler minimal kernel', () => {
           ],
           selection: ['task-fixed'],
         }),
+        options: {
+          rendering: {
+            bpmnRecipes: { enabled: false },
+          },
+        },
         width: 760,
         height: 520,
       },
@@ -2928,6 +3300,11 @@ describe('nova modeler minimal kernel', () => {
           ],
           selection: ['sub-1'],
         }),
+        options: {
+          rendering: {
+            bpmnRecipes: { enabled: false },
+          },
+        },
         width: 860,
         height: 520,
       },
@@ -3002,6 +3379,11 @@ describe('nova modeler minimal kernel', () => {
             createBpmnTaskElement({ id: 'task-long', x: 220, y: 80, name: longName }),
           ],
         }),
+        options: {
+          rendering: {
+            bpmnRecipes: { enabled: false },
+          },
+        },
         width: 520,
         height: 300,
       },
@@ -5903,6 +6285,24 @@ function offsetMouseEvent(type: string, x: number, y: number, init: MouseEventIn
     offsetY: { value: y },
   })
   return event
+}
+
+function createVisibilityLayout(viewport: ModelerViewport, width: number, height: number): ModelerLayout {
+  return {
+    width,
+    height,
+    viewport,
+    canvas: { x: 0, y: 0, width, height },
+    worldBounds: { x: 0, y: 0, width: 10_000, height: 10_000 },
+  }
+}
+
+function createVisibilityClassifier() {
+  return {
+    isEdge: (element: { source?: unknown; target?: unknown }) => Boolean(element.source && element.target),
+    isRecipeNodeType: isBpmnRecipeNodeType,
+    isRecipeRenderable: isBpmnRecipeRenderableNode,
+  }
 }
 
 function create2DContextStub(): CanvasRenderingContext2D {

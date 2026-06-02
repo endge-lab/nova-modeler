@@ -1,4 +1,4 @@
-import type { ModelerCommand } from '@/domain/types/commands/command.types'
+import type { ModelerCommand } from '@/domain/types/command.types'
 import type { ModelerElement } from '@/domain/types/elements/element.types'
 import type { ModelerViewport } from '@/domain/types/model/geometry.types'
 import type {

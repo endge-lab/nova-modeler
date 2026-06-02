@@ -5,7 +5,7 @@ import type {
   NovaTemplateChildSchema,
 } from '@endge/nova'
 import type { ModelerElementRegistry } from '@/domain/types/elements/element-registry.types'
-import type { ModelerCommand } from '@/domain/types/commands/command.types'
+import type { ModelerCommand } from '@/domain/types/command.types'
 import type { ModelerOptions, ModelerOptionsRef } from '@/domain/types/model/options.types'
 import type {
   ModelerPoint,

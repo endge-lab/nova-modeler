@@ -7,7 +7,7 @@ import type { ModelerController } from '@/domain/types/plugins/controller.types'
 import type {
   ModelerPaletteItemDefinition,
   ModelerPalettePlacement,
-} from '@/domain/types/palette/palette.types'
+} from '@/domain/types/palette.types'
 
 export interface PaletteItemLayout {
   type: 'item'

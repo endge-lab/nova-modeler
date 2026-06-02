@@ -38,7 +38,13 @@ export const DEFAULT_MODELER_OPTIONS: ModelerOptions = {
   rendering: {
     bpmnRecipes: {
       enabled: true,
+      mode: 'auto',
       lodScale: 0.35,
+      nodes: true,
+      edges: false,
+      text: 'batch',
+      culling: true,
+      diagnostics: false,
     },
   },
   branding: {

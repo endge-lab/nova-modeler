@@ -1,9 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
+  BpmnBatchRuntime,
   BpmnValidationPlugin,
   BpmnValidationRuntime,
+  Grid,
   MiniMapPlugin,
   MODEL_ELEMENTS_RUNTIME,
+  ModelerVisibilityRuntime,
   appendGridSchema,
   createBpmnEventElement,
   createBpmnFlowElement,
@@ -14,9 +17,11 @@ import {
   createGridRenderPlan,
   createModelerController,
   createModelerModel,
+  isBpmnRecipeNodeType,
+  isBpmnRecipeRenderableNode,
 } from '@/index'
 import type { NovaSchema } from '@endge/nova'
-import type { ModelerModel, ModelerPluginContext, ModelerViewport } from '@/index'
+import type { ModelerElement, ModelerLayout, ModelerModel, ModelerPluginContext, ModelerRect, ModelerViewport } from '@/index'
 
 describe('nova modeler minimal benchmarks', () => {
   it('keeps viewport operations and hit-test bounded', () => {
@@ -77,6 +82,114 @@ describe('nova modeler minimal benchmarks', () => {
     }
     expect(totalDots).toBeLessThanOrEqual(2_000_000)
     expect(performance.now() - started).toBeLessThan(700)
+  })
+
+  it('keeps procedural grid payload to one GPU pattern item per frame', () => {
+    const started = performance.now()
+    let schemaItems = 0
+    let totalDots = 0
+    for (let frame = 0; frame < 1_200; frame += 1) {
+      const scale = frame % 3 === 0 ? 0.1 : frame % 3 === 1 ? 0.48 : 1
+      const plan = createGridRenderPlan({
+        width: 2560,
+        height: 1440,
+        gridSize: 32,
+        scale,
+        viewportX: -frame * 3,
+        viewportY: frame * 2,
+      })
+      const schema = Grid.createPatternSchema(plan, 32, scale, '#94a3b8')
+      expect(schema.type).toBe('pattern-rect')
+      schemaItems += 1
+      totalDots += plan.dotCount
+    }
+    expect(schemaItems).toBe(1_200)
+    expect(totalDots).toBeGreaterThan(schemaItems)
+    expect(performance.now() - started).toBeLessThan(45)
+  })
+
+  it.each([
+    [500, 120],
+    [2_000, 280],
+    [10_000, 1_200],
+  ])('keeps retained BPMN node batches stable for %i sparse nodes', (count, budgetMs) => {
+    const runtime = new BpmnBatchRuntime()
+    const nodes = createSparseBpmnRecipeNodes(count)
+    const started = performance.now()
+    writeRecipeNodePayload(runtime, nodes)
+    const firstRevision = runtime.getFillBatch().revision
+    expect(runtime.getDiagnostics()).toMatchObject({
+      recipeElements: count,
+      visibleElements: count,
+      culledElements: 0,
+      batchRebuilds: 1,
+    })
+
+    for (let index = 0; index < 20; index += 1) writeRecipeNodePayload(runtime, nodes)
+    expect(runtime.getFillBatch().revision).toBe(firstRevision)
+    expect(runtime.getDiagnostics().panZoomRenderSkips).toBe(20)
+    expect(performance.now() - started).toBeLessThan(budgetMs)
+  })
+
+  it('keeps visibility queries bounded for 10k nodes and 10k edges', () => {
+    const nodes = createSparseBpmnRecipeNodes(10_000)
+    const edges = createSparseBpmnRecipeEdges(10_000, nodes)
+    const model = createModelerModel({ elements: [...nodes, ...edges] })
+    const runtime = new ModelerVisibilityRuntime()
+    const started = performance.now()
+    let visible = 0
+    let maxVisible = 0
+    for (let frame = 0; frame < 120; frame += 1) {
+      const viewport = { x: -frame * 64, y: -frame * 32, scale: 1 }
+      const snapshot = runtime.resolve({
+        model: {
+          ...model,
+          viewport,
+          viewportVersion: frame,
+        },
+        layout: createVisibilityLayout(viewport, 1200, 800),
+        viewport,
+        useBpmnRecipes: true,
+        recipeCulling: true,
+        classifier: createVisibilityClassifier(),
+      })
+      const frameVisible = snapshot.visibleElements
+      visible += frameVisible
+      maxVisible = Math.max(maxVisible, frameVisible)
+    }
+    const diagnostics = runtime.getDiagnostics()
+    expect(visible).toBeGreaterThan(0)
+    expect(maxVisible).toBeLessThan(model.elements.length)
+    expect(diagnostics.indexRebuilds).toBe(1)
+    expect(diagnostics.indexedNodes).toBe(10_000)
+    expect(diagnostics.indexedEdges).toBe(10_000)
+    expect(performance.now() - started).toBeLessThan(260)
+  })
+
+  it('writes BPMN batch payload only for visible recipe nodes', () => {
+    const nodes = createSparseBpmnRecipeNodes(10_000)
+    const model = createModelerModel({ elements: nodes })
+    const visibility = new ModelerVisibilityRuntime()
+    const viewport = { x: 0, y: 0, scale: 1 }
+    const visible = visibility.resolve({
+      model,
+      layout: createVisibilityLayout(viewport, 1200, 800),
+      viewport,
+      useBpmnRecipes: true,
+      recipeCulling: true,
+      classifier: createVisibilityClassifier(),
+    })
+    const runtime = new BpmnBatchRuntime()
+    const started = performance.now()
+    writeRecipeNodePayload(runtime, visible.recipeNodes)
+    expect(visible.recipeNodes.length).toBeGreaterThan(0)
+    expect(visible.recipeNodes.length).toBeLessThan(nodes.length)
+    expect(runtime.getDiagnostics()).toMatchObject({
+      recipeElements: visible.recipeNodes.length,
+      visibleElements: visible.recipeNodes.length,
+    })
+    expect(runtime.getFillBatch().count).toBeLessThan(nodes.length)
+    expect(performance.now() - started).toBeLessThan(60)
   })
 
   it('keeps virtual anchor path resolving bounded for large BPMN graphs', () => {
@@ -232,6 +345,75 @@ function createSmallValidBpmnElements() {
       target: { elementId: 'end', point: { x: 400, y: 124 } },
     }),
   ]
+}
+
+function createSparseBpmnRecipeNodes(count: number): Array<ModelerElement> {
+  return Array.from({ length: count }, (_item, index) => {
+    const x = (index % 160) * 190
+    const y = Math.floor(index / 160) * 130
+    if (index % 3 === 0) return createBpmnTaskElement({ id: `recipe-node-${index}`, x, y, name: `Task ${index}` })
+    if (index % 3 === 1) return createBpmnEventElement({ id: `recipe-node-${index}`, x, y })
+    return createBpmnGatewayElement({ id: `recipe-node-${index}`, x, y })
+  })
+}
+
+function createSparseBpmnRecipeEdges(count: number, nodes: ReadonlyArray<ModelerElement>): Array<ModelerElement> {
+  return Array.from({ length: count }, (_item, index) => {
+    const source = nodes[index % nodes.length]!
+    const target = nodes[(index * 37 + 11) % nodes.length]!
+    return createBpmnFlowElement({
+      id: `recipe-flow-${index}`,
+      source: { elementId: source.id, point: { x: source.x + source.width, y: source.y + source.height / 2 } },
+      target: { elementId: target.id, point: { x: target.x, y: target.y + target.height / 2 } },
+      waypoints: [
+        { x: source.x + source.width + 48, y: source.y + source.height / 2 },
+        { x: target.x - 48, y: target.y + target.height / 2 },
+      ],
+    })
+  })
+}
+
+function createVisibilityLayout(viewport: ModelerViewport, width: number, height: number): ModelerLayout {
+  return {
+    width,
+    height,
+    viewport,
+    canvas: { x: 0, y: 0, width, height },
+    worldBounds: { x: 0, y: 0, width: 30_000, height: 30_000 },
+  }
+}
+
+function createVisibilityClassifier() {
+  return {
+    isEdge: (element: { source?: unknown; target?: unknown }) => Boolean(element.source && element.target),
+    isRecipeNodeType: isBpmnRecipeNodeType,
+    isRecipeRenderable: isBpmnRecipeRenderableNode,
+  }
+}
+
+function writeRecipeNodePayload(runtime: BpmnBatchRuntime, nodes: ReadonlyArray<ModelerElement>): void {
+  const writers = runtime.begin()
+  for (const node of nodes) {
+    const rect: ModelerRect = { x: node.x, y: node.y, width: node.width, height: node.height }
+    if (node.type === 'bpmn.task') {
+      writers.fill.write(node.id, 'activity-fill', rect, '#ffffff')
+      writers.text.write(node.id, 'activity-label', String(node.data?.name ?? 'Task'), {
+        x: rect.x + 8,
+        y: rect.y + 4,
+        width: Math.max(1, rect.width - 16),
+        height: Math.max(1, rect.height - 8),
+      })
+    }
+  }
+  runtime.finalize({
+    recipeElements: nodes.length,
+    visibleElements: nodes.length,
+    culledElements: 0,
+    schemaFallbacks: 0,
+    schemaItems: 0,
+    textEnabled: true,
+    textColor: '#172033',
+  })
 }
 
 function createLargeValidBpmnElements(nodeCount: number, flowCount: number) {

@@ -4,6 +4,7 @@ import {
   createNovaDecoratedComponentDescriptor,
   type NovaApp,
   type NovaComponentDescriptor,
+  type NovaPatternRect,
   type NovaSchema,
   type NovaSurface,
 } from '@endge/nova'
@@ -92,8 +93,7 @@ export class Grid<E extends EventList = Record<string, any>>
       viewportX: viewport.x,
       viewportY: viewport.y,
     })
-    const schema = [] as unknown as NovaSchema
-    Grid.appendSchema(schema, plan, this.resolveDotColor())
+    const schema = [Grid.createPatternSchema(plan, gridSize, viewport.scale, this.resolveDotColor())] as unknown as NovaSchema
     this.renderer.schema(schema)
   }
 
@@ -138,6 +138,32 @@ export class Grid<E extends EventList = Record<string, any>>
     }
   }
 
+  static createPatternSchema(
+    plan: GridRenderPlan,
+    gridSize: number,
+    scale: number,
+    color: string,
+  ): NovaPatternRect & { type: 'pattern-rect' } {
+    return {
+      type: 'pattern-rect',
+      x: 0,
+      y: 0,
+      width: plan.width,
+      height: plan.height,
+      pattern: {
+        type: 'dot-grid',
+        color,
+        originX: plan.offsetX,
+        originY: plan.offsetY,
+        worldStep: normalizeGridSize(gridSize),
+        scale: normalizeScale(scale),
+        minScreenStep: plan.spacing,
+        size: plan.radius * 2,
+        shape: 'circle',
+      },
+    }
+  }
+
   private resolveDotColor(): string {
     return this.props.color ?? this.nova.theme.resolve(
       MODELER_THEME_TOKENS.canvasDotColor,
@@ -161,6 +187,14 @@ export class Grid<E extends EventList = Record<string, any>>
   private static positiveModulo(value: number, divisor: number): number {
     return ((value % divisor) + divisor) % divisor
   }
+}
+
+function normalizeGridSize(value: number): number {
+  return Number.isFinite(value) && value > 0 ? value : 1
+}
+
+function normalizeScale(value: number): number {
+  return Number.isFinite(value) && value > 0 ? value : 1
 }
 
 export function createGridRenderPlan(input: GridRenderPlanInput): GridRenderPlan {

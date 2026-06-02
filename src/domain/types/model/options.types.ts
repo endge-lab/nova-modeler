@@ -2,8 +2,8 @@ import type { ModelerSnapOptions } from '@/domain/types/interaction/snap.types'
 import type {
   ModelerKeyboardShortcut,
   ModelerShortcutOptions,
-} from '@/domain/types/keyboard/shortcut.types'
-import type { ModelerPaletteOptions } from '@/domain/types/palette/palette.types'
+} from '@/domain/types/shortcut.types'
+import type { ModelerPaletteOptions } from '@/domain/types/palette.types'
 
 export interface ModelerViewportOptions {
   minZoom?: number
@@ -37,7 +37,13 @@ export interface ModelerRenderingOptions {
 
 export interface ModelerBpmnRecipeRenderingOptions {
   enabled?: boolean
+  mode?: 'auto' | 'always' | 'lod' | 'off'
   lodScale?: number
+  nodes?: boolean
+  edges?: boolean
+  text?: 'batch' | 'schema' | 'hide-small'
+  culling?: boolean
+  diagnostics?: boolean
 }
 
 export interface ModelerBrandingOptions {
