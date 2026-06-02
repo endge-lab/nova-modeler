@@ -7,6 +7,10 @@ import type { ModelerPoint } from '@/domain/types/model/geometry.types'
 export interface ElementColorMenuProps {
   controller?: ModelerController
   elementId?: string
+  part?: {
+    partType: string
+    partId: string
+  }
   anchor?: ModelerPoint
   visible?: boolean
   zIndex?: number
@@ -16,6 +20,10 @@ export interface ElementColorMenuProps {
 export interface ElementColorMenuResolvedProps {
   controller?: ModelerController
   elementId?: string
+  part?: {
+    partType: string
+    partId: string
+  }
   anchor: ModelerPoint
   visible: boolean
   zIndex: number

@@ -21,17 +21,20 @@ import type {
   BpmnEventElement,
   BpmnEventTrigger,
 } from '@/elements/bpmn/event/bpmn-event.types'
+import { resolveBpmnEventNameLayout } from '@/elements/bpmn/event/bpmn-event.label'
 
 export interface BpmnEventViewProps {
   element: BpmnEventElement
   viewport: ModelerViewport
   selected?: boolean
+  hideName?: boolean
 }
 
 export interface BpmnEventViewResolvedProps {
   element: BpmnEventElement
   viewport: ModelerViewport
   selected: boolean
+  hideName: boolean
 }
 
 export type BpmnEventViewDescriptor = NovaComponentDescriptor<
@@ -47,7 +50,7 @@ export type BpmnEventViewDescriptor = NovaComponentDescriptor<
   version: '0.25.0',
   dirtyPolicy: {
     update: ['element', 'viewport'],
-    render: ['element', 'viewport', 'selected'],
+    render: ['element', 'viewport', 'selected', 'hideName'],
   },
 })
 export class BpmnEventView<E extends EventList = Record<string, any>>
@@ -74,6 +77,7 @@ export class BpmnEventView<E extends EventList = Record<string, any>>
       element: props.element,
       viewport: props.viewport,
       selected: props.selected ?? false,
+      hideName: props.hideName ?? false,
     }
   }
 
@@ -114,6 +118,7 @@ export class BpmnEventView<E extends EventList = Record<string, any>>
       schema.push(this.createCircle(radius, fill, stroke, strokeWidth))
       schema.push(this.createCircle(Math.max(0, radius - this.resolveIntermediateGap()), 'rgba(0,0,0,0)', stroke, strokeWidth))
       this.appendTriggerMarker(schema)
+      if (!this.props.hideName) this.appendEventName(schema)
       return schema
     }
 
@@ -124,7 +129,40 @@ export class BpmnEventView<E extends EventList = Record<string, any>>
       data.eventPosition === 'end' ? Math.max(endStrokeWidth, strokeWidth) : strokeWidth,
     ))
     this.appendTriggerMarker(schema)
+    if (!this.props.hideName) this.appendEventName(schema)
     return schema
+  }
+
+  private appendEventName(schema: NovaSchema): void {
+    const layout = resolveBpmnEventNameLayout({
+      name: this.props.element.data?.name,
+      width: this.width,
+      height: this.height,
+    })
+    if (!layout.text) return
+    const color = this.resolveThemeColor('bpmnTaskTextColor')
+    for (const line of layout.lines) {
+      schema.push({
+        type: 'text',
+        text: line.text,
+        x: line.x,
+        y: line.y,
+        width: line.widthLimit,
+        height: line.height,
+        clip: true,
+        styles: {
+          color,
+          font: {
+            family: layout.fontFamily,
+            size: layout.fontSize,
+            weight: layout.fontWeight,
+          },
+          lineHeight: layout.lineHeight,
+          align: { horizontal: 'center', vertical: 'top' },
+          ellipsis: false,
+        },
+      })
+    }
   }
 
   private appendTriggerMarker(schema: NovaSchema): void {

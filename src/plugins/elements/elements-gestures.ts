@@ -14,7 +14,9 @@ import type { ElementsRuntime } from '@/plugins/elements/model/ElementsRuntime'
 import { BPMN_GROUP_TYPE } from '@/elements/bpmn/artifacts/group/bpmn-group.factory'
 import {
   BPMN_PARTICIPANT_TYPE,
+  createBpmnParticipantElement,
   isElementInsideBpmnParticipantContent,
+  resizeBpmnParticipantLaneBoundary,
 } from '@/elements/bpmn/participant/bpmn-participant.factory'
 import type { BpmnParticipantElement } from '@/elements/bpmn/participant/bpmn-participant.types'
 import {
@@ -25,6 +27,13 @@ export class ElementsGestures {
   private activeResize: {
     element: ModelerElement
     handle: ModelerResizeHandle
+    startWorld: ModelerPoint
+  } | null = null
+
+  private activeLaneResize: {
+    element: BpmnParticipantElement
+    laneId: string
+    orientation: 'horizontal' | 'vertical'
     startWorld: ModelerPoint
   } | null = null
 
@@ -252,7 +261,9 @@ export class ElementsGestures {
           elements,
           startWorld: context.screenToWorld(eventPoint(event)),
         }
-        this.runtime.dragShadow.begin(elements)
+        if (context.getOptions().interaction?.dragShadow !== false) {
+          this.runtime.dragShadow.begin(elements)
+        }
         return false
       },
       onPointerMove: (context, event) => {
@@ -300,6 +311,55 @@ export class ElementsGestures {
         }
         this.activeMove = null
         this.runtime.dragShadow.clear()
+      },
+    }))
+    addDisposer(this.context.gestures.add({
+      id: 'modeler-elements:bpmn-lane-resize',
+      priority: 105,
+      hitTest: (_context, event, target) => event.button === 0 && target.type === 'bpmn-lane-resize-handle',
+      onPointerDown: (context, event) => {
+        const target = context.hitTest(eventPoint(event))
+        if (target.type !== 'bpmn-lane-resize-handle') return false
+        const element = context.getModel().elements.find(item => item.id === target.elementId)
+        if (!element || element.type !== BPMN_PARTICIPANT_TYPE) return false
+        this.activeLaneResize = {
+          element: this.cloneParticipant(element as BpmnParticipantElement),
+          laneId: target.laneId,
+          orientation: target.orientation,
+          startWorld: context.screenToWorld(eventPoint(event)),
+        }
+        return false
+      },
+      onPointerMove: (context, event) => {
+        if (!this.activeLaneResize) return false
+        const current = context.screenToWorld(eventPoint(event))
+        const delta = this.activeLaneResize.orientation === 'vertical'
+          ? current.x - this.activeLaneResize.startWorld.x
+          : current.y - this.activeLaneResize.startWorld.y
+        context.applyCommand({
+          type: 'element.replace',
+          id: this.activeLaneResize.element.id,
+          element: resizeBpmnParticipantLaneBoundary(
+            this.activeLaneResize.element,
+            this.activeLaneResize.laneId,
+            delta,
+          ),
+        })
+        return false
+      },
+      onPointerUp: () => {
+        this.activeLaneResize = null
+        return false
+      },
+      onCancel: context => {
+        if (this.activeLaneResize) {
+          context.applyCommand({
+            type: 'element.replace',
+            id: this.activeLaneResize.element.id,
+            element: this.activeLaneResize.element,
+          })
+        }
+        this.activeLaneResize = null
       },
     }))
     addDisposer(this.context.gestures.add({
@@ -407,6 +467,7 @@ export class ElementsGestures {
 
   dispose(): void {
     this.activeResize = null
+    this.activeLaneResize = null
     this.activeMove = null
     this.activeRotate = null
     this.activeWaypoint = null
@@ -494,7 +555,22 @@ export class ElementsGestures {
 
   private cloneElement(element: ModelerElement): ModelerElement {
     if (isModelerEdgeElement(element)) return this.cloneEdge(element)
+    if (element.type === BPMN_PARTICIPANT_TYPE) return this.cloneParticipant(element as BpmnParticipantElement)
     return { ...element, data: { ...element.data }, style: { ...element.style } }
+  }
+
+  private cloneParticipant(element: BpmnParticipantElement): BpmnParticipantElement {
+    return createBpmnParticipantElement({
+      ...element,
+      data: {
+        ...(element.data ?? {}),
+        lanes: (element.data?.lanes ?? []).map(lane => ({
+          ...lane,
+          style: lane.style ? { ...lane.style } : undefined,
+        })),
+      },
+      style: { ...element.style },
+    })
   }
 
   private optimizeActiveWaypoints(context: ModelerPluginContext, elementId: string): void {

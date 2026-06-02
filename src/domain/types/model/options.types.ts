@@ -17,6 +17,7 @@ export interface ModelerInteractionOptions {
   readonly?: boolean
   gridSize?: number
   snap?: false | ModelerSnapOptions
+  dragShadow?: boolean
   selection?: ModelerSelectionOptions
   tools?: ModelerInteractionToolsOptions
 }

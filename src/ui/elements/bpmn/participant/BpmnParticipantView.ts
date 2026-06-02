@@ -20,6 +20,7 @@ import type {
   ModelerViewport,
 } from '@/domain/types'
 import {
+  areBpmnParticipantLaneHeadersVisible,
   createBpmnParticipantLayout,
   normalizeBpmnParticipantOrientation,
 } from '@/elements/bpmn/participant/bpmn-participant.factory'
@@ -163,13 +164,35 @@ export class BpmnParticipantView<E extends EventList = Record<string, any>>
       },
     }]
 
-    this.appendHeaders(schema, layout.participantHeaderRect, layout.laneHeaderAreaRect)
+    const laneHeadersVisible = areBpmnParticipantLaneHeadersVisible(element)
+    this.appendLaneBackgrounds(schema, layout.lanes, laneHeadersVisible)
+    this.appendHeaders(schema, layout.participantHeaderRect, layout.laneHeaderAreaRect, laneHeadersVisible)
     this.appendLaneLines(schema, layout.lanes)
     if (!this.props.hideName) this.appendLabels(schema)
     return schema
   }
 
-  private appendHeaders(schema: NovaSchema, participantHeader: ModelerRect, laneHeaderArea: ModelerRect): void {
+  private appendLaneBackgrounds(schema: NovaSchema, lanes: Array<BpmnParticipantLayoutLane>, laneHeadersVisible: boolean): void {
+    const headerFill = 'rgba(248, 250, 252, 0.66)'
+    lanes.forEach(lane => {
+      const fill = typeof lane.style?.fill === 'string' ? lane.style.fill : undefined
+      if (fill) {
+        schema.push({
+          type: 'rect',
+          ...lane.contentRect,
+          styles: { background: fill, border: { color: 'rgba(0,0,0,0)', width: 0, radius: 0 } },
+        })
+      }
+      if (!laneHeadersVisible) return
+      schema.push({
+        type: 'rect',
+        ...lane.headerRect,
+        styles: { background: fill ?? headerFill, border: { color: 'rgba(0,0,0,0)', width: 0, radius: 0 } },
+      })
+    })
+  }
+
+  private appendHeaders(schema: NovaSchema, participantHeader: ModelerRect, laneHeaderArea: ModelerRect, laneHeadersVisible: boolean): void {
     const headerFill = 'rgba(248, 250, 252, 0.66)'
     const color = this.resolveThemeColor('elementStroke')
     schema.push({
@@ -177,20 +200,19 @@ export class BpmnParticipantView<E extends EventList = Record<string, any>>
       ...participantHeader,
       styles: { background: headerFill, border: { color, width: 0, radius: 0 } },
     })
-    schema.push({
-      type: 'rect',
-      ...laneHeaderArea,
-      styles: { background: headerFill, border: { color, width: 0, radius: 0 } },
-    })
     const participant = participantHeader
     const laneHeader = laneHeaderArea
     if (normalizeBpmnParticipantOrientation(this.props.element.data?.orientation) === 'vertical') {
       schema.push({ type: 'line', x1: participant.x, y1: participant.y + participant.height, x2: participant.x + participant.width, y2: participant.y + participant.height, styles: { color, width: this.props.viewport.scale } })
-      schema.push({ type: 'line', x1: laneHeader.x, y1: laneHeader.y + laneHeader.height, x2: laneHeader.x + laneHeader.width, y2: laneHeader.y + laneHeader.height, styles: { color, width: this.props.viewport.scale } })
+      if (laneHeadersVisible) {
+        schema.push({ type: 'line', x1: laneHeader.x, y1: laneHeader.y + laneHeader.height, x2: laneHeader.x + laneHeader.width, y2: laneHeader.y + laneHeader.height, styles: { color, width: this.props.viewport.scale } })
+      }
       return
     }
     schema.push({ type: 'line', x1: participant.x + participant.width, y1: participant.y, x2: participant.x + participant.width, y2: participant.y + participant.height, styles: { color, width: this.props.viewport.scale } })
-    schema.push({ type: 'line', x1: laneHeader.x + laneHeader.width, y1: laneHeader.y, x2: laneHeader.x + laneHeader.width, y2: laneHeader.y + laneHeader.height, styles: { color, width: this.props.viewport.scale } })
+    if (laneHeadersVisible) {
+      schema.push({ type: 'line', x1: laneHeader.x + laneHeader.width, y1: laneHeader.y, x2: laneHeader.x + laneHeader.width, y2: laneHeader.y + laneHeader.height, styles: { color, width: this.props.viewport.scale } })
+    }
   }
 
   private appendLaneLines(schema: NovaSchema, lanes: Array<BpmnParticipantLayoutLane>): void {
@@ -216,10 +238,12 @@ export class BpmnParticipantView<E extends EventList = Record<string, any>>
       this.props.viewport.scale,
     )
     this.appendLabel(schema, participant)
-    layout.lanes.forEach(lane => {
-      const laneLayout = createRenderLabelLayout(lane.name, lane.headerRect, element.data?.orientation, this.props.viewport.scale)
-      this.appendLabel(schema, laneLayout)
-    })
+    if (areBpmnParticipantLaneHeadersVisible(element)) {
+      layout.lanes.forEach(lane => {
+        const laneLayout = createRenderLabelLayout(lane.name, lane.headerRect, element.data?.orientation, this.props.viewport.scale)
+        this.appendLabel(schema, laneLayout)
+      })
+    }
   }
 
   private appendLabel(schema: NovaSchema, layout: BpmnParticipantLabelLayout): void {

@@ -3,6 +3,7 @@ import type {
   ControllerOptions,
   ModelerController,
   ModelerCommand,
+  ModelerEdgeElement,
   ModelerElement,
   ModelerElementRegistry,
   ModelerGesture,
@@ -17,6 +18,7 @@ import type {
   ModelerPluginLayer,
   ModelerPluginRuntime,
   ModelerPoint,
+  ModelerRect,
   ModelerStore,
   ModelerStoreKey,
   ModelerViewport,
@@ -43,7 +45,15 @@ import {
 import { ElementsPlugin } from '@/plugins/elements/elements-plugin'
 import { CoreActionsPlugin } from '@/plugins/core/core-actions-plugin'
 import { MODEL_ELEMENTS_RUNTIME } from '@/plugins/elements/model/ElementsRuntime'
-import { BPMN_PARTICIPANT_TYPE } from '@/elements/bpmn/participant/bpmn-participant.factory'
+import {
+  BPMN_PARTICIPANT_TYPE,
+  createBpmnParticipantLayout,
+  normalizeBpmnParticipantOrientation,
+} from '@/elements/bpmn/participant/bpmn-participant.factory'
+import type { BpmnParticipantElement } from '@/elements/bpmn/participant/bpmn-participant.types'
+
+const MODELER_WORLD_BOUNDS_PADDING_RATIO = 0.2
+const BPMN_LANE_RESIZE_HANDLE_SCREEN_TOLERANCE = 6
 
 export class Controller implements ModelerController {
   readonly store: ModelerStore
@@ -272,7 +282,43 @@ export class Controller implements ModelerController {
       height: this.host?.height ?? 0,
       canvas: { x: 0, y: 0, width: this.host?.width ?? 0, height: this.host?.height ?? 0 },
       viewport: model.viewport,
-      worldBounds: { ...model.canvas },
+      worldBounds: this.resolveWorldBounds(model),
+    }
+  }
+
+  private resolveWorldBounds(model: ModelerModel): ModelerRect {
+    let bounds: ModelerRect | null = null
+    for (const element of model.elements) {
+      const elementBounds = isModelerEdgeElement(element)
+        ? this.resolveEdgeWorldBounds(element)
+        : { x: element.x, y: element.y, width: element.width, height: element.height }
+      bounds = bounds ? unionRects(bounds, elementBounds) : elementBounds
+    }
+    return bounds ? expandRect(bounds, MODELER_WORLD_BOUNDS_PADDING_RATIO) : { ...model.canvas }
+  }
+
+  private resolveEdgeWorldBounds(element: ModelerEdgeElement): ModelerRect {
+    const points = [
+      element.source.point,
+      ...element.waypoints,
+      element.target.point,
+    ].filter((point): point is ModelerPoint => Boolean(point))
+    if (points.length === 0) return { x: 0, y: 0, width: 1, height: 1 }
+    let minX = Number.POSITIVE_INFINITY
+    let minY = Number.POSITIVE_INFINITY
+    let maxX = Number.NEGATIVE_INFINITY
+    let maxY = Number.NEGATIVE_INFINITY
+    for (const point of points) {
+      minX = Math.min(minX, point.x)
+      minY = Math.min(minY, point.y)
+      maxX = Math.max(maxX, point.x)
+      maxY = Math.max(maxY, point.y)
+    }
+    return {
+      x: minX,
+      y: minY,
+      width: Math.max(1, maxX - minX),
+      height: Math.max(1, maxY - minY),
     }
   }
 
@@ -478,6 +524,12 @@ export class Controller implements ModelerController {
     }
     for (let index = model.elements.length - 1; index >= 0; index -= 1) {
       const element = model.elements[index]
+      if (!element || !selected.has(element.id) || element.type !== BPMN_PARTICIPANT_TYPE) continue
+      const target = this.hitTestBpmnParticipantLaneResizeHandle(point, element as BpmnParticipantElement)
+      if (target) return target
+    }
+    for (let index = model.elements.length - 1; index >= 0; index -= 1) {
+      const element = model.elements[index]
       if (!element) continue
       const definition = this.elementRegistry.get(element.type)
       if (!definition || !selected.has(element.id)) continue
@@ -556,6 +608,43 @@ export class Controller implements ModelerController {
     }
     return { type: 'empty' }
   }
+
+  private hitTestBpmnParticipantLaneResizeHandle(
+    point: ModelerPoint,
+    element: BpmnParticipantElement,
+  ): ModelerHitTarget | null {
+    const layout = createBpmnParticipantLayout(element)
+    if (layout.lanes.length <= 1) return null
+    const orientation = normalizeBpmnParticipantOrientation(element.data?.orientation)
+    for (let index = 0; index < layout.lanes.length - 1; index += 1) {
+      const lane = layout.lanes[index]
+      if (!lane) continue
+      if (orientation === 'vertical') {
+        const x = this.worldToScreen({ x: lane.rect.x + lane.rect.width, y: lane.rect.y }).x
+        const top = this.worldToScreen({ x: lane.rect.x, y: lane.rect.y }).y
+        const bottom = this.worldToScreen({ x: lane.rect.x, y: lane.rect.y + lane.rect.height }).y
+        if (
+          Math.abs(point.x - x) <= BPMN_LANE_RESIZE_HANDLE_SCREEN_TOLERANCE
+          && point.y >= Math.min(top, bottom)
+          && point.y <= Math.max(top, bottom)
+        ) {
+          return { type: 'bpmn-lane-resize-handle', elementId: element.id, laneId: lane.id, orientation }
+        }
+        continue
+      }
+      const y = this.worldToScreen({ x: lane.rect.x, y: lane.rect.y + lane.rect.height }).y
+      const left = this.worldToScreen({ x: lane.rect.x, y: lane.rect.y }).x
+      const right = this.worldToScreen({ x: lane.rect.x + lane.rect.width, y: lane.rect.y }).x
+      if (
+        Math.abs(point.y - y) <= BPMN_LANE_RESIZE_HANDLE_SCREEN_TOLERANCE
+        && point.x >= Math.min(left, right)
+        && point.x <= Math.max(left, right)
+      ) {
+        return { type: 'bpmn-lane-resize-handle', elementId: element.id, laneId: lane.id, orientation }
+      }
+    }
+    return null
+  }
 }
 
 export function createModelerController(options: ControllerOptions = {}): Controller {
@@ -570,4 +659,28 @@ function compareElementsByZIndex(a: ModelerElement, b: ModelerElement): number {
 
 function resolveElementHitRank(element: ModelerElement): number {
   return element.type === BPMN_PARTICIPANT_TYPE ? -1 : 0
+}
+
+function unionRects(a: ModelerRect, b: ModelerRect): ModelerRect {
+  const x = Math.min(a.x, b.x)
+  const y = Math.min(a.y, b.y)
+  const right = Math.max(a.x + a.width, b.x + b.width)
+  const bottom = Math.max(a.y + a.height, b.y + b.height)
+  return {
+    x,
+    y,
+    width: Math.max(1, right - x),
+    height: Math.max(1, bottom - y),
+  }
+}
+
+function expandRect(rect: ModelerRect, ratio: number): ModelerRect {
+  const paddingX = rect.width * ratio
+  const paddingY = rect.height * ratio
+  return {
+    x: rect.x - paddingX,
+    y: rect.y - paddingY,
+    width: rect.width + paddingX * 2,
+    height: rect.height + paddingY * 2,
+  }
 }

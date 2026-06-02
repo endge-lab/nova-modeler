@@ -17,6 +17,14 @@ import {
 } from '@endge/nova-ui-kit'
 import { Modeler } from '@/config/schema.config'
 import { MODELER_CONTEXT } from '@/config/context.config'
+import {
+  BPMN_PARTICIPANT_TYPE,
+  patchBpmnParticipantLaneStyle,
+} from '@/elements/bpmn/participant/bpmn-participant.factory'
+import type {
+  BpmnParticipantElement,
+  BpmnParticipantLane,
+} from '@/elements/bpmn/participant/bpmn-participant.types'
 import type {
   ElementColorMenuApi,
   ElementColorMenuDescriptor,
@@ -47,8 +55,8 @@ const COLOR_PRESETS: Array<ColorPickerPreset> = [
   name: 'ElementColorMenu',
   version: '0.1.0',
   dirtyPolicy: {
-    update: ['controller', 'elementId', 'anchor', 'visible', 'zIndex'],
-    render: ['controller', 'elementId', 'visible'],
+    update: ['controller', 'elementId', 'part', 'anchor', 'visible', 'zIndex'],
+    render: ['controller', 'elementId', 'part', 'visible'],
   },
 })
 export class ElementColorMenu<E extends EventList = Record<string, any>>
@@ -75,6 +83,7 @@ export class ElementColorMenu<E extends EventList = Record<string, any>>
     return {
       controller: props.controller,
       elementId: props.elementId,
+      part: props.part ? { ...props.part } : undefined,
       anchor: props.anchor ?? { x: 0, y: 0 },
       visible: props.visible ?? true,
       zIndex: finiteNumber(props.zIndex, 3010),
@@ -136,7 +145,7 @@ export class ElementColorMenu<E extends EventList = Record<string, any>>
     }]
     schema.push({
       type: 'text',
-      text: this.resolveColorMode() === 'stroke' ? 'Stroke color' : 'Fill color',
+      text: this.resolveTitle(),
       x: rect.x + MENU_PADDING,
       y: rect.y + 12,
       width: rect.width - MENU_PADDING * 2,
@@ -167,9 +176,7 @@ export class ElementColorMenu<E extends EventList = Record<string, any>>
         y: rect.y + 48,
         width: PICKER_WIDTH,
         height: resolveColorPickerHeight(this.customOpen),
-        value: this.resolveColorMode() === 'stroke'
-          ? element.style?.stroke ?? '#3f3f46'
-          : element.style?.fill ?? '#ffffff',
+        value: this.resolveValue(element),
         presets: COLOR_PRESETS,
         customOpen: this.customOpen,
         format: 'hex',
@@ -190,6 +197,15 @@ export class ElementColorMenu<E extends EventList = Record<string, any>>
     const modeler = this.props.controller ?? this.injectOptional(MODELER_CONTEXT)
     const element = this.resolveElement()
     if (!modeler || !element) return
+    const lane = this.resolveLane(element)
+    if (lane && element.type === BPMN_PARTICIPANT_TYPE) {
+      modeler.applyCommand({
+        type: 'element.replace',
+        id: element.id,
+        element: patchBpmnParticipantLaneStyle(element as BpmnParticipantElement, lane.id, { fill: value }),
+      })
+      return
+    }
     if (this.resolveColorMode() === 'stroke') {
       modeler.applyCommand({
         type: 'element.patch',
@@ -218,6 +234,7 @@ export class ElementColorMenu<E extends EventList = Record<string, any>>
   }
 
   private resolveColorMode(): 'fill' | 'stroke' {
+    if (this.props.part?.partType === 'bpmn.swimlane.lane') return 'fill'
     const definition = this.resolveElementDefinition()
     const colorable = definition?.capabilities?.colorable
     if (colorable && colorable.stroke === true && colorable.fill !== true) return 'stroke'
@@ -235,6 +252,25 @@ export class ElementColorMenu<E extends EventList = Record<string, any>>
     const context = this.props.controller ?? this.injectOptional(MODELER_CONTEXT)
     if (!context || !this.props.elementId) return null
     return context.getModel().elements.find(item => item.id === this.props.elementId) ?? null
+  }
+
+  private resolveLane(element: ModelerElement): BpmnParticipantLane | null {
+    if (element.type !== BPMN_PARTICIPANT_TYPE || this.props.part?.partType !== 'bpmn.swimlane.lane') return null
+    const participant = element as BpmnParticipantElement
+    return participant.data?.lanes.find(lane => lane.id === this.props.part?.partId) ?? null
+  }
+
+  private resolveTitle(): string {
+    if (this.props.part?.partType === 'bpmn.swimlane.lane') return 'Lane color'
+    return this.resolveColorMode() === 'stroke' ? 'Stroke color' : 'Fill color'
+  }
+
+  private resolveValue(element: ModelerElement): string {
+    const lane = this.resolveLane(element)
+    if (lane) return lane.style?.fill ?? '#ffffff'
+    return this.resolveColorMode() === 'stroke'
+      ? element.style?.stroke ?? '#3f3f46'
+      : element.style?.fill ?? '#ffffff'
   }
 
   private resolveMenuRect(): ModelerRect {

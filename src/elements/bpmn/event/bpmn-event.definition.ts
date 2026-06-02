@@ -9,6 +9,10 @@ import {
   BPMN_EVENT_TYPE,
   createBpmnEventElement,
 } from '@/elements/bpmn/event/bpmn-event.factory'
+import {
+  containsBpmnEventNameLayoutPoint,
+  resolveBpmnEventNameLayout,
+} from '@/elements/bpmn/event/bpmn-event.label'
 import { createBpmnEventPorts } from '@/elements/bpmn/event/bpmn-event.ports'
 import { BpmnEventVariantProvider } from '@/elements/bpmn/event/bpmn-event.variants'
 import type {
@@ -74,6 +78,7 @@ export const BpmnEventDefinition: ModelerElementDefinition<BpmnEventElement> = {
 }
 
 function resolveBpmnEventTooltip(element: BpmnEventElement): string {
+  if (element.data?.name) return element.data.name
   if (element.data?.eventPosition === 'end') return 'End event'
   if (element.data?.eventPosition === 'intermediate') return 'Intermediate event'
   return 'Start event'
@@ -85,5 +90,11 @@ function containsBpmnEventPoint(element: BpmnEventElement, point: ModelerPoint):
   const centerY = element.y + element.height / 2
   const dx = point.x - centerX
   const dy = point.y - centerY
-  return dx * dx + dy * dy <= radius * radius
+  if (dx * dx + dy * dy <= radius * radius) return true
+  const layout = resolveBpmnEventNameLayout({
+    name: element.data?.name,
+    width: element.width,
+    height: element.height,
+  })
+  return containsBpmnEventNameLayoutPoint(layout, { x: dx, y: dy })
 }

@@ -28,7 +28,12 @@ import {
   createBpmnDataStoreElement,
   createBpmnGroupElement,
   addBpmnParticipantLane,
+  areBpmnParticipantLaneHeadersVisible,
+  createBpmnParticipantLayout,
   createBpmnParticipantElement,
+  patchBpmnParticipantLaneStyle,
+  resizeBpmnParticipantLaneBoundary,
+  toggleBpmnParticipantSingleLane,
   createBpmnCallActivityElement,
   createBpmnSubProcessElement,
   createBpmnTextAnnotationElement,
@@ -56,12 +61,14 @@ import {
   registerModeler,
   shouldUseBpmnRecipeRendering,
   resolveBpmnActivityNameLayout,
+  resolveBpmnEventNameLayout,
   resolveBpmnTaskNameLayout,
   type ModelerRect,
   type ModelerLayout,
   type ModelerSettingsDialogApi,
   type ModelerValidationResult,
   type ModelerViewport,
+  type BpmnParticipantElement,
   type BpmnRecipeLayerDiagnostics,
 } from '@/index'
 
@@ -70,6 +77,7 @@ describe('nova modeler minimal kernel', () => {
     if (!URL.createObjectURL) URL.createObjectURL = vi.fn(() => 'blob:nova-modeler-test')
     if (!URL.revokeObjectURL) URL.revokeObjectURL = vi.fn()
     MODEL_ELEMENTS_RUNTIME.connectionWarnings.clear()
+    MODEL_ELEMENTS_RUNTIME.contextPadAnchors.clear()
   })
 
   it('creates and mutates viewport-only model', () => {
@@ -390,7 +398,13 @@ describe('nova modeler minimal kernel', () => {
     expect(normalizeModelerOptions().current.branding).toMatchObject({
       visible: true,
     })
+    expect(normalizeModelerOptions().current.interaction).toMatchObject({
+      dragShadow: true,
+    })
     expect(normalizeModelerOptions({
+      interaction: {
+        dragShadow: false,
+      },
       branding: {
         visible: false,
       },
@@ -401,12 +415,17 @@ describe('nova modeler minimal kernel', () => {
         offsetX: 32,
         offsetY: 48,
       },
-    }).current.palette).toMatchObject({
-      placement: 'bottom',
-      draggable: false,
-      offset: 24,
-      offsetX: 32,
-      offsetY: 48,
+    }).current).toMatchObject({
+      interaction: {
+        dragShadow: false,
+      },
+      palette: {
+        placement: 'bottom',
+        draggable: false,
+        offset: 24,
+        offsetX: 32,
+        offsetY: 48,
+      },
     })
     expect(normalizeModelerOptions({
       branding: {
@@ -601,6 +620,18 @@ describe('nova modeler minimal kernel', () => {
       trigger: 'message',
       direction: 'throw',
     })
+    expect(createBpmnEventElement({
+      id: 'named-event',
+      name: '  Order received  ',
+    }).data).toMatchObject({
+      name: 'Order received',
+      eventPosition: 'start',
+      trigger: 'none',
+    })
+    expect(createBpmnEventElement({
+      id: 'empty-name-event',
+      data: { name: '   ' },
+    }).data?.name).toBeUndefined()
   })
 
   it('creates and renames BPMN global definitions from event variants', () => {
@@ -1367,6 +1398,11 @@ describe('nova modeler minimal kernel', () => {
     })
     expect(participant.data.lanes).toHaveLength(1)
     expect(withSecondLane.data.lanes.map(lane => lane.name)).toEqual(['Lane 1', 'Lane 2'])
+    const resizedLane = resizeBpmnParticipantLaneBoundary(withSecondLane, withSecondLane.data.lanes[0]!.id, -32)
+    expect(resizedLane.data.lanes[0]!.size).toBe(withSecondLane.data.lanes[0]!.size - 32)
+    expect(resizedLane.data.lanes[1]!.size).toBe(withSecondLane.data.lanes[1]!.size + 32)
+    const coloredLane = patchBpmnParticipantLaneStyle(withSecondLane, withSecondLane.data.lanes[0]!.id, { fill: '#bfdbfe' })
+    expect(coloredLane.data.lanes[0]?.style).toMatchObject({ fill: '#bfdbfe' })
 
     const controller = createModelerController({
       model: createModelerModel({
@@ -1404,6 +1440,15 @@ describe('nova modeler minimal kernel', () => {
       partId: withSecondLane.data.lanes[0]?.id,
     })
     expect(controller.hitTest(controller.worldToScreen({ x: 260, y: 120 }))).toEqual({ type: 'element', id: 'pool-1' })
+    expect(controller.hitTest(controller.worldToScreen({
+      x: 260,
+      y: withSecondLane.y + withSecondLane.data.lanes[0]!.size,
+    }))).toEqual({
+      type: 'bpmn-lane-resize-handle',
+      elementId: 'pool-1',
+      laneId: withSecondLane.data.lanes[0]!.id,
+      orientation: 'horizontal',
+    })
 
     provider?.apply({
       context,
@@ -1427,6 +1472,25 @@ describe('nova modeler minimal kernel', () => {
     expect(controller.getModel().elements[0]?.height).toBeGreaterThanOrEqual(248)
     expect(context.tools.createAt('create:bpmn.swimlane', { x: 720, y: 420 })?.type).toBe('bpmn.participant')
     controller.unmount()
+  })
+
+  it('toggles a single BPMN participant lane into compact pool layout', () => {
+    const participant = createBpmnParticipantElement({ id: 'pool-1', x: 80, y: 80, name: 'Client' })
+    expect(areBpmnParticipantLaneHeadersVisible(participant)).toBe(true)
+
+    const compact = toggleBpmnParticipantSingleLane(participant)
+    const compactLayout = createBpmnParticipantLayout(compact)
+    expect(compact.data).toMatchObject({
+      singleLaneVisible: false,
+      lanes: [{ id: 'lane-1', name: 'Lane 1' }],
+    })
+    expect(areBpmnParticipantLaneHeadersVisible(compact)).toBe(false)
+    expect(compactLayout.laneHeaderAreaRect.width).toBe(0)
+    expect(compactLayout.contentRect.x).toBe(compact.x + 32)
+
+    const restored = toggleBpmnParticipantSingleLane(compact)
+    expect(restored.data.singleLaneVisible).toBe(true)
+    expect(createBpmnParticipantLayout(restored).laneHeaderAreaRect.width).toBe(96)
   })
 
   it('keeps BPMN participant behind enclosed nodes at the same z-index', () => {
@@ -1827,6 +1891,99 @@ describe('nova modeler minimal kernel', () => {
     const frameItems = interaction?.compileRenderFrame().items ?? []
     expect(frameItems.some(item => item.kind === 'rect-batch')).toBe(true)
     expect(frameItems.some(item => item.kind === 'text-batch')).toBe(true)
+    app.destroy()
+  })
+
+  it('wraps BPMN task labels in the recipe layer like the precise task view', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+      ...create2DContextStub(),
+      measureText: vi.fn((text: string) => ({ width: text.length * 7 })),
+    } as unknown as CanvasRenderingContext2D)
+    const name = 'Сообщить о страховом случае'
+    const task = createBpmnTaskElement({ id: 'recipe-wrap-task', x: 120, y: 120, name })
+    const expectedLayout = resolveBpmnTaskNameLayout({
+      name,
+      width: task.width,
+      height: task.height,
+      data: task.data,
+    })
+    expect(expectedLayout.lines.length).toBeGreaterThan(1)
+    const app = Nova.createApp({
+      target: document.createElement('canvas'),
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'recipe-wrap-root',
+      props: {
+        model: createModelerModel({
+          viewport: { x: 0, y: 0, scale: 1 },
+          elements: [task],
+        }),
+        width: 640,
+        height: 420,
+      },
+    })
+    app.raph.run()
+    app.raph.run()
+
+    const layer = app.components.require('modeler-elements:bpmn-recipe-layer') as unknown as {
+      batchRuntime: { getTextBatch(): { count: number; text: Array<string> } }
+    }
+    const textBatch = layer.batchRuntime.getTextBatch()
+    const labels = textBatch.text.slice(0, textBatch.count)
+    expect(labels).toEqual(expectedLayout.lines.map(line => line.text))
+    expect(labels).not.toContain(name)
+    app.destroy()
+  })
+
+  it('wraps BPMN event labels in the recipe layer like the precise event view', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+      ...create2DContextStub(),
+      measureText: vi.fn((text: string) => ({ width: text.length * 7 })),
+    } as unknown as CanvasRenderingContext2D)
+    const name = 'Сообщить о страховом случае'
+    const event = createBpmnEventElement({ id: 'recipe-wrap-event', x: 120, y: 120, name })
+    const expectedLayout = resolveBpmnEventNameLayout({
+      name,
+      width: event.width,
+      height: event.height,
+    })
+    expect(expectedLayout.lines.length).toBeGreaterThan(1)
+    const app = Nova.createApp({
+      target: document.createElement('canvas'),
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'recipe-event-wrap-root',
+      props: {
+        model: createModelerModel({
+          viewport: { x: 0, y: 0, scale: 1 },
+          elements: [event],
+        }),
+        width: 640,
+        height: 420,
+      },
+    })
+    app.raph.run()
+    app.raph.run()
+
+    const layer = app.components.require('modeler-elements:bpmn-recipe-layer') as unknown as {
+      batchRuntime: { getTextBatch(): { count: number; text: Array<string> } }
+    }
+    const textBatch = layer.batchRuntime.getTextBatch()
+    const labels = textBatch.text.slice(0, textBatch.count)
+    expect(labels).toEqual(expectedLayout.lines.map(line => line.text))
+    expect(labels).not.toContain(name)
     app.destroy()
   })
 
@@ -2771,6 +2928,20 @@ describe('nova modeler minimal kernel', () => {
     expect(boundsContainsPoint({ x: 0, y: 0, width: 10, height: 10 }, 15, 5)).toBe(false)
   })
 
+  it('allows panning to elements outside the configured canvas bounds', () => {
+    const model = createModelerModel({
+      canvas: { x: -100, y: -100, width: 200, height: 200 },
+      viewport: { x: 0, y: 0, scale: 1 },
+      elements: [createBasicRectElement({ id: 'below-canvas', x: 0, y: 900, width: 120, height: 80 })],
+    })
+    const controller = createModelerController({ model })
+    controller.mount(createControllerHost(100, 100))
+
+    const next = controller.setViewport({ y: -1000, scale: 1 }).viewport
+    expect(next.y).toBe(-896)
+    expect(controller.worldToScreen({ x: 0, y: 900 }).y).toBe(4)
+  })
+
   it('keeps the viewport center stable when zoom controls change scale', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
@@ -3496,6 +3667,83 @@ describe('nova modeler minimal kernel', () => {
     app.raph.run()
     expect(root.getApi().getModel().elements[0]?.data?.name).toBe('Committed outside\nwith notes')
     expect(app.components.get(inputId)).toBeFalsy()
+    app.destroy()
+  })
+
+  it('edits BPMN event label inline from the event body and label area', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    const root = app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'event-label-edit-root',
+      props: {
+        model: createModelerModel({
+          elements: [createBpmnEventElement({ id: 'event-1', x: 220, y: 100 })],
+          selection: ['event-1'],
+        }),
+        options: {
+          rendering: {
+            bpmnRecipes: { enabled: false },
+          },
+        },
+        width: 640,
+        height: 420,
+      },
+    }) as Root
+    app.raph.run()
+    app.raph.run()
+
+    const inputId = 'event-label-edit-root:task-name-editor:input'
+    const openEditorAt = (point: { x: number; y: number }): InputApi => {
+      ;(root as unknown as { openTaskNameEditorFromPoint(point: { x: number; y: number }): boolean })
+        .openTaskNameEditorFromPoint(point)
+      app.raph.run()
+      return app.components.requireApi<InputApi>(inputId)
+    }
+    const interaction = app.surfaces.find(item => item.name === 'event-label-edit-root:interaction')
+    const interactionTexts = (): Array<unknown> => interaction
+      ?.compileRenderFrame().items
+      .map(item => item.schemaItem)
+      .filter(item => item?.type === 'text')
+      .map(item => item?.text) ?? []
+
+    const bodyInput = openEditorAt({ x: 244, y: 124 })
+    expect(pickInputProps(bodyInput.getProps())).toMatchObject({
+      variant: 'ghost',
+      align: 'center',
+      wrap: true,
+      maxRows: 2,
+      fontSize: 12,
+      lineHeight: 16,
+      border: { width: 0 },
+      background: 'rgba(255,255,255,0)',
+    })
+    bodyInput.setValue('Order received')
+    bodyInput.commit()
+    app.raph.run()
+    expect(root.getApi().getModel().elements[0]?.data?.name).toBe('Order received')
+    expect(interactionTexts()).toContain('Order received')
+
+    const labelLayout = resolveBpmnEventNameLayout({ name: 'Order received', width: 48, height: 48 })
+    const labelPoint = {
+      x: 244 + labelLayout.rect.x + labelLayout.rect.width / 2,
+      y: 124 + labelLayout.rect.y + labelLayout.lineHeight / 2,
+    }
+    expect(root.hitTest(labelPoint)).toEqual({ type: 'element', id: 'event-1' })
+    const labelInput = openEditorAt(labelPoint)
+    labelInput.setValue('')
+    labelInput.commit()
+    app.raph.run()
+    expect(root.getApi().getModel().elements[0]?.data?.name).toBeUndefined()
+    expect(interactionTexts()).not.toContain('Order received')
     app.destroy()
   })
 
@@ -4306,6 +4554,65 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
+  it('toggles a single BPMN lane from the context pad', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 720, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    const participant = createBpmnParticipantElement({ id: 'pool-1', x: 80, y: 80 })
+    const root = app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'single-lane-context-pad-root',
+      props: {
+        model: createModelerModel({
+          elements: [participant],
+          selection: ['pool-1'],
+        }),
+        width: 720,
+        height: 420,
+      },
+    }) as Root
+    MODEL_ELEMENTS_RUNTIME.contextPadAnchors.set('pool-1', { x: 126, y: 120 }, {
+      partType: 'bpmn.swimlane.lane',
+      partId: participant.data.lanes[0]!.id,
+    })
+    app.raph.run()
+    app.raph.run()
+
+    const contextPad = app.components.require('single-lane-context-pad-root:context-pad') as unknown as {
+      resolveNovaTooltipTarget(input: { x: number; y: number }): { tooltip?: unknown; rect?: ModelerRect } | null
+    }
+    expect(contextPad.resolveNovaTooltipTarget({ x: 206, y: 120 })?.tooltip).toMatchObject({
+      value: 'Hide single lane',
+      placement: 'bottom',
+    })
+
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 206, clientY: 120, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 206, clientY: 120, button: 0 }))
+    app.raph.run()
+    expect(root.getApi().getModel().elements[0]).toMatchObject({
+      data: { singleLaneVisible: false },
+    })
+    expect(contextPad.resolveNovaTooltipTarget({ x: 206, y: 120 })?.tooltip).toMatchObject({
+      value: 'Show single lane',
+      placement: 'bottom',
+    })
+
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 206, clientY: 120, button: 0 }))
+    app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 206, clientY: 120, button: 0 }))
+    app.raph.run()
+    expect(root.getApi().getModel().elements[0]).toMatchObject({
+      data: { singleLaneVisible: true },
+    })
+    app.destroy()
+  })
+
   it('opens color menu from the default context pad and applies preset fill', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
@@ -4347,6 +4654,91 @@ describe('nova modeler minimal kernel', () => {
       stroke: '#1d4ed8',
     })
     app.destroy()
+  })
+
+  it('opens color menu from a BPMN lane context pad and applies lane fill', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 720, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    const participant = addBpmnParticipantLane(createBpmnParticipantElement({ id: 'pool-1', x: 80, y: 80 }))
+    const root = app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'lane-color-menu-root',
+      props: {
+        model: createModelerModel({
+          elements: [participant],
+          selection: ['pool-1'],
+        }),
+        width: 720,
+        height: 420,
+      },
+    }) as Root
+    MODEL_ELEMENTS_RUNTIME.contextPadAnchors.set('pool-1', { x: 126, y: 120 }, {
+      partType: 'bpmn.swimlane.lane',
+      partId: participant.data.lanes[0]!.id,
+    })
+    app.raph.run()
+    app.raph.run()
+
+    const contextPad = app.components.require('lane-color-menu-root:context-pad') as unknown as {
+      resolveNovaTooltipTarget(input: { x: number; y: number }): { tooltip?: { value?: string } } | null
+    }
+    const colorX = [150, 194, 238, 282, 326, 370].find(x =>
+      contextPad.resolveNovaTooltipTarget({ x, y: 120 })?.tooltip?.value === 'Lane color',
+    )
+    expect(colorX).toBeDefined()
+    expect(app.events.hitTest(colorX!, 120)?.componentId).toBe('lane-color-menu-root:context-pad')
+    app.handleEvent('mousedown', offsetMouseEvent('mousedown', colorX!, 120))
+    app.handleEvent('mouseup', offsetMouseEvent('mouseup', colorX!, 120))
+    app.raph.run()
+
+    const picker = app.components.requireApi<ColorPickerApi>('lane-color-menu-root:context-pad:color-menu:picker')
+    expect(picker.getProps().value).toBe('#ffffff')
+    picker.getProps().onCommit?.('#bfdbfe', { source: 'preset', preset: { id: 'blue', value: '#bfdbfe', borderColor: '#1d4ed8' } })
+    app.raph.run()
+
+    const pool = root.getApi().getModel().elements[0] as BpmnParticipantElement
+    expect(pool.data.lanes[0]?.style).toMatchObject({ fill: '#bfdbfe' })
+    expect(pool.style?.fill).toBeUndefined()
+    app.destroy()
+  })
+
+  it('resizes BPMN participant lanes by dragging an inner lane boundary', () => {
+    const participant = addBpmnParticipantLane(createBpmnParticipantElement({ id: 'pool-1', x: 80, y: 80 }))
+    const controller = createModelerController({
+      model: createModelerModel({
+        elements: [participant],
+        selection: ['pool-1'],
+      }),
+    })
+    controller.mount(createControllerHost(720, 420))
+    const context = controller.getPluginContext()
+    const laneResizeGesture = controller.getGestures().find(gesture => gesture.id === 'modeler-elements:bpmn-lane-resize')
+
+    const boundaryY = participant.y + participant.data.lanes[0]!.size
+    const target = controller.hitTest({ x: 260, y: boundaryY })
+    expect(target).toEqual({
+      type: 'bpmn-lane-resize-handle',
+      elementId: 'pool-1',
+      laneId: participant.data.lanes[0]!.id,
+      orientation: 'horizontal',
+    })
+    expect(laneResizeGesture?.hitTest?.(context, offsetMouseEvent('mousedown', 260, boundaryY), target)).toBe(true)
+    laneResizeGesture?.onPointerDown?.(context, offsetMouseEvent('mousedown', 260, boundaryY))
+    laneResizeGesture?.onPointerMove?.(context, offsetMouseEvent('mousemove', 260, boundaryY - 32))
+    laneResizeGesture?.onPointerUp?.(context, offsetMouseEvent('mouseup', 260, boundaryY - 32))
+
+    const pool = controller.getModel().elements[0] as BpmnParticipantElement
+    expect(pool.data.lanes[0]!.size).toBe(participant.data.lanes[0]!.size - 32)
+    expect(pool.data.lanes[1]!.size).toBe(participant.data.lanes[1]!.size + 32)
+    controller.unmount()
   })
 
   it('opens custom color controls from the fill color menu and applies hex fill without changing stroke', () => {
@@ -5013,6 +5405,30 @@ describe('nova modeler minimal kernel', () => {
     const finalSchemas = host.layers.reconcile.mock.calls.at(-1)?.[2] ?? []
     expect(finalSchemas.some((schema: { id?: string }) => schema.id === 'rect-1:view:shadow')).toBe(false)
     controller.unmount()
+
+    const withoutShadowController = createModelerController({
+      model: createModelerModel({
+        elements: [
+          createBasicRectElement({ id: 'rect-no-shadow', x: 100, y: 100, width: 160, height: 96 }),
+        ],
+        selection: ['rect-no-shadow'],
+      }),
+      options: {
+        interaction: {
+          snap: false,
+          dragShadow: false,
+        },
+      },
+    })
+    const withoutShadowHost = createControllerHost(640, 420)
+    withoutShadowController.mount(withoutShadowHost)
+    const withoutShadowContext = withoutShadowController.getPluginContext()
+    const withoutShadowMove = withoutShadowController.getGestures().find(gesture => gesture.id === 'modeler-elements:move')
+    withoutShadowMove?.onPointerDown?.(withoutShadowContext, offsetMouseEvent('mousedown', 140, 130))
+    const withoutShadowSchemas = withoutShadowHost.layers.reconcile.mock.calls.at(-1)?.[2] ?? []
+    expect(withoutShadowSchemas.some((schema: { id?: string }) => schema.id === 'rect-no-shadow:view:shadow')).toBe(false)
+    withoutShadowMove?.onCancel?.(withoutShadowContext)
+    withoutShadowController.unmount()
   })
 
   it('activates marquee selection from the palette tool item', () => {

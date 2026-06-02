@@ -1,6 +1,7 @@
 import type {
   ModelerElement,
   ModelerElementInput,
+  ModelerElementStyle,
   ModelerRect,
 } from '@/domain/types/index'
 
@@ -10,12 +11,14 @@ export interface BpmnParticipantLane {
   id: string
   name: string
   size: number
+  style?: ModelerElementStyle
 }
 
 export interface BpmnParticipantElementData extends Record<string, unknown> {
   name: string
   orientation: BpmnParticipantOrientation
   lanes: Array<BpmnParticipantLane>
+  singleLaneVisible: boolean
 }
 
 export interface BpmnParticipantLayoutLane extends BpmnParticipantLane {
@@ -39,4 +42,5 @@ export type BpmnParticipantElementInput =
     name?: string
     orientation?: BpmnParticipantOrientation
     lanes?: Array<Partial<BpmnParticipantLane>>
+    singleLaneVisible?: boolean
   }

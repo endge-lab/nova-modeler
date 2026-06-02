@@ -21,6 +21,7 @@ export type BpmnEventTrigger =
 export type BpmnEventDirection = 'catch' | 'throw'
 
 export interface BpmnEventElementData extends Record<string, unknown> {
+  name?: string
   eventPosition: BpmnEventPosition
   trigger: BpmnEventTrigger
   direction?: BpmnEventDirection
@@ -34,6 +35,7 @@ export type BpmnEventElement = ModelerElement<BpmnEventElementData>
 
 export type BpmnEventElementInput =
   ModelerElementInput<Partial<BpmnEventElementData>> & {
+    name?: string
     eventPosition?: BpmnEventPosition
     trigger?: BpmnEventTrigger
     direction?: BpmnEventDirection

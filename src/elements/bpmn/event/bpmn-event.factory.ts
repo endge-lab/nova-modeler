@@ -40,6 +40,7 @@ export function createBpmnEventElement(input: BpmnEventElementInput): BpmnEventE
     zIndex: input.zIndex,
     data: {
       ...data,
+      name: normalizeOptionalName(input.name ?? data.name),
       eventPosition: eventData.eventPosition,
       trigger: eventData.trigger,
       direction: eventData.direction,
@@ -50,6 +51,10 @@ export function createBpmnEventElement(input: BpmnEventElementInput): BpmnEventE
     },
     style: input.style ? { ...input.style } : {},
   }
+}
+
+function normalizeOptionalName(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined
 }
 
 function normalizeOptionalRef(value: unknown): string | undefined {

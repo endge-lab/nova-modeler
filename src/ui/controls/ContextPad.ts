@@ -37,9 +37,12 @@ import { isModelerEdgeElement } from '@/domain/types/index'
 import { MODEL_ELEMENTS_RUNTIME } from '@/plugins/elements/model/ElementsRuntime'
 import {
   addBpmnParticipantLane,
+  areBpmnParticipantLaneHeadersVisible,
   BPMN_PARTICIPANT_TYPE,
+  canToggleBpmnParticipantSingleLane,
   isElementInsideBpmnParticipantLane,
   removeBpmnParticipantLane,
+  toggleBpmnParticipantSingleLane,
 } from '@/elements/bpmn/participant/bpmn-participant.factory'
 import type { BpmnParticipantElement } from '@/elements/bpmn/participant/bpmn-participant.types'
 import {
@@ -335,13 +338,22 @@ export class ContextPad<E extends EventList = Record<string, any>>
     const entries: Array<ContextPadEntry> = []
     const deleteEntries: Array<ContextPadEntry> = []
     if (target.element.type === BPMN_PARTICIPANT_TYPE) {
+      const participant = target.element as BpmnParticipantElement
       const lanePart = target.part?.partType === 'bpmn.swimlane.lane' ? target.part : null
       entries.push({
         id: lanePart ? 'swimlane.add-lane-below' : 'swimlane.add-lane',
         title: lanePart ? 'Add lane below' : 'Add lane',
         tone: 'default',
       })
-      if (lanePart && this.canDeleteParticipantLane(context, target.element as BpmnParticipantElement, lanePart.partId)) {
+      if (canToggleBpmnParticipantSingleLane(participant)) {
+        const laneHeadersVisible = areBpmnParticipantLaneHeadersVisible(participant)
+        entries.push({
+          id: laneHeadersVisible ? 'swimlane.hide-single-lane' : 'swimlane.show-single-lane',
+          title: laneHeadersVisible ? 'Hide single lane' : 'Show single lane',
+          tone: 'default',
+        })
+      }
+      if (lanePart && this.canDeleteParticipantLane(context, participant, lanePart.partId)) {
         deleteEntries.push({
           id: 'swimlane.delete-lane',
           title: 'Delete lane',
@@ -382,9 +394,10 @@ export class ContextPad<E extends EventList = Record<string, any>>
       })
     }
     if (this.isColorable(context, target.element)) {
+      const lanePart = target.part?.partType === 'bpmn.swimlane.lane' ? target.part : null
       entries.push({
         id: 'color',
-        title: 'Fill color',
+        title: lanePart ? 'Lane color' : 'Fill color',
         tone: 'default',
       })
     }
@@ -561,6 +574,7 @@ export class ContextPad<E extends EventList = Record<string, any>>
 
   private resolveEntryIcon(entry: ContextPadEntry) {
     if (entry.id === 'swimlane.add-lane' || entry.id === 'swimlane.add-lane-below') return MODELER_ASSETS.icons.rowInsertBottom
+    if (entry.id === 'swimlane.hide-single-lane' || entry.id === 'swimlane.show-single-lane') return MODELER_ASSETS.icons.swimlane
     if (entry.id === 'swimlane.delete-lane') return MODELER_ASSETS.icons.trashX
     if (entry.id === 'boundary-event.add') return MODELER_ASSETS.icons.activityEventSubProcess
     if (entry.id === 'data-association.connect') return MODELER_ASSETS.icons.link
@@ -597,6 +611,16 @@ export class ContextPad<E extends EventList = Record<string, any>>
         type: 'element.replace',
         id: target.element.id,
         element: addBpmnParticipantLane(target.element as BpmnParticipantElement, target.part?.partId),
+      })
+      this.closeOpenMenus()
+      this.dirty({ render: true })
+      return
+    }
+    if (entry.id === 'swimlane.hide-single-lane' || entry.id === 'swimlane.show-single-lane') {
+      context.applyCommand({
+        type: 'element.replace',
+        id: target.element.id,
+        element: toggleBpmnParticipantSingleLane(target.element as BpmnParticipantElement),
       })
       this.closeOpenMenus()
       this.dirty({ render: true })
@@ -700,6 +724,7 @@ export class ContextPad<E extends EventList = Record<string, any>>
       props: {
         controller: context,
         elementId: target.element.id,
+        part: target.part,
         anchor: position,
         visible: true,
         zIndex: this.props.zIndex + 1,
@@ -726,6 +751,7 @@ export class ContextPad<E extends EventList = Record<string, any>>
       props: {
         controller: context,
         elementId: target.element.id,
+        part: target.part,
         anchor: position,
         visible: true,
         zIndex: this.props.zIndex + 1,

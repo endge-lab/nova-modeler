@@ -167,16 +167,21 @@ export class MiniMap<E extends EventList = Record<string, any>>
   private resolveLayout(): MiniMapLayout {
     const context = this.inject(MODELER_CONTEXT)
     const store = this.injectOptional(MODELER_STORE)
-    const layout = context?.getLayout() ?? {
+    const baseLayout = context?.getLayout() ?? {
       width: this.surface.width,
       height: this.surface.height,
       canvas: { x: 0, y: 0, width: this.surface.width, height: this.surface.height },
       viewport: { x: 0, y: 0, scale: 1 },
       worldBounds: { x: 0, y: 0, width: this.surface.width, height: this.surface.height },
     }
+    const layout = {
+      ...baseLayout,
+      canvas: { ...baseLayout.canvas },
+      viewport: { ...baseLayout.viewport },
+      worldBounds: { ...baseLayout.worldBounds },
+    }
     if (store) {
       layout.viewport = store.viewport.toJSON()
-      layout.worldBounds = store.canvas.toJSON()
     }
     const rect = this.resolveMiniMapRect()
     return createMiniMapLayout(layout, rect.width, rect.height, 0, 'top-left', rect)

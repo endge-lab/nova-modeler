@@ -54,13 +54,15 @@ export class ElementsLayer {
     const connectionTargetId = connection?.targetElementId
     const segmentHover = this.runtime.edgeSegmentHover.get()
     const useBpmnRecipes = shouldUseBpmnRecipeRendering(options, viewport)
-    for (const element of this.runtime.dragShadow.getElements()) {
-      const definition = this.context.getElementRegistry().get(element.type)
-      if (!definition) continue
-      interactionSchemas.push(this.createShadowSchema(definition.render({
-        ...this.context,
-        selected: false,
-      }, this.createShadowElement(element))))
+    if (options.interaction?.dragShadow !== false) {
+      for (const element of this.runtime.dragShadow.getElements()) {
+        const definition = this.context.getElementRegistry().get(element.type)
+        if (!definition) continue
+        interactionSchemas.push(this.createShadowSchema(definition.render({
+          ...this.context,
+          selected: false,
+        }, this.createShadowElement(element))))
+      }
     }
     const visible = this.context.visibility.resolve({
       model,

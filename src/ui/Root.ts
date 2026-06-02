@@ -93,6 +93,11 @@ import {
 } from '@/elements/bpmn/task/bpmn-task.factory'
 import type { BpmnTaskElement } from '@/elements/bpmn/task/bpmn-task.types'
 import {
+  BPMN_EVENT_TYPE,
+} from '@/elements/bpmn/event/bpmn-event.factory'
+import type { BpmnEventElement } from '@/elements/bpmn/event/bpmn-event.types'
+import { resolveBpmnEventNameLayout } from '@/elements/bpmn/event/bpmn-event.label'
+import {
   BPMN_FLOW_TYPE,
 } from '@/elements/bpmn/flow/bpmn-flow.factory'
 import type { BpmnFlowElement } from '@/elements/bpmn/flow/bpmn-flow.types'
@@ -114,8 +119,8 @@ import {
 } from '@/ui/elements/bpmn/flow/BpmnFlowView'
 import { MODEL_ELEMENTS_RUNTIME } from '@/plugins/elements/model/ElementsRuntime'
 
-type EditableNameElement = BpmnTaskElement | BpmnSubProcessElement | BpmnCallActivityElement | BpmnDataStoreElement | BpmnGroupElement | BpmnParticipantElement | BpmnFlowElement
-type EditableNameKind = 'task' | 'activity' | 'dataStore' | 'group' | 'participant' | 'lane' | 'flow'
+type EditableNameElement = BpmnTaskElement | BpmnSubProcessElement | BpmnCallActivityElement | BpmnEventElement | BpmnDataStoreElement | BpmnGroupElement | BpmnParticipantElement | BpmnFlowElement
+type EditableNameKind = 'task' | 'activity' | 'event' | 'dataStore' | 'group' | 'participant' | 'lane' | 'flow'
 type EditableNamePart = { partType?: string; partId?: string }
 
 type RootDescriptor = NovaComponentDescriptor<
@@ -455,6 +460,12 @@ export class Root<E extends EventList = Record<string, any>>
         partId: part?.partId,
         scale: viewport.scale,
       })
+    } else if (element.type === BPMN_EVENT_TYPE) {
+      layout = resolveBpmnEventNameLayout({
+        name: element.data?.name,
+        width,
+        height,
+      })
     } else if (element.type === BPMN_DATA_STORE_TYPE) {
       layout = resolveBpmnDataStoreNameLayout({
           name: element.data?.name,
@@ -516,6 +527,14 @@ export class Root<E extends EventList = Record<string, any>>
         height: Math.max(28, layout.rect.height + 12),
       }
     }
+    if (element.type === BPMN_EVENT_TYPE) {
+      return {
+        x: layout.rect.x - 10,
+        y: layout.rect.y - 6,
+        width: layout.rect.width + 20,
+        height: Math.max(28, layout.rect.height + 12),
+      }
+    }
     if (element.type === BPMN_DATA_STORE_TYPE || element.type === BPMN_GROUP_TYPE || element.type === BPMN_PARTICIPANT_TYPE) {
       return {
         x: layout.rect.x - 10,
@@ -543,6 +562,7 @@ export class Root<E extends EventList = Record<string, any>>
 
   private resolveTaskNameEditorMaxRows(element: EditableNameElement): number {
     if (element.type === BPMN_FLOW_TYPE) return 1
+    if (element.type === BPMN_EVENT_TYPE) return 2
     const layout = this.resolveTaskNameScreenLayout(element)
     return Math.max(1, Math.floor(layout.rect.height / layout.lineHeight))
   }
@@ -1160,7 +1180,7 @@ export class Root<E extends EventList = Record<string, any>>
     if (!elementId) return
     const element = this.controllerInstance.getModel().elements.find(item => item.id === elementId)
     if (!element || !this.isEditableNameElement(element)) return
-    if (element.type === BPMN_FLOW_TYPE) {
+    if (element.type === BPMN_FLOW_TYPE || element.type === BPMN_EVENT_TYPE) {
       const nextName = value.trim()
       if ((element.data?.name ?? '') === nextName) return
       this.controllerInstance.applyCommand({
@@ -1207,10 +1227,22 @@ export class Root<E extends EventList = Record<string, any>>
   private containsTaskNamePoint(element: EditableNameElement, point: ModelerPoint, part?: EditableNamePart): boolean {
     if (element.type === BPMN_PARTICIPANT_TYPE && !part?.partType) return false
     const rect = this.resolveTaskNameContentRect(element, part)
-    return point.x >= rect.x
+    if (
+      point.x >= rect.x
       && point.x <= rect.x + rect.width
       && point.y >= rect.y
       && point.y <= rect.y + rect.height
+    ) return true
+    if (element.type !== BPMN_EVENT_TYPE) return false
+    const viewport = this.controllerInstance.getViewport()
+    const center = this.controllerInstance.worldToScreen({
+      x: element.x + element.width / 2,
+      y: element.y + element.height / 2,
+    })
+    const radius = Math.min(element.width, element.height) * viewport.scale / 2
+    const dx = point.x - center.x
+    const dy = point.y - center.y
+    return dx * dx + dy * dy <= radius * radius
   }
 
   private taskNameEditorInputId(): string {
@@ -1221,6 +1253,7 @@ export class Root<E extends EventList = Record<string, any>>
     return element.type === BPMN_TASK_TYPE
       || element.type === BPMN_SUB_PROCESS_TYPE
       || element.type === BPMN_CALL_ACTIVITY_TYPE
+      || element.type === BPMN_EVENT_TYPE
       || element.type === BPMN_DATA_STORE_TYPE
       || element.type === BPMN_GROUP_TYPE
       || element.type === BPMN_PARTICIPANT_TYPE
@@ -1231,6 +1264,7 @@ export class Root<E extends EventList = Record<string, any>>
     if (element.type === BPMN_FLOW_TYPE) return 'flow'
     if (element.type === BPMN_PARTICIPANT_TYPE && part?.partType === 'bpmn.swimlane.lane') return 'lane'
     if (element.type === BPMN_PARTICIPANT_TYPE) return 'participant'
+    if (element.type === BPMN_EVENT_TYPE) return 'event'
     if (element.type === BPMN_DATA_STORE_TYPE) return 'dataStore'
     if (element.type === BPMN_GROUP_TYPE) return 'group'
     if (element.type === BPMN_SUB_PROCESS_TYPE || element.type === BPMN_CALL_ACTIVITY_TYPE) return 'activity'
@@ -1244,6 +1278,7 @@ export class Root<E extends EventList = Record<string, any>>
     if (element.type === BPMN_GROUP_TYPE) return 'Group'
     if (element.type === BPMN_SUB_PROCESS_TYPE) return 'Sub-process'
     if (element.type === BPMN_CALL_ACTIVITY_TYPE) return 'Call activity'
+    if (element.type === BPMN_EVENT_TYPE) return ''
     if (element.type === BPMN_FLOW_TYPE) return ''
     return 'Task'
   }
@@ -1259,6 +1294,7 @@ export class Root<E extends EventList = Record<string, any>>
     if (element.type === BPMN_GROUP_TYPE) return 'modeler.bpmn.group.name'
     if (element.type === BPMN_SUB_PROCESS_TYPE) return 'modeler.bpmn.sub-process.name'
     if (element.type === BPMN_CALL_ACTIVITY_TYPE) return 'modeler.bpmn.call-activity.name'
+    if (element.type === BPMN_EVENT_TYPE) return 'modeler.bpmn.event.name'
     if (element.type === BPMN_FLOW_TYPE) return 'modeler.bpmn.flow.name'
     return 'modeler.bpmn.task.name'
   }
@@ -1269,7 +1305,7 @@ export class Root<E extends EventList = Record<string, any>>
       const lane = participant.data?.lanes.find(item => item.id === this.taskNameEditor?.part?.partId)
       return lane?.name ?? this.resolveNameEditorFallback(element)
     }
-    if (element.type === BPMN_FLOW_TYPE) return element.data?.name ?? ''
+    if (element.type === BPMN_FLOW_TYPE || element.type === BPMN_EVENT_TYPE) return element.data?.name ?? ''
     return element.data?.name ?? this.resolveNameEditorFallback(element)
   }
 
@@ -1309,6 +1345,7 @@ export class Root<E extends EventList = Record<string, any>>
     if (this.spacePressed || this.dragState) return 'pan'
     if (target.type === 'rotate-handle') return 'rotate'
     if (target.type === 'resize-handle') return this.resolveResizeCursor(target.handle)
+    if (target.type === 'bpmn-lane-resize-handle') return target.orientation === 'vertical' ? 'ew-resize' : 'ns-resize'
     if (target.type === 'edge-waypoint-handle' || target.type === 'edge-segment-handle') return 'edge-handle'
     if (target.type === 'port') return 'port'
     if (target.type === 'element') return this.resolveElementCursor(target.id)

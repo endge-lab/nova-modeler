@@ -40,18 +40,23 @@ import {
   normalizeBpmnEventPosition,
   normalizeBpmnEventTrigger,
 } from '@/elements/bpmn/event/bpmn-event.factory'
+import { resolveBpmnEventNameLayout } from '@/elements/bpmn/event/bpmn-event.label'
 import type {
   BpmnEventDirection,
   BpmnEventTrigger,
 } from '@/elements/bpmn/event/bpmn-event.types'
 import { BPMN_GATEWAY_TYPE } from '@/elements/bpmn/gateway/bpmn-gateway.factory'
 import {
+  areBpmnParticipantLaneHeadersVisible,
   createBpmnParticipantLayout,
   normalizeBpmnParticipantOrientation,
 } from '@/elements/bpmn/participant/bpmn-participant.factory'
 import type { BpmnParticipantElement } from '@/elements/bpmn/participant/bpmn-participant.types'
 import { BPMN_SUB_PROCESS_TYPE } from '@/elements/bpmn/sub-process/bpmn-sub-process.factory'
 import { BPMN_TASK_TYPE } from '@/elements/bpmn/task/bpmn-task.factory'
+import type { BpmnTaskElementData } from '@/elements/bpmn/task/bpmn-task.types'
+import { resolveBpmnActivityNameLayout } from '@/ui/elements/bpmn/activity/BpmnActivityView'
+import { resolveBpmnTaskNameLayout } from '@/ui/elements/bpmn/task/BpmnTaskView'
 
 export interface BpmnRecipeLayerViewProps {
   elements: Array<ModelerElement>
@@ -262,7 +267,7 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
       return
     }
     if (element.type === BPMN_EVENT_TYPE || element.type === BPMN_BOUNDARY_EVENT_TYPE) {
-      this.appendEventRecipe(schema, element)
+      this.appendEventRecipe(schema, textWriter, element)
       return
     }
     if (element.type === BPMN_GATEWAY_TYPE) {
@@ -316,11 +321,40 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     if (element.type === BPMN_SUB_PROCESS_TYPE || element.type === BPMN_CALL_ACTIVITY_TYPE) {
       this.appendTinyPlusMarker(schema, rect, stroke)
     }
-    const name = typeof element.data?.name === 'string' ? element.data.name : 'Task'
-    textWriter.write(element.id, 'activity-label', name, insetRect(rect, 8, 4))
+    this.appendActivityLabel(textWriter, element, rect)
   }
 
-  private appendEventRecipe(schema: NovaSchema, element: ModelerElement): void {
+  private appendActivityLabel(textWriter: BpmnRecipeTextWriter, element: ModelerElement, rect: ModelerRect): void {
+    const name = typeof element.data?.name === 'string' ? element.data.name : 'Task'
+    const data = element.data as Partial<BpmnTaskElementData> | undefined
+    const layout = element.type === BPMN_TASK_TYPE
+      ? resolveBpmnTaskNameLayout({
+          name,
+          width: rect.width,
+          height: rect.height,
+          data,
+        })
+      : resolveBpmnActivityNameLayout({
+          name,
+          width: rect.width,
+          height: rect.height,
+          data,
+        })
+    const center = {
+      x: rect.x + rect.width / 2,
+      y: rect.y + rect.height / 2,
+    }
+    layout.lines.forEach((line, index) => {
+      textWriter.write(element.id, `activity-label:${index}`, line.text, {
+        x: center.x + line.x,
+        y: center.y + line.y,
+        width: line.widthLimit,
+        height: line.height,
+      })
+    })
+  }
+
+  private appendEventRecipe(schema: NovaSchema, textWriter: BpmnRecipeTextWriter, element: ModelerElement): void {
     const rect = this.elementRectToWorld(element)
     const position = element.type === BPMN_BOUNDARY_EVENT_TYPE ? 'intermediate' : element.data?.eventPosition
     const radius = Math.max(1, Math.min(rect.width, rect.height) / 2)
@@ -356,6 +390,21 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
       })
     }
     this.appendEventTriggerMarker(schema, element, center, Math.min(rect.width, rect.height) * 0.48)
+    if (element.type === BPMN_EVENT_TYPE) {
+      const layout = resolveBpmnEventNameLayout({
+        name: element.data?.name as string | undefined,
+        width: rect.width,
+        height: rect.height,
+      })
+      layout.lines.forEach((line, index) => {
+        textWriter.write(element.id, `event-label:${index}`, line.text, {
+          x: center.x + line.x,
+          y: center.y + line.y,
+          width: line.widthLimit,
+          height: line.height,
+        })
+      })
+    }
   }
 
   private appendEventTriggerMarker(schema: NovaSchema, element: ModelerElement, center: { x: number; y: number }, size: number): void {
@@ -679,16 +728,21 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     })
     const participantHeader = this.worldRect(layout.participantHeaderRect)
     const laneHeaderArea = this.worldRect(layout.laneHeaderAreaRect)
+    const laneHeadersVisible = areBpmnParticipantLaneHeadersVisible(element)
     const headerFill = 'rgba(248, 250, 252, 0.66)'
+    layout.lanes.forEach(lane => {
+      const fill = typeof lane.style?.fill === 'string' ? lane.style.fill : undefined
+      if (fill) schema.push({ type: 'rect', ...this.worldRect(lane.contentRect), styles: { background: fill } })
+      if (laneHeadersVisible) schema.push({ type: 'rect', ...this.worldRect(lane.headerRect), styles: { background: fill ?? headerFill } })
+    })
     schema.push({ type: 'rect', ...participantHeader, styles: { background: headerFill } })
-    schema.push({ type: 'rect', ...laneHeaderArea, styles: { background: headerFill } })
     const vertical = normalizeBpmnParticipantOrientation(element.data?.orientation) === 'vertical'
     if (vertical) {
       this.appendLine(schema, participantHeader.x, participantHeader.y + participantHeader.height, participantHeader.x + participantHeader.width, participantHeader.y + participantHeader.height, stroke, lineWidth)
-      this.appendLine(schema, laneHeaderArea.x, laneHeaderArea.y + laneHeaderArea.height, laneHeaderArea.x + laneHeaderArea.width, laneHeaderArea.y + laneHeaderArea.height, stroke, lineWidth)
+      if (laneHeadersVisible) this.appendLine(schema, laneHeaderArea.x, laneHeaderArea.y + laneHeaderArea.height, laneHeaderArea.x + laneHeaderArea.width, laneHeaderArea.y + laneHeaderArea.height, stroke, lineWidth)
     } else {
       this.appendLine(schema, participantHeader.x + participantHeader.width, participantHeader.y, participantHeader.x + participantHeader.width, participantHeader.y + participantHeader.height, stroke, lineWidth)
-      this.appendLine(schema, laneHeaderArea.x + laneHeaderArea.width, laneHeaderArea.y, laneHeaderArea.x + laneHeaderArea.width, laneHeaderArea.y + laneHeaderArea.height, stroke, lineWidth)
+      if (laneHeadersVisible) this.appendLine(schema, laneHeaderArea.x + laneHeaderArea.width, laneHeaderArea.y, laneHeaderArea.x + laneHeaderArea.width, laneHeaderArea.y + laneHeaderArea.height, stroke, lineWidth)
     }
     layout.lanes.slice(1).forEach(lane => {
       const rect = this.worldRect(lane.rect)
