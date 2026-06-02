@@ -52,8 +52,8 @@ const DEFAULT_TASK_DATA: BpmnTaskElementData = {
 
 const TASK_NAME_FONT_FAMILY = 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
 const TASK_NAME_FONT_WEIGHT = '500' as const
-const TASK_NAME_HORIZONTAL_INSET = 12
-const TASK_NAME_VERTICAL_INSET = 14
+const TASK_NAME_HORIZONTAL_INSET = 8
+const TASK_NAME_VERTICAL_INSET = 8
 const TASK_NAME_ICON_INLINE_RESERVE = 22
 const TASK_NAME_BOTTOM_MARKER_RESERVE = 18
 const TASK_NAME_MIN_WIDTH = 1

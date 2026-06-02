@@ -10,6 +10,11 @@ export const MODELER_SURFACE_CONFIG: Record<ModelerLayerName, {
     zIndex: -1000,
     interactive: false,
   },
+  containers: {
+    name: 'containers',
+    zIndex: -100,
+    interactive: false,
+  },
   links: {
     name: 'links',
     zIndex: 0,
@@ -34,6 +39,7 @@ export const MODELER_SURFACE_CONFIG: Record<ModelerLayerName, {
 
 export const MODELER_LAYER_NAMES: Array<ModelerLayerName> = [
   'background',
+  'containers',
   'links',
   'interaction',
   'controls',

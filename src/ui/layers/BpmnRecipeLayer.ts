@@ -45,7 +45,12 @@ import type {
   BpmnEventDirection,
   BpmnEventTrigger,
 } from '@/elements/bpmn/event/bpmn-event.types'
-import { BPMN_GATEWAY_TYPE } from '@/elements/bpmn/gateway/bpmn-gateway.factory'
+import {
+  BPMN_GATEWAY_TYPE,
+  normalizeBpmnGatewayType,
+} from '@/elements/bpmn/gateway/bpmn-gateway.factory'
+import { resolveBpmnGatewayNameLayout } from '@/elements/bpmn/gateway/bpmn-gateway.label'
+import type { BpmnGatewayType } from '@/elements/bpmn/gateway/bpmn-gateway.types'
 import {
   areBpmnParticipantLaneHeadersVisible,
   createBpmnParticipantLayout,
@@ -271,7 +276,7 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
       return
     }
     if (element.type === BPMN_GATEWAY_TYPE) {
-      this.appendGatewayRecipe(schema, element)
+      this.appendGatewayRecipe(schema, textWriter, element)
       return
     }
     if (element.type === BPMN_DATA_OBJECT_TYPE) {
@@ -300,7 +305,8 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     const rect = this.elementRectToWorld(element)
     const fill = this.resolveElementFill(element, 'bpmnTaskFill', 'elementFill')
     const stroke = this.resolveElementStroke(element, 'bpmnTaskStroke', 'elementStroke')
-    if (!fillWriter.write(element.id, 'activity-fill', rect, fill)) schema.push(createFillRect(rect, fill))
+    const radius = this.resolveElementRadius(element, 'bpmnTaskRadius')
+    if (!fillWriter.write(element.id, 'activity-fill', rect, fill, radius)) schema.push(createFillRect(rect, fill, radius))
     const borderWidth = this.resolveElementStrokeWidth(element, 'bpmnTaskStrokeWidth', 'elementStrokeWidth')
       * (element.type === BPMN_CALL_ACTIVITY_TYPE ? 1.6 : 1)
     schema.push({
@@ -311,7 +317,7 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
         border: {
           color: stroke,
           width: borderWidth,
-          radius: 8,
+          radius,
           dashPattern: element.type === BPMN_SUB_PROCESS_TYPE && element.data?.subProcessType === 'event'
             ? [6, 4]
             : undefined,
@@ -610,7 +616,7 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     })
   }
 
-  private appendGatewayRecipe(schema: NovaSchema, element: ModelerElement): void {
+  private appendGatewayRecipe(schema: NovaSchema, textWriter: BpmnRecipeTextWriter, element: ModelerElement): void {
     const rect = this.elementRectToWorld(element)
     const stroke = this.resolveElementStroke(element, 'bpmnGatewayStroke', 'elementStroke')
     const fill = this.resolveElementFill(element, 'bpmnGatewayFill', 'elementFill')
@@ -628,6 +634,133 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
         background: fill,
         stroke,
         lineWidth: this.resolveElementStrokeWidth(element, 'bpmnGatewayStrokeWidth', 'elementStrokeWidth'),
+      },
+    })
+    this.appendGatewayMarker(schema, rect, normalizeBpmnGatewayType(element.data?.gatewayType))
+    this.appendGatewayLabel(textWriter, element, rect)
+  }
+
+  private appendGatewayLabel(textWriter: BpmnRecipeTextWriter, element: ModelerElement, rect: ModelerRect): void {
+    const layout = resolveBpmnGatewayNameLayout({
+      name: typeof element.data?.name === 'string' ? element.data.name : undefined,
+      width: rect.width,
+      height: rect.height,
+    })
+    if (!layout.text) return
+    const center = {
+      x: rect.x + rect.width / 2,
+      y: rect.y + rect.height / 2,
+    }
+    layout.lines.forEach((line, index) => {
+      textWriter.write(element.id, `gateway-label:${index}`, line.text, {
+        x: center.x + line.x,
+        y: center.y + line.y,
+        width: line.widthLimit,
+        height: line.height,
+      })
+    })
+  }
+
+  private appendGatewayMarker(schema: NovaSchema, rect: ModelerRect, gatewayType: BpmnGatewayType): void {
+    const center = { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }
+    const size = Math.min(rect.width, rect.height)
+    const color = this.resolveThemeColor('bpmnGatewayMarkerStroke')
+    const width = this.resolveThemeNumber('bpmnGatewayMarkerStrokeWidth')
+    if (gatewayType === 'parallel') {
+      this.appendGatewayPlusMarker(schema, center, size * 0.27, color, width)
+      return
+    }
+    if (gatewayType === 'inclusive') {
+      this.appendGatewayCircleMarker(schema, center, size * 0.2, color, width)
+      return
+    }
+    if (gatewayType === 'complex') {
+      this.appendGatewayAsteriskMarker(schema, center, size * 0.24, color, width)
+      return
+    }
+    if (gatewayType === 'eventBased' || gatewayType === 'parallelEventBased') {
+      const radius = size * 0.21
+      this.appendGatewayCircleMarker(schema, center, radius, color, width)
+      this.appendGatewayPentagonMarker(schema, center, radius * 0.72, color, width * 0.8)
+      if (gatewayType === 'parallelEventBased') this.appendGatewayPlusMarker(schema, center, radius * 0.45, color, width)
+      return
+    }
+    this.appendGatewayXMarker(schema, center, size * 0.18, color, width)
+  }
+
+  private appendGatewayXMarker(
+    schema: NovaSchema,
+    center: { x: number; y: number },
+    size: number,
+    color: string,
+    width: number,
+  ): void {
+    this.appendLine(schema, center.x - size, center.y - size, center.x + size, center.y + size, color, width)
+    this.appendLine(schema, center.x - size, center.y + size, center.x + size, center.y - size, color, width)
+  }
+
+  private appendGatewayPlusMarker(
+    schema: NovaSchema,
+    center: { x: number; y: number },
+    size: number,
+    color: string,
+    width: number,
+  ): void {
+    this.appendLine(schema, center.x, center.y - size, center.x, center.y + size, color, width)
+    this.appendLine(schema, center.x - size, center.y, center.x + size, center.y, color, width)
+  }
+
+  private appendGatewayCircleMarker(
+    schema: NovaSchema,
+    center: { x: number; y: number },
+    radius: number,
+    color: string,
+    width: number,
+  ): void {
+    schema.push({
+      type: 'circle',
+      x: center.x,
+      y: center.y,
+      radius,
+      styles: {
+        background: 'rgba(0,0,0,0)',
+        border: { color, width },
+      },
+    })
+  }
+
+  private appendGatewayAsteriskMarker(
+    schema: NovaSchema,
+    center: { x: number; y: number },
+    size: number,
+    color: string,
+    width: number,
+  ): void {
+    this.appendGatewayPlusMarker(schema, center, size, color, width)
+    this.appendGatewayXMarker(schema, center, size * 0.78, color, width)
+  }
+
+  private appendGatewayPentagonMarker(
+    schema: NovaSchema,
+    center: { x: number; y: number },
+    radius: number,
+    color: string,
+    width: number,
+  ): void {
+    const points = Array.from({ length: 5 }, (_, index) => {
+      const angle = -Math.PI / 2 + index * Math.PI * 2 / 5
+      return {
+        x: center.x + Math.cos(angle) * radius,
+        y: center.y + Math.sin(angle) * radius,
+      }
+    })
+    schema.push({
+      type: 'polygon',
+      points,
+      styles: {
+        background: 'rgba(0,0,0,0)',
+        stroke: color,
+        lineWidth: width,
       },
     })
   }
@@ -796,6 +929,11 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     return Math.max(0.5, normalized)
   }
 
+  private resolveElementRadius(element: ModelerElement, token: ModelerThemeTokenKey): number {
+    const value = Number(element.style?.radius ?? this.resolveThemeNumber(token))
+    return Number.isFinite(value) && value > 0 ? value : 0
+  }
+
   private resolveThemeColor(token: ModelerThemeTokenKey, fallbackToken?: ModelerThemeTokenKey): string {
     const fallback = String(MODELER_THEME_FALLBACKS[fallbackToken ?? token])
     return this.nova.theme.resolve(MODELER_THEME_TOKENS[token], fallback) ?? fallback
@@ -857,7 +995,7 @@ export class BpmnBatchRuntime {
     this.slotSignatures.length = 0
     return {
       fill: {
-        write: (elementId, slotId, rect, color) => this.writeFill(elementId, slotId, rect, color),
+        write: (elementId, slotId, rect, color, radius) => this.writeFill(elementId, slotId, rect, color, radius),
       },
       text: {
         write: (elementId, slotId, text, rect) => this.writeText(elementId, slotId, text, rect),
@@ -920,7 +1058,7 @@ export class BpmnBatchRuntime {
     return { ...this.diagnostics }
   }
 
-  private writeFill(elementId: string, slotId: string, rect: ModelerRect, color: string): boolean {
+  private writeFill(elementId: string, slotId: string, rect: ModelerRect, color: string, radius = 0): boolean {
     const rgba = parseCssColor(color)
     if (!rgba) return false
     this.ensureFillCapacity(this.fillCount + 1)
@@ -930,6 +1068,7 @@ export class BpmnBatchRuntime {
     const width = this.fillBatch.width as Float32Array
     const height = this.fillBatch.height as Float32Array
     const colors = this.fillBatch.colors as Float32Array
+    const radii = this.fillBatch.radii as Float32Array
     x[index] = rect.x
     y[index] = rect.y
     width[index] = rect.width
@@ -938,8 +1077,9 @@ export class BpmnBatchRuntime {
     colors[index * 4 + 1] = rgba[1]
     colors[index * 4 + 2] = rgba[2]
     colors[index * 4 + 3] = rgba[3]
+    radii[index] = radius
     this.trackSlot(elementId, 'fill', index)
-    this.slotSignatures.push(createSlotSignature('fill', elementId, slotId, rect, color))
+    this.slotSignatures.push(createSlotSignature('fill', elementId, slotId, rect, `${color}:${radius}`))
     this.fillCount += 1
     return true
   }
@@ -976,6 +1116,7 @@ export class BpmnBatchRuntime {
     this.fillBatch.width = copyFloat32(this.fillBatch.width, nextCapacity)
     this.fillBatch.height = copyFloat32(this.fillBatch.height, nextCapacity)
     this.fillBatch.colors = copyFloat32(this.fillBatch.colors, nextCapacity * 4)
+    this.fillBatch.radii = copyFloat32(this.fillBatch.radii ?? new Float32Array(0), nextCapacity)
   }
 
   private ensureTextCapacity(capacity: number): void {
@@ -994,7 +1135,7 @@ export class BpmnBatchRuntime {
 }
 
 interface BpmnRecipeFillWriter {
-  write(elementId: string, slotId: string, rect: ModelerRect, color: string): boolean
+  write(elementId: string, slotId: string, rect: ModelerRect, color: string, radius?: number): boolean
 }
 
 interface BpmnRecipeTextWriter {
@@ -1009,6 +1150,7 @@ function createEmptyRectBatch(): NovaRectBatch {
     width: new Float32Array(0),
     height: new Float32Array(0),
     colors: new Float32Array(0),
+    radii: new Float32Array(0),
     revision: 0,
     staticRevision: 0,
   }
@@ -1027,11 +1169,11 @@ function createEmptyTextBatch(): NovaTextBatch {
   }
 }
 
-function createFillRect(rect: ModelerRect, color: string): NovaSchema[number] {
+function createFillRect(rect: ModelerRect, color: string, radius = 0): NovaSchema[number] {
   return {
     type: 'rect',
     ...rect,
-    styles: { background: color },
+    styles: { background: color, radius },
   }
 }
 

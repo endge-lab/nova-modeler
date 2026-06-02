@@ -20,17 +20,20 @@ import type {
   BpmnGatewayElement,
   BpmnGatewayElementData,
 } from '@/elements/bpmn/gateway/bpmn-gateway.types'
+import { resolveBpmnGatewayNameLayout } from '@/elements/bpmn/gateway/bpmn-gateway.label'
 
 export interface BpmnGatewayViewProps {
   element: BpmnGatewayElement
   viewport: ModelerViewport
   selected?: boolean
+  hideName?: boolean
 }
 
 export interface BpmnGatewayViewResolvedProps {
   element: BpmnGatewayElement
   viewport: ModelerViewport
   selected: boolean
+  hideName: boolean
 }
 
 export type BpmnGatewayViewDescriptor = NovaComponentDescriptor<
@@ -41,6 +44,7 @@ export type BpmnGatewayViewDescriptor = NovaComponentDescriptor<
 >
 
 const DEFAULT_GATEWAY_DATA: BpmnGatewayElementData = {
+  name: '',
   gatewayType: 'exclusive',
 }
 
@@ -50,7 +54,7 @@ const DEFAULT_GATEWAY_DATA: BpmnGatewayElementData = {
   version: '0.1.0',
   dirtyPolicy: {
     update: ['element', 'viewport'],
-    render: ['element', 'viewport', 'selected'],
+    render: ['element', 'viewport', 'selected', 'hideName'],
   },
 })
 export class BpmnGatewayView<E extends EventList = Record<string, any>>
@@ -77,6 +81,7 @@ export class BpmnGatewayView<E extends EventList = Record<string, any>>
       element: props.element,
       viewport: props.viewport,
       selected: props.selected ?? false,
+      hideName: props.hideName ?? false,
     }
   }
 
@@ -125,7 +130,40 @@ export class BpmnGatewayView<E extends EventList = Record<string, any>>
     }]
 
     this.appendGatewayMarker(schema)
+    if (!this.props.hideName) this.appendGatewayName(schema)
     return schema
+  }
+
+  private appendGatewayName(schema: NovaSchema): void {
+    const layout = resolveBpmnGatewayNameLayout({
+      name: this.props.element.data?.name,
+      width: this.width,
+      height: this.height,
+    })
+    if (!layout.text) return
+    const color = this.resolveThemeColor('bpmnTaskTextColor')
+    for (const line of layout.lines) {
+      schema.push({
+        type: 'text',
+        text: line.text,
+        x: line.x,
+        y: line.y,
+        width: line.widthLimit,
+        height: line.height,
+        clip: true,
+        styles: {
+          color,
+          font: {
+            family: layout.fontFamily,
+            size: layout.fontSize,
+            weight: layout.fontWeight,
+          },
+          lineHeight: layout.lineHeight,
+          align: { horizontal: 'center', vertical: 'top' },
+          ellipsis: false,
+        },
+      })
+    }
   }
 
   private appendGatewayMarker(schema: NovaSchema): void {
@@ -150,7 +188,7 @@ export class BpmnGatewayView<E extends EventList = Record<string, any>>
       this.appendEventBasedMarker(schema, true)
       return
     }
-    this.appendXMarker(schema, 0, 0, Math.min(this.width, this.height) * 0.24)
+    this.appendXMarker(schema, 0, 0, Math.min(this.width, this.height) * 0.18)
   }
 
   private appendXMarker(schema: NovaSchema, x: number, y: number, size: number): void {

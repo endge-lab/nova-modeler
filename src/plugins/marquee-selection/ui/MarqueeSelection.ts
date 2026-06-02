@@ -109,11 +109,13 @@ export class MarqueeSelection<E extends EventList = Record<string, any>>
     this.disposeGesture = context.gestures.add({
       id: `${this.componentId}:gesture`,
       priority: 80,
-      hitTest: (ctx, event, target) => this.props.enabled
-        && event.button === 0
-        && target.type === 'canvas'
-        && (ctx.tools.getActiveId() === 'marqueeSelection'
-          || SelectionRuntime.shouldStartMarquee(event, ctx.getOptions().interaction?.selection)),
+      hitTest: (ctx, event, target) => {
+        if (!this.props.enabled || event.button !== 0) return false
+        const marqueeActive = ctx.tools.getActiveId() === 'marqueeSelection'
+        if (marqueeActive) return true
+        return target.type === 'canvas'
+          && SelectionRuntime.shouldStartMarquee(event, ctx.getOptions().interaction?.selection)
+      },
       onPointerDown: (_ctx, event) => {
         const point = eventPoint(event)
         this.draft = { start: point, current: point }
@@ -176,7 +178,7 @@ function resolveWorldRect(a: ModelerPoint, b: ModelerPoint): ModelerRect {
 
 function resolveElementIdsInRect(elements: Array<ModelerElement>, rect: ModelerRect): Array<string> {
   return elements
-    .filter(element => rectIntersects(rect, {
+    .filter(element => rectContains(rect, {
       x: element.x,
       y: element.y,
       width: element.width,
@@ -185,11 +187,11 @@ function resolveElementIdsInRect(elements: Array<ModelerElement>, rect: ModelerR
     .map(element => element.id)
 }
 
-function rectIntersects(a: ModelerRect, b: ModelerRect): boolean {
-  return a.x <= b.x + b.width
-    && a.x + a.width >= b.x
-    && a.y <= b.y + b.height
-    && a.y + a.height >= b.y
+function rectContains(a: ModelerRect, b: ModelerRect): boolean {
+  return b.x >= a.x
+    && b.x + b.width <= a.x + a.width
+    && b.y >= a.y
+    && b.y + b.height <= a.y + a.height
 }
 
 function finiteNumber(value: unknown, fallback: number): number {

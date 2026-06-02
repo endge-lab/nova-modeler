@@ -61,7 +61,9 @@ import {
   registerModeler,
   shouldUseBpmnRecipeRendering,
   resolveBpmnActivityNameLayout,
+  resolveBpmnDataStoreNameLayout,
   resolveBpmnEventNameLayout,
+  resolveBpmnGatewayNameLayout,
   resolveBpmnTaskNameLayout,
   type ModelerRect,
   type ModelerLayout,
@@ -1198,6 +1200,7 @@ describe('nova modeler minimal kernel', () => {
       width: 56,
       height: 56,
       data: {
+        name: '',
         gatewayType: 'exclusive',
       },
     })
@@ -1207,6 +1210,7 @@ describe('nova modeler minimal kernel', () => {
       y: 120,
       width: 96,
       height: 96,
+      name: '  Need approval?  ',
       gatewayType: 'broken' as never,
     })
     expect(gateway).toMatchObject({
@@ -1214,6 +1218,7 @@ describe('nova modeler minimal kernel', () => {
       width: 96,
       height: 96,
       data: {
+        name: 'Need approval?',
         gatewayType: 'exclusive',
       },
     })
@@ -1493,10 +1498,15 @@ describe('nova modeler minimal kernel', () => {
     expect(createBpmnParticipantLayout(restored).laneHeaderAreaRect.width).toBe(96)
   })
 
-  it('keeps BPMN participant behind enclosed nodes at the same z-index', () => {
+  it('renders BPMN participants in the container band below links and nodes', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const participant = createBpmnParticipantElement({ id: 'pool-1', x: 80, y: 80, width: 520, height: 260 })
     const task = createBpmnTaskElement({ id: 'task-inside-pool', x: 240, y: 120, name: 'Inside pool' })
+    const flow = createBpmnFlowElement({
+      id: 'flow-inside-pool',
+      source: { elementId: task.id, point: { x: 300, y: 140 } },
+      target: { point: { x: 440, y: 140 } },
+    })
     const controller = createModelerController({
       model: createModelerModel({
         elements: [task, participant],
@@ -1522,7 +1532,7 @@ describe('nova modeler minimal kernel', () => {
       id: 'swimlane-order-root',
       props: {
         model: createModelerModel({
-          elements: [task, participant],
+          elements: [task, flow, participant],
         }),
         options: {
           rendering: {
@@ -1536,10 +1546,16 @@ describe('nova modeler minimal kernel', () => {
     app.raph.run()
     app.raph.run()
 
+    const containers = app.surfaces.find(item => item.name === 'swimlane-order-root:containers')
+    const links = app.surfaces.find(item => item.name === 'swimlane-order-root:links')
     const interaction = app.surfaces.find(item => item.name === 'swimlane-order-root:interaction')
-    const childIds = interaction?.children.map(child => (child as { componentId?: string }).componentId) ?? []
-    expect(childIds.indexOf('pool-1:view')).toBeGreaterThanOrEqual(0)
-    expect(childIds.indexOf('task-inside-pool:view')).toBeGreaterThan(childIds.indexOf('pool-1:view'))
+    const containerIds = containers?.children.map(child => (child as { componentId?: string }).componentId) ?? []
+    const linkIds = links?.children.map(child => (child as { componentId?: string }).componentId) ?? []
+    const nodeIds = interaction?.children.map(child => (child as { componentId?: string }).componentId) ?? []
+    expect(containerIds).toContain('pool-1:view')
+    expect(linkIds).toContain('flow-inside-pool:view')
+    expect(nodeIds).toContain('task-inside-pool:view')
+    expect(nodeIds).not.toContain('pool-1:view')
     app.destroy()
   })
 
@@ -1579,8 +1595,8 @@ describe('nova modeler minimal kernel', () => {
     app.raph.run()
     app.raph.run()
 
-    const interaction = app.surfaces.find(item => item.name === 'swimlane-scaled-root:interaction')
-    const schemaItems = interaction?.compileRenderFrame().items.map(item => item.schemaItem).filter(Boolean) ?? []
+    const containers = app.surfaces.find(item => item.name === 'swimlane-scaled-root:containers')
+    const schemaItems = containers?.compileRenderFrame().items.map(item => item.schemaItem).filter(Boolean) ?? []
     expect(schemaItems.some(item => item.type === 'rect' && item.width === 52 && item.height === 26)).toBe(true)
     expect(schemaItems.some(item => item.type === 'rect' && item.width === 520 && item.height === 260)).toBe(false)
     app.destroy()
@@ -1626,8 +1642,8 @@ describe('nova modeler minimal kernel', () => {
     app.raph.run()
     app.raph.run()
 
-    const interaction = app.surfaces.find(item => item.name === 'swimlane-rotated-label-root:interaction')
-    const textItems = interaction?.compileRenderFrame().items
+    const containers = app.surfaces.find(item => item.name === 'swimlane-rotated-label-root:containers')
+    const textItems = containers?.compileRenderFrame().items
       .map(item => item.schemaItem)
       .filter(item => item?.type === 'text') ?? []
     expect(textItems.filter(item => item.text === 'Название пула')).toHaveLength(1)
@@ -1678,8 +1694,8 @@ describe('nova modeler minimal kernel', () => {
     app.raph.run()
     app.raph.run()
 
-    const interaction = app.surfaces.find(item => item.name === 'swimlane-dynamic-scale-root:interaction')
-    const schemaItems = interaction?.compileRenderFrame().items.map(item => item.schemaItem).filter(Boolean) ?? []
+    const containers = app.surfaces.find(item => item.name === 'swimlane-dynamic-scale-root:containers')
+    const schemaItems = containers?.compileRenderFrame().items.map(item => item.schemaItem).filter(Boolean) ?? []
     expect(schemaItems.some(item => item.type === 'rect' && item.width === 52 && item.height === 26)).toBe(true)
     expect(schemaItems.some(item => item.type === 'rect' && item.width === 520 && item.height === 260)).toBe(false)
     app.destroy()
@@ -1888,6 +1904,12 @@ describe('nova modeler minimal kernel', () => {
     const childIds = interaction?.children.map(child => (child as { componentId?: string }).componentId) ?? []
     expect(childIds).toContain('modeler-elements:bpmn-recipe-layer')
     expect(childIds).not.toContain('recipe-task:view')
+    const layer = app.components.require('modeler-elements:bpmn-recipe-layer') as unknown as {
+      batchRuntime: { getFillBatch(): { count: number; radii?: ArrayLike<number> } }
+    }
+    const fillBatch = layer.batchRuntime.getFillBatch()
+    expect(fillBatch.count).toBeGreaterThan(0)
+    expect(fillBatch.radii?.[0]).toBe(10)
     const frameItems = interaction?.compileRenderFrame().items ?? []
     expect(frameItems.some(item => item.kind === 'rect-batch')).toBe(true)
     expect(frameItems.some(item => item.kind === 'text-batch')).toBe(true)
@@ -2063,6 +2085,66 @@ describe('nova modeler minimal kernel', () => {
     expect(childIds).not.toContain('recipe-event-signal:view')
     expect(schemaItems.filter(item => item.type === 'circle').length).toBeGreaterThanOrEqual(2)
     expect(schemaItems.some(item => item.type === 'polygon')).toBe(true)
+    app.destroy()
+  })
+
+  it('renders BPMN gateway markers in the recipe layer without selection', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const name = 'Gateway approved'
+    const gateway = createBpmnGatewayElement({
+      id: 'recipe-exclusive-gateway',
+      x: 140,
+      y: 120,
+      name,
+      gatewayType: 'exclusive',
+    })
+    const expectedLayout = resolveBpmnGatewayNameLayout({
+      name,
+      width: gateway.width,
+      height: gateway.height,
+    })
+    const app = Nova.createApp({
+      target: document.createElement('canvas'),
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'recipe-gateway-marker-root',
+      props: {
+        model: createModelerModel({
+          viewport: { x: 0, y: 0, scale: 1 },
+          elements: [gateway],
+        }),
+        width: 640,
+        height: 420,
+      },
+    })
+    app.raph.run()
+    app.raph.run()
+
+    const interaction = app.surfaces.find(item => item.name === 'recipe-gateway-marker-root:interaction')
+    const childIds = interaction?.children.map(child => (child as { componentId?: string }).componentId) ?? []
+    const schemaItems = interaction?.compileRenderFrame().items.map(item => item.schemaItem).filter(Boolean) ?? []
+    const lines = schemaItems.filter(item => item.type === 'line')
+    expect(childIds).toContain('modeler-elements:bpmn-recipe-layer')
+    expect(childIds).not.toContain('recipe-exclusive-gateway:view')
+    expect(schemaItems.some(item => item.type === 'polygon')).toBe(true)
+    expect(lines).toHaveLength(2)
+    expect(lines[0]).toMatchObject({
+      x1: 140 + 28 - 56 * 0.18,
+      y1: 120 + 28 - 56 * 0.18,
+      x2: 140 + 28 + 56 * 0.18,
+      y2: 120 + 28 + 56 * 0.18,
+    })
+    const layer = app.components.require('modeler-elements:bpmn-recipe-layer') as unknown as {
+      batchRuntime: { getTextBatch(): { count: number; text: Array<string> } }
+    }
+    const textBatch = layer.batchRuntime.getTextBatch()
+    expect(textBatch.text.slice(0, textBatch.count)).toEqual(expectedLayout.lines.map(line => line.text))
     app.destroy()
   })
 
@@ -3517,7 +3599,7 @@ describe('nova modeler minimal kernel', () => {
       width: 120,
       height: 80,
     })
-    expect(wrappedLayout.lines).toHaveLength(3)
+    expect(wrappedLayout.lines).toHaveLength(2)
     expect(wrappedLayout.clipped).toBe(false)
     expect(wrappedLayout.lines.at(-1)?.text).not.toMatch(/\.\.\.$/)
 
@@ -3631,7 +3713,7 @@ describe('nova modeler minimal kernel', () => {
       wrap: true,
       resize: 'none',
       minRows: 1,
-      maxRows: 3,
+      maxRows: 4,
       color: 'var(--modeler-bpmn-task-text-color, #111827)',
       fontFamily: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
       fontSize: 12.8,
@@ -3747,6 +3829,83 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
+  it('edits BPMN gateway label inline from the diamond body and label area', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    const root = app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'gateway-label-edit-root',
+      props: {
+        model: createModelerModel({
+          elements: [createBpmnGatewayElement({ id: 'gateway-1', x: 220, y: 100 })],
+          selection: ['gateway-1'],
+        }),
+        options: {
+          rendering: {
+            bpmnRecipes: { enabled: false },
+          },
+        },
+        width: 640,
+        height: 420,
+      },
+    }) as Root
+    app.raph.run()
+    app.raph.run()
+
+    const inputId = 'gateway-label-edit-root:task-name-editor:input'
+    const openEditorAt = (point: { x: number; y: number }): InputApi => {
+      ;(root as unknown as { openTaskNameEditorFromPoint(point: { x: number; y: number }): boolean })
+        .openTaskNameEditorFromPoint(point)
+      app.raph.run()
+      return app.components.requireApi<InputApi>(inputId)
+    }
+    const interaction = app.surfaces.find(item => item.name === 'gateway-label-edit-root:interaction')
+    const interactionTexts = (): Array<unknown> => interaction
+      ?.compileRenderFrame().items
+      .map(item => item.schemaItem)
+      .filter(item => item?.type === 'text')
+      .map(item => item?.text) ?? []
+
+    const bodyInput = openEditorAt({ x: 248, y: 128 })
+    expect(pickInputProps(bodyInput.getProps())).toMatchObject({
+      variant: 'ghost',
+      align: 'center',
+      wrap: true,
+      maxRows: 2,
+      fontSize: 12,
+      lineHeight: 16,
+      border: { width: 0 },
+      background: 'rgba(255,255,255,0)',
+    })
+    bodyInput.setValue('Need approval')
+    bodyInput.commit()
+    app.raph.run()
+    expect(root.getApi().getModel().elements[0]?.data?.name).toBe('Need approval')
+    expect(interactionTexts()).toContain('Need approval')
+
+    const labelLayout = resolveBpmnGatewayNameLayout({ name: 'Need approval', width: 56, height: 56 })
+    const labelPoint = {
+      x: 248 + labelLayout.rect.x + labelLayout.rect.width / 2,
+      y: 128 + labelLayout.rect.y + labelLayout.lineHeight / 2,
+    }
+    expect(root.hitTest(labelPoint)).toEqual({ type: 'element', id: 'gateway-1' })
+    const labelInput = openEditorAt(labelPoint)
+    labelInput.setValue('')
+    labelInput.commit()
+    app.raph.run()
+    expect(root.getApi().getModel().elements[0]?.data?.name).toBe('')
+    expect(interactionTexts()).not.toContain('Need approval')
+    app.destroy()
+  })
+
   it('edits BPMN sequence flow label inline from the label area', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
@@ -3827,6 +3986,7 @@ describe('nova modeler minimal kernel', () => {
     })
     registerModeler(app.schema)
     const surface = app.createSurface('modeler')
+    const name = 'Customer archive data store'
     const root = app.schema.createNode(surface, {
       type: Modeler.Root,
       id: 'data-store-name-edit-root',
@@ -3836,7 +3996,7 @@ describe('nova modeler minimal kernel', () => {
             id: 'data-store-1',
             x: 220,
             y: 100,
-            name: 'Customer archive data store',
+            name,
           })],
           selection: ['data-store-1'],
         }),
@@ -3850,9 +4010,11 @@ describe('nova modeler minimal kernel', () => {
     const interaction = app.surfaces.find(item => item.name === 'data-store-name-edit-root:interaction')
     const schemaItems = interaction?.compileRenderFrame().items.map(item => item.schemaItem).filter(Boolean) ?? []
     const icon = schemaItems.find(item => item?.type === 'icon' && item.icon === MODELER_ASSETS.icons.database)
-    const labels = schemaItems.filter(item => item?.type === 'text' && ['Customer', 'archive data', 'store'].includes(String(item.text)))
+    const expectedLabels = resolveBpmnDataStoreNameLayout({ name, width: 120, height: 96 })
+      .lines.map(line => line.text)
+    const labels = schemaItems.filter(item => item?.type === 'text' && expectedLabels.includes(String(item.text)))
     expect(icon).toMatchObject({ type: 'icon' })
-    expect(labels.map(item => item?.text)).toEqual(['Customer', 'archive data', 'store'])
+    expect(labels.map(item => item?.text)).toEqual(expectedLabels)
     expect(Number(labels[0]?.y)).toBeGreaterThan(Number(icon?.y) + Number(icon?.height))
     expect(Number(labels[1]?.y)).toBeGreaterThan(Number(labels[0]?.y))
 
@@ -3879,9 +4041,9 @@ describe('nova modeler minimal kernel', () => {
       .map(item => item.schemaItem)
       .filter(item => item?.type === 'text')
       .map(item => item?.text) ?? []
-    expect(hiddenTexts).not.toContain('Customer')
-    expect(hiddenTexts).not.toContain('archive data')
-    expect(hiddenTexts).not.toContain('store')
+    for (const label of expectedLabels) {
+      expect(hiddenTexts).not.toContain(label)
+    }
 
     input.setValue('Archive store\nwith notes')
     input.commit()
@@ -4160,12 +4322,15 @@ describe('nova modeler minimal kernel', () => {
 
     const layerSurfaceNames = MODELER_LAYER_NAMES.map(name => `modeler-root:${name}`)
     expect(app.surfaces.map(item => item.name)).toEqual(expect.arrayContaining(layerSurfaceNames))
-    expect(MODELER_LAYER_NAMES).toEqual(['background', 'links', 'interaction', 'controls', 'overlay'])
+    expect(MODELER_LAYER_NAMES).toEqual(['background', 'containers', 'links', 'interaction', 'controls', 'overlay'])
+    expect(MODELER_SURFACE_CONFIG.containers.zIndex).toBeLessThan(MODELER_SURFACE_CONFIG.links.zIndex)
     expect(MODELER_SURFACE_CONFIG.links.zIndex).toBeLessThan(MODELER_SURFACE_CONFIG.interaction.zIndex)
 
+    const containers = app.surfaces.find(item => item.name === 'modeler-root:containers')
     const links = app.surfaces.find(item => item.name === 'modeler-root:links')
     const controls = app.surfaces.find(item => item.name === 'modeler-root:controls')
     const overlay = app.surfaces.find(item => item.name === 'modeler-root:overlay')
+    expect(containers?.interactive).toBe(false)
     expect(links?.interactive).toBe(false)
     expect(controls?.interactive).toBe(false)
     expect(overlay?.interactive).toBe(false)
@@ -5271,6 +5436,63 @@ describe('nova modeler minimal kernel', () => {
     marqueeGesture?.onPointerMove?.(context, offsetMouseEvent('mousemove', 280, 220, { ctrlKey: true }))
     marqueeGesture?.onPointerUp?.(context, offsetMouseEvent('mouseup', 280, 220, { ctrlKey: true }))
     expect(root.getApi().getModel().selection).toEqual(['rect-1'])
+    app.destroy()
+  })
+
+  it('uses temporary marquee inside BPMN pool without moving the pool', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const canvas = document.createElement('canvas')
+    const app = Nova.createApp({
+      target: canvas,
+      size: { width: 720, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    const runtime = createPluginRuntime().use(MarqueeSelectionPlugin.create())
+    const pool = createBpmnParticipantElement({ id: 'pool-1', x: 80, y: 80, width: 560, height: 260 })
+    const taskA = createBpmnTaskElement({ id: 'task-a', x: 180, y: 130, name: 'A' })
+    const taskB = createBpmnTaskElement({ id: 'task-b', x: 340, y: 140, name: 'B' })
+    const root = app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'pool-marquee-root',
+      props: {
+        model: createModelerModel({
+          elements: [pool, taskA, taskB],
+        }),
+        pluginRuntime: runtime,
+        options: {
+          viewport: {
+            panMode: 'space-drag',
+          },
+        },
+        width: 720,
+        height: 420,
+      },
+    }) as Root
+    app.raph.run()
+    app.raph.run()
+
+    const controller = (root as unknown as { controllerInstance: ReturnType<typeof createModelerController> }).controllerInstance
+    const context = controller.getPluginContext()
+    app.handleEvent('keydown', new KeyboardEvent('keydown', { key: 'Shift' }))
+    expect(context.tools.getActiveId()).toBe('marqueeSelection')
+    const target = controller.hitTest({ x: 130, y: 100 })
+    expect(target).toMatchObject({ id: 'pool-1' })
+    const startEvent = offsetMouseEvent('mousedown', 130, 100, { shiftKey: true })
+    const moveGesture = controller.getGestures().find(gesture => gesture.id === 'modeler-elements:move')
+    expect(moveGesture?.hitTest?.(context, startEvent, target)).toBe(false)
+    const marqueeGesture = controller.getGestures().find(gesture => gesture.hitTest?.(context, startEvent, target))
+    expect(marqueeGesture?.id).toContain('marquee')
+    marqueeGesture?.onPointerDown?.(context, startEvent)
+    marqueeGesture?.onPointerMove?.(context, offsetMouseEvent('mousemove', 500, 260, { shiftKey: true }))
+    marqueeGesture?.onPointerUp?.(context, offsetMouseEvent('mouseup', 500, 260, { shiftKey: true }))
+
+    const model = root.getApi().getModel()
+    expect(model.elements.find(element => element.id === 'pool-1')).toMatchObject({ x: 80, y: 80 })
+    expect(model.selection).toEqual(['task-a', 'task-b'])
+    app.handleEvent('keyup', new KeyboardEvent('keyup', { key: 'Shift' }))
     app.destroy()
   })
 

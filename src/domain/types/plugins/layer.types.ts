@@ -5,7 +5,7 @@ import type {
   ModelerModel,
 } from '@/domain/types/model/model.types'
 
-export type ModelerLayerName = 'background' | 'links' | 'interaction' | 'controls' | 'overlay'
+export type ModelerLayerName = 'background' | 'containers' | 'links' | 'interaction' | 'controls' | 'overlay'
 
 export interface ModelerLayerSlotProps {
   model: ModelerModel

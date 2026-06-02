@@ -23,6 +23,7 @@ import { BpmnParticipantVariantProvider } from '@/elements/bpmn/participant/bpmn
 export const BpmnParticipantDefinition: ModelerElementDefinition<BpmnParticipantElement> = {
   type: BPMN_PARTICIPANT_TYPE,
   kind: 'node',
+  renderBand: 'containers',
   title: 'Swimlane',
   defaults: {
     width: BPMN_PARTICIPANT_DEFAULT_WIDTH,

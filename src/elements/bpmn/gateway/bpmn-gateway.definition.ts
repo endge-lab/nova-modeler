@@ -9,6 +9,10 @@ import {
   BPMN_GATEWAY_TYPE,
   createBpmnGatewayElement,
 } from '@/elements/bpmn/gateway/bpmn-gateway.factory'
+import {
+  containsBpmnGatewayNameLayoutPoint,
+  resolveBpmnGatewayNameLayout,
+} from '@/elements/bpmn/gateway/bpmn-gateway.label'
 import { createBpmnGatewayPorts } from '@/elements/bpmn/gateway/bpmn-gateway.ports'
 import { BpmnGatewayVariantProvider } from '@/elements/bpmn/gateway/bpmn-gateway.variants'
 import type {
@@ -69,6 +73,7 @@ export const BpmnGatewayDefinition: ModelerElementDefinition<BpmnGatewayElement>
 }
 
 function resolveBpmnGatewayTooltip(element: BpmnGatewayElement): string {
+  if (element.data?.name) return element.data.name
   const gatewayType = element.data?.gatewayType
   if (gatewayType === 'parallel') return 'Parallel gateway'
   if (gatewayType === 'inclusive') return 'Inclusive gateway'
@@ -84,5 +89,13 @@ function containsBpmnGatewayPoint(element: BpmnGatewayElement, point: ModelerPoi
   if (halfWidth <= 0 || halfHeight <= 0) return false
   const centerX = element.x + halfWidth
   const centerY = element.y + halfHeight
-  return Math.abs(point.x - centerX) / halfWidth + Math.abs(point.y - centerY) / halfHeight <= 1
+  const dx = point.x - centerX
+  const dy = point.y - centerY
+  if (Math.abs(dx) / halfWidth + Math.abs(dy) / halfHeight <= 1) return true
+  const layout = resolveBpmnGatewayNameLayout({
+    name: element.data?.name,
+    width: element.width,
+    height: element.height,
+  })
+  return containsBpmnGatewayNameLayoutPoint(layout, { x: dx, y: dy })
 }

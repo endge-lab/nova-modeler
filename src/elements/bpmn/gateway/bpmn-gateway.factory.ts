@@ -20,10 +20,15 @@ export function createBpmnGatewayElement(input: BpmnGatewayElementInput): BpmnGa
     zIndex: input.zIndex,
     data: {
       ...data,
+      name: normalizeName(input.name ?? data.name),
       gatewayType: normalizeBpmnGatewayType(input.gatewayType ?? data.gatewayType),
     },
     style: input.style ? { ...input.style } : {},
   }
+}
+
+function normalizeName(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : ''
 }
 
 export function normalizeBpmnGatewayType(value: unknown): BpmnGatewayType {

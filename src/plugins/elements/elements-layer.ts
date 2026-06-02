@@ -4,7 +4,9 @@ import { Modeler } from '@/config/schema.config'
 import type {
   ModelerEdgeElement,
   ModelerElement,
+  ModelerElementDefinition,
   ModelerPluginContext,
+  ModelerRenderBand,
 } from '@/domain/types/index'
 import { isModelerEdgeElement } from '@/domain/types/index'
 import { BPMN_PARTICIPANT_TYPE } from '@/elements/bpmn/participant/bpmn-participant.factory'
@@ -19,6 +21,7 @@ import {
 
 export class ElementsLayer {
   private stableBpmnRecipeElements: Array<ModelerElement> = []
+  private disposeContainersLayer: (() => void) | undefined
   private disposeLinksLayer: (() => void) | undefined
   private disposeInteractionLayer: (() => void) | undefined
   private disposeWarningLayer: (() => void) | undefined
@@ -40,6 +43,7 @@ export class ElementsLayer {
   }
 
   sync(): void {
+    const containerSchemas: Array<NovaTemplateChildSchema> = []
     const linkSchemas: Array<NovaTemplateChildSchema> = []
     const interactionSchemas: Array<NovaTemplateChildSchema> = []
     const nodeSchemas: Array<NovaTemplateChildSchema> = []
@@ -87,12 +91,18 @@ export class ElementsLayer {
       this.appendEdgeInteractionSchema(interactionSchemas, element, selected)
     }
     for (const element of nodes) {
-      this.appendNodeSchema(nodeSchemas, nodeOverlaySchemas, element, selected, connectionTargetId)
+      const band = this.resolveElementRenderBand(element)
+      const schemas = band === 'containers'
+        ? containerSchemas
+        : band === 'links'
+          ? linkSchemas
+          : nodeSchemas
+      this.appendNodeSchema(schemas, nodeOverlaySchemas, element, selected, connectionTargetId)
     }
-    bpmnRecipeElements.push(...visible.recipeNodes)
+    bpmnRecipeElements.push(...[...visible.recipeNodes].sort(compareNodeRenderOrder))
     if (bpmnRecipeElements.length > 0) {
       const stableBpmnRecipeElements = this.resolveStableBpmnRecipeElements(bpmnRecipeElements)
-      interactionSchemas.push({
+      nodeSchemas.push({
         type: Modeler.BpmnRecipeLayerView,
         id: 'modeler-elements:bpmn-recipe-layer',
         props: {
@@ -117,6 +127,7 @@ export class ElementsLayer {
         schema.props = { ...(schema.props ?? {}), preview: true }
       }
     }
+    this.disposeContainersLayer = this.context.layers.reconcile('containers', 'modeler-elements-containers', containerSchemas)
     this.disposeLinksLayer = this.context.layers.reconcile('links', 'modeler-elements-links', linkSchemas)
     this.disposeInteractionLayer = this.context.layers.reconcile('interaction', 'modeler-elements', interactionSchemas)
     this.syncConnectionWarning()
@@ -202,15 +213,23 @@ export class ElementsLayer {
     }
   }
 
+  private resolveElementRenderBand(element: ModelerElement): ModelerRenderBand {
+    const definition = this.context.getElementRegistry().get(element.type)
+    if (!definition) return 'nodes'
+    return resolveElementRenderBand(this.context, definition, element)
+  }
+
   dispose(): void {
     this.disposeShadow()
     this.disposePreview()
     this.disposeConnection()
     this.disposeSegmentHover()
     this.disposeConnectionWarning()
+    this.disposeContainersLayer?.()
     this.disposeLinksLayer?.()
     this.disposeInteractionLayer?.()
     this.disposeWarningLayer?.()
+    this.disposeContainersLayer = undefined
     this.disposeLinksLayer = undefined
     this.disposeInteractionLayer = undefined
     this.disposeWarningLayer = undefined
@@ -346,11 +365,17 @@ export class ElementsLayer {
 function compareNodeRenderOrder(a: ModelerElement, b: ModelerElement): number {
   const zIndexDelta = (a.zIndex ?? 0) - (b.zIndex ?? 0)
   if (zIndexDelta !== 0) return zIndexDelta
-  const backgroundDelta = resolveNodeBackgroundRank(a) - resolveNodeBackgroundRank(b)
-  if (backgroundDelta !== 0) return backgroundDelta
   return 0
 }
 
-function resolveNodeBackgroundRank(element: ModelerElement): number {
-  return element.type === BPMN_PARTICIPANT_TYPE ? -1 : 0
+function resolveElementRenderBand(
+  context: ModelerPluginContext,
+  definition: ModelerElementDefinition,
+  element: ModelerElement,
+): ModelerRenderBand {
+  const band = typeof definition.renderBand === 'function'
+    ? definition.renderBand(context, element)
+    : definition.renderBand
+  if (band) return band
+  return definition.kind === 'edge' ? 'links' : 'nodes'
 }

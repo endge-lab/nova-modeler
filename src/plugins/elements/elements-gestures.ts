@@ -227,11 +227,13 @@ export class ElementsGestures {
       hitTest: (context, event, target) => {
         const elementId = this.resolveTargetElementId(target)
         if (event.button !== 0 || !elementId) return false
+        if (context.tools.getActiveId() === 'marqueeSelection') return false
         const element = context.getModel().elements.find(item => item.id === elementId)
         const definition = element ? context.getElementRegistry().get(element.type) : undefined
         return !!element && definition?.capabilities?.draggable !== false
       },
       onPointerDown: (context, event) => {
+        if (context.tools.getActiveId() === 'marqueeSelection') return false
         const point = eventPoint(event)
         const target = context.hitTest(point)
         const elementId = this.resolveTargetElementId(target)

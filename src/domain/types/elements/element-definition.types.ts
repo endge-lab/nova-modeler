@@ -17,6 +17,11 @@ export interface ModelerElementRenderContext extends ModelerPluginContext {
   selected: boolean
 }
 
+export type ModelerRenderBand = 'containers' | 'links' | 'nodes'
+export type ModelerRenderBandResolver<TElement extends ModelerElement = ModelerElement> = {
+  resolve(context: ModelerPluginContext, element: TElement): ModelerRenderBand
+}['resolve']
+
 export interface ModelerElementPortContext extends ModelerPluginContext {}
 
 export interface ModelerElementHitTestContext extends ModelerPluginContext {}
@@ -37,6 +42,7 @@ export interface ModelerElementDefinition<TElement extends ModelerElement = Mode
   kind: 'node' | 'edge'
   title?: string
   defaults?: Partial<TElement>
+  renderBand?: ModelerRenderBand | ModelerRenderBandResolver<TElement>
   capabilities?: ModelerElementCapabilities
   createTool?: ModelerElementCreateToolDefinition<TElement>
   createTools?: Array<ModelerElementCreateToolDefinition<TElement>>
