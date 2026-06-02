@@ -18,6 +18,7 @@ import type {
   BpmnMessageFlowElement,
   BpmnMessageFlowElementInput,
 } from '@/elements/bpmn/message-flow/bpmn-message-flow.types'
+import { normalizeExternalLabelGeometry } from '@/tools/external-label-geometry'
 
 export const BPMN_MESSAGE_FLOW_TYPE = 'bpmn.messageFlow'
 
@@ -38,7 +39,9 @@ export function createBpmnMessageFlowElement(input: BpmnMessageFlowElementInput)
     waypoints: normalizeWaypoints(input.waypoints),
     data: {
       ...input.data,
+      name: normalizeOptionalText(input.name ?? input.data?.name),
       messageRef: normalizeOptionalRef(input.messageRef ?? input.data?.messageRef),
+      label: normalizeExternalLabelGeometry(input.label ?? input.data?.label),
     },
     style: { ...input.style },
   }
@@ -87,6 +90,10 @@ function normalizePoint(input: ModelerPoint | undefined, fallback: ModelerPoint)
 }
 
 function normalizeOptionalRef(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined
+}
+
+function normalizeOptionalText(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined
 }
 

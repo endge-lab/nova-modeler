@@ -16,6 +16,7 @@ import type {
   ModelerModel,
 } from '@/domain/types/model/model.types'
 import type { ModelerVisibilityApi } from '@/domain/types/model/visibility.types'
+import type { ModelerExternalLabelApi } from '@/domain/types/model/external-label.types'
 import type { ModelerHitTarget } from '@/domain/types/interaction/hit-target.types'
 import type { ModelerLayerName } from '@/domain/types/plugins/layer.types'
 import type { ModelerActionRegistryApi } from '@/domain/types/action.types'
@@ -77,6 +78,7 @@ export interface ModelerPluginContext {
   worldToScreen(point: ModelerPoint): ModelerPoint
   invalidate(phase?: 'update' | 'render' | 'both'): void
   visibility: ModelerVisibilityApi
+  externalLabels: ModelerExternalLabelApi
   layers: ModelerLayerApi
   gestures: { add(gesture: ModelerGesture): () => void }
   actions: ModelerActionRegistryApi

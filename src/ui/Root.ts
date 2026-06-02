@@ -106,6 +106,12 @@ import {
   BPMN_FLOW_TYPE,
 } from '@/elements/bpmn/flow/bpmn-flow.factory'
 import type { BpmnFlowElement } from '@/elements/bpmn/flow/bpmn-flow.types'
+import { BPMN_ASSOCIATION_TYPE } from '@/elements/bpmn/association/bpmn-association.factory'
+import type { BpmnAssociationElement } from '@/elements/bpmn/association/bpmn-association.types'
+import { BPMN_DATA_ASSOCIATION_TYPE } from '@/elements/bpmn/data-association/bpmn-data-association.factory'
+import type { BpmnDataAssociationElement } from '@/elements/bpmn/data-association/bpmn-data-association.types'
+import { BPMN_MESSAGE_FLOW_TYPE } from '@/elements/bpmn/message-flow/bpmn-message-flow.factory'
+import type { BpmnMessageFlowElement } from '@/elements/bpmn/message-flow/bpmn-message-flow.types'
 import {
   BPMN_PARTICIPANT_TYPE,
   renameBpmnParticipantLane,
@@ -124,7 +130,7 @@ import {
 } from '@/ui/elements/bpmn/flow/BpmnFlowView'
 import { MODEL_ELEMENTS_RUNTIME } from '@/plugins/elements/model/ElementsRuntime'
 
-type EditableNameElement = BpmnTaskElement | BpmnSubProcessElement | BpmnCallActivityElement | BpmnEventElement | BpmnGatewayElement | BpmnDataStoreElement | BpmnGroupElement | BpmnParticipantElement | BpmnFlowElement
+type EditableNameElement = BpmnTaskElement | BpmnSubProcessElement | BpmnCallActivityElement | BpmnEventElement | BpmnGatewayElement | BpmnDataStoreElement | BpmnGroupElement | BpmnParticipantElement | BpmnFlowElement | BpmnAssociationElement | BpmnDataAssociationElement | BpmnMessageFlowElement
 type EditableNameKind = 'task' | 'activity' | 'event' | 'gateway' | 'dataStore' | 'group' | 'participant' | 'lane' | 'flow'
 type EditableNamePart = { partType?: string; partId?: string }
 
@@ -440,6 +446,26 @@ export class Root<E extends EventList = Record<string, any>>
   }
 
   private resolveTaskNameScreenLayout(element: EditableNameElement, part: EditableNamePart | undefined = this.taskNameEditor?.part): BpmnTaskNameLayout {
+    if (this.controllerInstance.getElementRegistry().get(element.type)?.externalLabel) {
+      const context = this.controllerInstance.getPluginContext()
+      const geometry = context.externalLabels.createGeometry(context, element)
+      const source = geometry
+        ? { ...element, data: { ...(element.data ?? {}), label: geometry } } as EditableNameElement
+        : element
+      const layout = context.externalLabels.resolve(context, source)
+      if (layout) {
+        return {
+          text: layout.text,
+          rect: layout.screenRect,
+          lines: layout.lines,
+          clipped: layout.clipped,
+          fontFamily: layout.fontFamily,
+          fontSize: layout.fontSize,
+          fontWeight: layout.fontWeight,
+          lineHeight: layout.lineHeight,
+        }
+      }
+    }
     if (element.type === BPMN_FLOW_TYPE) {
       const flow = element as BpmnFlowElement
       const path = MODEL_ELEMENTS_RUNTIME.edges
@@ -572,7 +598,10 @@ export class Root<E extends EventList = Record<string, any>>
   }
 
   private resolveTaskNameEditorMaxRows(element: EditableNameElement): number {
-    if (element.type === BPMN_FLOW_TYPE) return 1
+    if (this.controllerInstance.getElementRegistry().get(element.type)?.externalLabel) {
+      const layout = this.resolveTaskNameScreenLayout(element)
+      return Math.max(1, Math.floor(layout.rect.height / layout.lineHeight))
+    }
     if (element.type === BPMN_EVENT_TYPE || element.type === BPMN_GATEWAY_TYPE) return 2
     const layout = this.resolveTaskNameScreenLayout(element)
     return Math.max(1, Math.floor(layout.rect.height / layout.lineHeight))
@@ -1007,6 +1036,7 @@ export class Root<E extends EventList = Record<string, any>>
   }
 
   private clearSelection(): void {
+    this.controllerInstance.getPluginContext().externalLabels.clearSelection()
     if (this.controllerInstance.getModel().selection.length === 0) return
     this.controllerInstance.applyCommand({ type: 'select', ids: [] })
   }
@@ -1072,6 +1102,7 @@ export class Root<E extends EventList = Record<string, any>>
     if (!element || !this.isEditableNameElement(element)) return false
     const part = target.type === 'element-part' ? { partType: target.partType, partId: target.partId } : undefined
     if (!this.containsTaskNamePoint(element, point, part)) return false
+    this.ensureExternalLabelGeometry(element)
     this.taskNameEditor = { elementId: element.id, kind: this.resolveNameEditorKind(element, part), part }
     this.syncTaskNameEditor()
     return true
@@ -1100,9 +1131,29 @@ export class Root<E extends EventList = Record<string, any>>
     this.lastTaskNamePointerDown = { elementId: element.id, partKey, x: point.x, y: point.y, time: now }
     if (!isDouble) return false
     this.lastTaskNamePointerDown = null
+    this.ensureExternalLabelGeometry(element)
     this.taskNameEditor = { elementId: element.id, kind: this.resolveNameEditorKind(element, part), part }
     this.syncTaskNameEditor()
     return true
+  }
+
+  private ensureExternalLabelGeometry(element: EditableNameElement): void {
+    const context = this.controllerInstance.getPluginContext()
+    if (!this.controllerInstance.getElementRegistry().get(element.type)?.externalLabel) return
+    const geometry = context.externalLabels.createGeometry(context, element)
+    if (!geometry) return
+    context.externalLabels.select(element.id)
+    if (element.data?.label) return
+    this.controllerInstance.applyCommand({
+      type: 'element.patch',
+      id: element.id,
+      patch: {
+        data: {
+          ...(element.data ?? {}),
+          label: geometry,
+        },
+      },
+    })
   }
 
   private syncTaskNameEditor(): void {
@@ -1187,6 +1238,8 @@ export class Root<E extends EventList = Record<string, any>>
   private patchTaskNameViewLabel(elementId: string, hideName: boolean): void {
     const view = this.nova.components.get(`${elementId}:view`) as { setProps?: (props: Record<string, unknown>) => void } | undefined
     view?.setProps?.({ hideName })
+    const externalLabelView = this.nova.components.get(`${elementId}:external-label`) as { setProps?: (props: Record<string, unknown>) => void } | undefined
+    externalLabelView?.setProps?.({ hideText: hideName })
   }
 
   private applyTaskNameEditorValue(value: string): void {
@@ -1194,9 +1247,10 @@ export class Root<E extends EventList = Record<string, any>>
     if (!elementId) return
     const element = this.controllerInstance.getModel().elements.find(item => item.id === elementId)
     if (!element || !this.isEditableNameElement(element)) return
-    if (element.type === BPMN_FLOW_TYPE || element.type === BPMN_EVENT_TYPE || element.type === BPMN_GATEWAY_TYPE) {
+    if (this.controllerInstance.getElementRegistry().get(element.type)?.externalLabel) {
       const nextName = value.trim()
-      if ((element.data?.name ?? '') === nextName) return
+      const geometry = this.controllerInstance.getPluginContext().externalLabels.createGeometry(this.controllerInstance.getPluginContext(), element)
+      if ((element.data?.name ?? '') === nextName && (!geometry || element.data?.label)) return
       this.controllerInstance.applyCommand({
         type: 'element.patch',
         id: element.id,
@@ -1204,6 +1258,7 @@ export class Root<E extends EventList = Record<string, any>>
           data: {
             ...element.data,
             name: nextName || undefined,
+            label: element.data?.label ?? geometry ?? undefined,
           },
         },
       })
@@ -1240,6 +1295,12 @@ export class Root<E extends EventList = Record<string, any>>
 
   private containsTaskNamePoint(element: EditableNameElement, point: ModelerPoint, part?: EditableNamePart): boolean {
     if (element.type === BPMN_PARTICIPANT_TYPE && !part?.partType) return false
+    const definition = this.controllerInstance.getElementRegistry().get(element.type)
+    if (definition?.externalLabel) {
+      const context = this.controllerInstance.getPluginContext()
+      if (context.externalLabels.hitTest(context, element, context.screenToWorld(point))) return true
+      if (isModelerEdgeElement(element)) return true
+    }
     const rect = this.resolveTaskNameContentRect(element, part)
     if (
       point.x >= rect.x
@@ -1275,10 +1336,13 @@ export class Root<E extends EventList = Record<string, any>>
       || element.type === BPMN_GROUP_TYPE
       || element.type === BPMN_PARTICIPANT_TYPE
       || element.type === BPMN_FLOW_TYPE
+      || element.type === BPMN_ASSOCIATION_TYPE
+      || element.type === BPMN_DATA_ASSOCIATION_TYPE
+      || element.type === BPMN_MESSAGE_FLOW_TYPE
   }
 
   private resolveNameEditorKind(element: EditableNameElement, part?: EditableNamePart): EditableNameKind {
-    if (element.type === BPMN_FLOW_TYPE) return 'flow'
+    if (this.controllerInstance.getElementRegistry().get(element.type)?.externalLabel && isModelerEdgeElement(element)) return 'flow'
     if (element.type === BPMN_PARTICIPANT_TYPE && part?.partType === 'bpmn.swimlane.lane') return 'lane'
     if (element.type === BPMN_PARTICIPANT_TYPE) return 'participant'
     if (element.type === BPMN_EVENT_TYPE) return 'event'
@@ -1299,6 +1363,7 @@ export class Root<E extends EventList = Record<string, any>>
     if (element.type === BPMN_EVENT_TYPE) return ''
     if (element.type === BPMN_GATEWAY_TYPE) return ''
     if (element.type === BPMN_FLOW_TYPE) return ''
+    if (element.type === BPMN_ASSOCIATION_TYPE || element.type === BPMN_DATA_ASSOCIATION_TYPE || element.type === BPMN_MESSAGE_FLOW_TYPE) return ''
     return 'Task'
   }
 
@@ -1316,6 +1381,9 @@ export class Root<E extends EventList = Record<string, any>>
     if (element.type === BPMN_EVENT_TYPE) return 'modeler.bpmn.event.name'
     if (element.type === BPMN_GATEWAY_TYPE) return 'modeler.bpmn.gateway.name'
     if (element.type === BPMN_FLOW_TYPE) return 'modeler.bpmn.flow.name'
+    if (element.type === BPMN_ASSOCIATION_TYPE) return 'modeler.bpmn.association.name'
+    if (element.type === BPMN_DATA_ASSOCIATION_TYPE) return 'modeler.bpmn.data-association.name'
+    if (element.type === BPMN_MESSAGE_FLOW_TYPE) return 'modeler.bpmn.message-flow.name'
     return 'modeler.bpmn.task.name'
   }
 
@@ -1325,13 +1393,15 @@ export class Root<E extends EventList = Record<string, any>>
       const lane = participant.data?.lanes.find(item => item.id === this.taskNameEditor?.part?.partId)
       return lane?.name ?? this.resolveNameEditorFallback(element)
     }
-    if (element.type === BPMN_FLOW_TYPE || element.type === BPMN_EVENT_TYPE || element.type === BPMN_GATEWAY_TYPE) return element.data?.name ?? ''
+    if (this.controllerInstance.getElementRegistry().get(element.type)?.externalLabel) return element.data?.name ?? ''
     return element.data?.name ?? this.resolveNameEditorFallback(element)
   }
 
   private resolveHitTargetElementId(target: ModelerHitTarget): string | null {
     if (target.type === 'element') return target.id
     if (target.type === 'element-part') return target.id
+    if (target.type === 'external-label') return target.elementId
+    if (target.type === 'external-label-resize-handle') return target.elementId
     if (target.type === 'edge-waypoint-handle' || target.type === 'edge-segment-handle') return target.elementId
     return null
   }
@@ -1365,6 +1435,8 @@ export class Root<E extends EventList = Record<string, any>>
     if (this.spacePressed || this.dragState) return 'pan'
     if (target.type === 'rotate-handle') return 'rotate'
     if (target.type === 'resize-handle') return this.resolveResizeCursor(target.handle)
+    if (target.type === 'external-label-resize-handle') return this.resolveResizeCursor(target.handle)
+    if (target.type === 'external-label') return 'element'
     if (target.type === 'bpmn-lane-resize-handle') return target.orientation === 'vertical' ? 'ew-resize' : 'ns-resize'
     if (target.type === 'edge-waypoint-handle' || target.type === 'edge-segment-handle') return 'edge-handle'
     if (target.type === 'port') return 'port'
@@ -1378,11 +1450,11 @@ export class Root<E extends EventList = Record<string, any>>
       MODEL_ELEMENTS_RUNTIME.edgeSegmentHover.clear()
       return
     }
-    if (target.type !== 'edge-segment-handle' && target.type !== 'element' && target.type !== 'element-part') {
+    if (target.type !== 'edge-segment-handle' && target.type !== 'element' && target.type !== 'element-part' && target.type !== 'external-label') {
       MODEL_ELEMENTS_RUNTIME.edgeSegmentHover.clear()
       return
     }
-    const elementId = target.type === 'edge-segment-handle' ? target.elementId : target.id
+    const elementId = target.type === 'edge-segment-handle' || target.type === 'external-label' ? target.elementId : target.id
     const model = this.controllerInstance.getModel()
     if ((target.type === 'element' || target.type === 'element-part') && !model.selection.includes(elementId)) {
       MODEL_ELEMENTS_RUNTIME.edgeSegmentHover.clear()

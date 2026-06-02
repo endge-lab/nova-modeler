@@ -22,6 +22,7 @@ export interface ModelerVisibilityResolveInput extends ModelerVisibilityForcedIn
   viewport: ModelerViewport
   useBpmnRecipes: boolean
   recipeCulling: boolean
+  resolveExternalLabelBounds?: (element: ModelerElement) => ModelerRect | null
   classifier: ModelerVisibilityClassifier
 }
 

@@ -10,6 +10,7 @@ import {
   normalizeBpmnAssociationType,
 } from '@/elements/bpmn/association/bpmn-association.factory'
 import { BpmnAssociationVariantProvider } from '@/elements/bpmn/association/bpmn-association.variants'
+import { createBpmnEdgeExternalLabelAdapter } from '@/elements/bpmn/bpmn-external-label'
 import type {
   BpmnAssociationElement,
   BpmnAssociationElementInput,
@@ -52,6 +53,7 @@ export const BpmnAssociationDefinition: ModelerElementDefinition<BpmnAssociation
     create: input => createBpmnAssociationElement(input as BpmnAssociationElementInput),
   },
   variantProvider: BpmnAssociationVariantProvider,
+  externalLabel: createBpmnEdgeExternalLabelAdapter(),
   normalize: element => createBpmnAssociationElement(element as BpmnAssociationElementInput),
   render: (context: ModelerElementRenderContext, element) => ({
     type: Modeler.BpmnAssociationView,

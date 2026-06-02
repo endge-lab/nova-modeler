@@ -8,6 +8,7 @@ import type {
   BpmnAssociationElementInput,
   BpmnAssociationType,
 } from '@/elements/bpmn/association/bpmn-association.types'
+import { normalizeExternalLabelGeometry } from '@/tools/external-label-geometry'
 
 export const BPMN_ASSOCIATION_TYPE = 'bpmn.association'
 
@@ -36,6 +37,8 @@ export function createBpmnAssociationElement(input: BpmnAssociationElementInput)
     data: {
       ...input.data,
       associationType: normalizeBpmnAssociationType(input.associationType ?? input.data?.associationType),
+      name: normalizeOptionalText(input.name ?? input.data?.name),
+      label: normalizeExternalLabelGeometry(input.label ?? input.data?.label),
     },
     style: { ...input.style },
   }
@@ -66,4 +69,8 @@ function normalizePoint(input: ModelerPoint | undefined, fallback: ModelerPoint)
 
 function finiteNumber(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+}
+
+function normalizeOptionalText(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined
 }

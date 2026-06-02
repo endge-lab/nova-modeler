@@ -15,6 +15,7 @@ import {
 } from '@/elements/bpmn/gateway/bpmn-gateway.label'
 import { createBpmnGatewayPorts } from '@/elements/bpmn/gateway/bpmn-gateway.ports'
 import { BpmnGatewayVariantProvider } from '@/elements/bpmn/gateway/bpmn-gateway.variants'
+import { createBpmnNodeExternalLabelAdapter } from '@/elements/bpmn/bpmn-external-label'
 import type {
   BpmnGatewayElement,
   BpmnGatewayElementInput,
@@ -57,6 +58,11 @@ export const BpmnGatewayDefinition: ModelerElementDefinition<BpmnGatewayElement>
     create: input => createBpmnGatewayElement(input as BpmnGatewayElementInput),
   },
   variantProvider: BpmnGatewayVariantProvider,
+  externalLabel: createBpmnNodeExternalLabelAdapter(element => resolveBpmnGatewayNameLayout({
+    name: element.data?.name,
+    width: element.width,
+    height: element.height,
+  })),
   normalize: element => createBpmnGatewayElement(element as BpmnGatewayElementInput),
   render: (context: ModelerElementRenderContext, element) => ({
     type: Modeler.BpmnGatewayView,
@@ -65,6 +71,7 @@ export const BpmnGatewayDefinition: ModelerElementDefinition<BpmnGatewayElement>
       element,
       viewport: context.getViewport(),
       selected: context.selected,
+      hideName: true,
     },
   }),
   getPorts: (_context, element) => createBpmnGatewayPorts(element),

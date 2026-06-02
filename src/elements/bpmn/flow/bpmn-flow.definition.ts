@@ -11,6 +11,7 @@ import {
   normalizeBpmnFlowType,
 } from '@/elements/bpmn/flow/bpmn-flow.factory'
 import { BpmnFlowVariantProvider } from '@/elements/bpmn/flow/bpmn-flow.variants'
+import { createBpmnEdgeExternalLabelAdapter } from '@/elements/bpmn/bpmn-external-label'
 import type {
   BpmnFlowElement,
   BpmnFlowElementInput,
@@ -35,6 +36,7 @@ export const BpmnFlowDefinition: ModelerElementDefinition<BpmnFlowElement> = {
     },
   },
   variantProvider: BpmnFlowVariantProvider,
+  externalLabel: createBpmnEdgeExternalLabelAdapter(),
   normalize: element => createBpmnFlowElement(element as BpmnFlowElementInput),
   render: (context: ModelerElementRenderContext, element) => ({
     type: Modeler.BpmnFlowView,
@@ -44,6 +46,7 @@ export const BpmnFlowDefinition: ModelerElementDefinition<BpmnFlowElement> = {
       viewport: context.getViewport(),
       selected: context.selected,
       path: MODEL_ELEMENTS_RUNTIME.edges.createPath(context, element),
+      hideName: true,
     },
   }),
   hitTest: (context, element, point) => {

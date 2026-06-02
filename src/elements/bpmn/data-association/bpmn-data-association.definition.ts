@@ -10,6 +10,7 @@ import {
   normalizeBpmnDataAssociationType,
 } from '@/elements/bpmn/data-association/bpmn-data-association.factory'
 import { BpmnDataAssociationVariantProvider } from '@/elements/bpmn/data-association/bpmn-data-association.variants'
+import { createBpmnEdgeExternalLabelAdapter } from '@/elements/bpmn/bpmn-external-label'
 import type {
   BpmnDataAssociationElement,
   BpmnDataAssociationElementInput,
@@ -39,6 +40,7 @@ export const BpmnDataAssociationDefinition: ModelerElementDefinition<BpmnDataAss
     },
   },
   variantProvider: BpmnDataAssociationVariantProvider,
+  externalLabel: createBpmnEdgeExternalLabelAdapter(),
   normalize: element => createBpmnDataAssociationElement(element as BpmnDataAssociationElementInput),
   render: (context: ModelerElementRenderContext, element) => ({
     type: Modeler.BpmnAssociationView,

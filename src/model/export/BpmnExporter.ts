@@ -344,6 +344,7 @@ export class BpmnExporter {
   private serializeMessageFlow(element: BpmnMessageFlowElement, state: BpmnExportState): string {
     const attrs = [
       `id="${this.requireBpmnId(element, state)}"`,
+      this.resolveName(element) ? `name="${escapeXml(this.resolveName(element))}"` : '',
       `sourceRef="${this.resolveEndpointRef(element.source.elementId, state)}"`,
       `targetRef="${this.resolveEndpointRef(element.target.elementId, state)}"`,
       this.resolveMessageRefAttr(element, state),
@@ -423,16 +424,34 @@ export class BpmnExporter {
     const id = this.requireBpmnId(element, state)
     if (isModelerEdgeElement(element)) {
       const path = state.geometry.resolveEdgePath(context.model, element, context.pluginContext)
+      const label = this.serializeDiagramLabel(context, element)
       return [
         `<bpmndi:BPMNEdge id="${id}_di" bpmnElement="${id}">`,
         ...path.map(point => `  <di:waypoint x="${round(point.x)}" y="${round(point.y)}" />`),
+        ...(label ? [label] : []),
         '</bpmndi:BPMNEdge>',
       ].join('\n')
     }
+    const label = this.serializeDiagramLabel(context, element)
     return [
       `<bpmndi:BPMNShape id="${id}_di" bpmnElement="${id}">`,
       `  <dc:Bounds x="${round(element.x)}" y="${round(element.y)}" width="${round(element.width)}" height="${round(element.height)}" />`,
+      ...(label ? [label] : []),
       '</bpmndi:BPMNShape>',
+    ].join('\n')
+  }
+
+  private serializeDiagramLabel(context: ModelerExportContext, element: ModelerElement): string {
+    if (!context.pluginContext) return ''
+    if (!this.resolveName(element)) return ''
+    const definition = context.pluginContext.getElementRegistry().get(element.type)
+    if (!definition?.externalLabel) return ''
+    const layout = context.pluginContext.externalLabels.resolve(context.pluginContext, element)
+    if (!layout) return ''
+    return [
+      '  <bpmndi:BPMNLabel>',
+      `    <dc:Bounds x="${round(layout.worldRect.x)}" y="${round(layout.worldRect.y)}" width="${round(layout.worldRect.width)}" height="${round(layout.worldRect.height)}" />`,
+      '  </bpmndi:BPMNLabel>',
     ].join('\n')
   }
 

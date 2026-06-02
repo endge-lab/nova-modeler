@@ -6,6 +6,7 @@ export const Modeler = {
   Background: 'Modeler.Background',
   Grid: 'Modeler.Grid',
   BpmnRecipeLayerView: 'Modeler.BpmnRecipeLayerView',
+  ExternalLabelView: 'Modeler.ExternalLabelView',
   BasicRectView: 'Modeler.BasicRectView',
   BpmnAssociationView: 'Modeler.BpmnAssociationView',
   BpmnMessageFlowView: 'Modeler.BpmnMessageFlowView',

@@ -180,6 +180,52 @@ describe('nova modeler minimal kernel', () => {
     expect(xml).toContain('<di:waypoint x="160" y="114" />')
   })
 
+  it('exports external label DI bounds for events, gateways, sequence flows and message flows', () => {
+    const start = createBpmnEventElement({
+      id: 'label-start',
+      x: 40,
+      y: 90,
+      name: 'Start label',
+      label: { offsetX: -30, offsetY: 60, width: 120, height: 32 },
+    })
+    const gateway = createBpmnGatewayElement({
+      id: 'label-gateway',
+      x: 140,
+      y: 86,
+      name: 'Gateway label',
+      label: { offsetX: -44, offsetY: 64, width: 120, height: 32 },
+    })
+    const task = createBpmnTaskElement({ id: 'label-task', x: 260, y: 74, name: 'Task' })
+    const flow = createBpmnFlowElement({
+      id: 'label-flow',
+      source: { elementId: start.id, point: { x: 88, y: 114 } },
+      target: { elementId: gateway.id, point: { x: 140, y: 114 } },
+      name: 'Flow label',
+      label: { offsetX: -60, offsetY: 24, width: 120, height: 32 },
+    })
+    const messageFlow = createBpmnMessageFlowElement({
+      id: 'label-message',
+      source: { elementId: gateway.id, point: { x: 168, y: 142 } },
+      target: { elementId: task.id, point: { x: 260, y: 114 } },
+      name: 'Message label',
+      label: { offsetX: -60, offsetY: 28, width: 130, height: 32 },
+    })
+    const controller = createModelerController({
+      model: createModelerModel({ id: 'label-export', elements: [start, gateway, task, flow, messageFlow] }),
+    })
+    controller.mount(createControllerHost(640, 420))
+
+    const xml = new BpmnExporter().export({
+      model: controller.getModel(),
+      pluginContext: controller.getPluginContext(),
+    })
+
+    expect(xml.match(/<bpmndi:BPMNLabel>/g)).toHaveLength(4)
+    expect(xml).toContain('<dc:Bounds x="34" y="174" width="120" height="32" />')
+    expect(xml).toContain('<messageFlow id="MessageFlow_label-message" name="Message label" sourceRef="Gateway_label-gateway" targetRef="Task_label-task" />')
+    controller.unmount()
+  })
+
   it('exports BPMN event definitions with catch and throw intermediate tags', () => {
     const catchEvent = createBpmnEventElement({
       id: 'catch-message',
@@ -1873,6 +1919,30 @@ describe('nova modeler minimal kernel', () => {
     expect(second.diagnostics.indexRebuilds).toBe(1)
   })
 
+  it('keeps elements visible when their external label intersects the viewport', () => {
+    const runtime = new ModelerVisibilityRuntime()
+    const hiddenEvent = createBpmnEventElement({
+      id: 'label-visible-event',
+      x: 4000,
+      y: 4000,
+      name: 'Visible label',
+      label: { offsetX: -3980, offsetY: -3980, width: 96, height: 32 },
+    })
+    const viewport = { x: 0, y: 0, scale: 1 }
+    const snapshot = runtime.resolve({
+      model: createModelerModel({ viewport, elements: [hiddenEvent] }),
+      layout: createVisibilityLayout(viewport, 300, 220),
+      viewport,
+      useBpmnRecipes: true,
+      recipeCulling: true,
+      classifier: createVisibilityClassifier(),
+      resolveExternalLabelBounds: () => ({ x: 44, y: 44, width: 96, height: 32 }),
+    })
+
+    expect(snapshot.visibleIds.has(hiddenEvent.id)).toBe(true)
+    expect(snapshot.recipeNodes.map(element => element.id)).toEqual([hiddenEvent.id])
+  })
+
   it('uses the BPMN recipe layer for unselected nodes at normal zoom', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const task = createBpmnTaskElement({ id: 'recipe-task', x: 120, y: 120, name: 'Recipe task' })
@@ -2006,6 +2076,55 @@ describe('nova modeler minimal kernel', () => {
     const labels = textBatch.text.slice(0, textBatch.count)
     expect(labels).toEqual(expectedLayout.lines.map(line => line.text))
     expect(labels).not.toContain(name)
+    app.destroy()
+  })
+
+  it('updates BPMN recipe text batches when external event label geometry changes', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(createMeasured2DContextStub())
+    const event = createBpmnEventElement({
+      id: 'recipe-external-label-event',
+      x: 120,
+      y: 120,
+      name: 'Needs external approval',
+      label: { offsetX: -42, offsetY: 40, width: 160, height: 48 },
+    })
+    const app = Nova.createApp({
+      target: document.createElement('canvas'),
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    const root = app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'recipe-external-label-root',
+      props: {
+        model: createModelerModel({
+          viewport: { x: 0, y: 0, scale: 1 },
+          elements: [event],
+        }),
+        width: 640,
+        height: 420,
+      },
+    }) as Root
+    app.raph.run()
+    app.raph.run()
+
+    const layer = app.components.require('modeler-elements:bpmn-recipe-layer') as unknown as {
+      batchRuntime: { getTextBatch(): { count: number; text: Array<string> } }
+    }
+    const before = layer.batchRuntime.getTextBatch().text.slice(0, layer.batchRuntime.getTextBatch().count)
+    expect(before).toEqual(['Needs external', 'approval'])
+
+    root.applyCommand({
+      type: 'element.patch',
+      id: event.id,
+      patch: { data: { ...event.data, label: { offsetX: -42, offsetY: 40, width: 64, height: 48 } } },
+    })
+    app.raph.run()
+    const afterBatch = layer.batchRuntime.getTextBatch()
+    expect(afterBatch.text.slice(0, afterBatch.count)).toEqual(['Needs', 'external', 'approval'])
     app.destroy()
   })
 
@@ -3819,7 +3938,7 @@ describe('nova modeler minimal kernel', () => {
       x: 244 + labelLayout.rect.x + labelLayout.rect.width / 2,
       y: 124 + labelLayout.rect.y + labelLayout.lineHeight / 2,
     }
-    expect(root.hitTest(labelPoint)).toEqual({ type: 'element', id: 'event-1' })
+    expect(root.hitTest(labelPoint)).toEqual({ type: 'external-label', elementId: 'event-1' })
     const labelInput = openEditorAt(labelPoint)
     labelInput.setValue('')
     labelInput.commit()
@@ -3896,13 +4015,106 @@ describe('nova modeler minimal kernel', () => {
       x: 248 + labelLayout.rect.x + labelLayout.rect.width / 2,
       y: 128 + labelLayout.rect.y + labelLayout.lineHeight / 2,
     }
-    expect(root.hitTest(labelPoint)).toEqual({ type: 'element', id: 'gateway-1' })
+    expect(root.hitTest(labelPoint)).toEqual({ type: 'external-label', elementId: 'gateway-1' })
     const labelInput = openEditorAt(labelPoint)
     labelInput.setValue('')
     labelInput.commit()
     app.raph.run()
     expect(root.getApi().getModel().elements[0]?.data?.name).toBe('')
     expect(interactionTexts()).not.toContain('Need approval')
+    app.destroy()
+  })
+
+  it('moves and resizes external labels without moving their owner', () => {
+    const event = createBpmnEventElement({
+      id: 'label-drag-event',
+      x: 100,
+      y: 100,
+      name: 'Long event label text',
+      label: { offsetX: -40, offsetY: 60, width: 140, height: 48 },
+    })
+    const controller = createModelerController({
+      model: createModelerModel({ elements: [event] }),
+      options: { interaction: { snap: false } },
+    })
+    controller.mount(createControllerHost(640, 420))
+    const context = controller.getPluginContext()
+    const moveGesture = controller.getGestures().find(gesture => gesture.id === 'modeler-elements:external-label-move')
+    const resizeGesture = controller.getGestures().find(gesture => gesture.id === 'modeler-elements:external-label-resize')
+    const labelPoint = { x: 100, y: 190 }
+
+    expect(controller.hitTest({ x: 124, y: 124 })).toEqual({ type: 'element', id: event.id })
+    expect(controller.hitTest(labelPoint)).toEqual({ type: 'external-label', elementId: event.id })
+    expect(moveGesture?.hitTest?.(context, offsetMouseEvent('mousedown', labelPoint.x, labelPoint.y), controller.hitTest(labelPoint))).toBe(true)
+    moveGesture?.onPointerDown?.(context, offsetMouseEvent('mousedown', labelPoint.x, labelPoint.y))
+    moveGesture?.onPointerMove?.(context, offsetMouseEvent('mousemove', labelPoint.x + 30, labelPoint.y + 20))
+    moveGesture?.onPointerUp?.(context, offsetMouseEvent('mouseup', labelPoint.x + 30, labelPoint.y + 20))
+
+    const moved = controller.getModel().elements[0]
+    expect(moved).toMatchObject({ id: event.id, x: 100, y: 100 })
+    expect(moved?.data?.label).toMatchObject({ offsetX: -10, offsetY: 80, width: 140, height: 48 })
+    expect(controller.getModel().selection).toEqual([event.id])
+    expect(context.externalLabels.isSelected(event.id)).toBe(true)
+
+    const handleTarget = controller.hitTest({ x: 254, y: 252 })
+    expect(handleTarget).toEqual({ type: 'external-label-resize-handle', elementId: event.id, handle: 'se' })
+    expect(resizeGesture?.hitTest?.(context, offsetMouseEvent('mousedown', 254, 252), handleTarget)).toBe(true)
+    resizeGesture?.onPointerDown?.(context, offsetMouseEvent('mousedown', 254, 252))
+    resizeGesture?.onPointerMove?.(context, offsetMouseEvent('mousemove', 214, 252))
+    resizeGesture?.onPointerUp?.(context, offsetMouseEvent('mouseup', 214, 252))
+
+    const resized = controller.getModel().elements[0]
+    expect(resized?.data?.label).toMatchObject({ offsetX: -10, offsetY: 80, width: 100, height: 48 })
+    const layout = context.externalLabels.resolve(context, resized!)
+    expect(layout?.lines.map(line => line.text)).toEqual(['Long event', 'label text'])
+    controller.unmount()
+  })
+
+  it('renders selected external label connector and handles only for the selected label part', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const app = Nova.createApp({
+      target: document.createElement('canvas'),
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    const root = app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'external-label-selected-root',
+      props: {
+        model: createModelerModel({
+          elements: [createBpmnGatewayElement({
+            id: 'label-selected-gateway',
+            x: 120,
+            y: 120,
+            name: 'Selected label',
+            label: { offsetX: -48, offsetY: 64, width: 120, height: 32 },
+          })],
+          selection: ['label-selected-gateway'],
+        }),
+        width: 640,
+        height: 420,
+      },
+    }) as Root
+    app.raph.run()
+    app.raph.run()
+    const controller = (root as unknown as { controllerInstance: ReturnType<typeof createModelerController> }).controllerInstance
+    const interaction = app.surfaces.find(item => item.name === 'external-label-selected-root:interaction')
+    const schemaItems = () => interaction?.compileRenderFrame().items.map(item => item.schemaItem).filter(Boolean) ?? []
+
+    expect(schemaItems().some(item => item?.type === 'line' && item?.styles?.dashPattern)).toBe(false)
+    controller.getPluginContext().externalLabels.select('label-selected-gateway')
+    app.raph.run()
+    const selectedItems = schemaItems()
+    expect(selectedItems.some(item => item?.type === 'line' && item?.styles?.dashPattern)).toBe(true)
+    expect(selectedItems.filter(item => item?.type === 'rect' && item?.width === 8 && item?.height === 8)).toHaveLength(8)
+
+    controller.getPluginContext().externalLabels.clearSelection()
+    app.raph.run()
+    expect(schemaItems().some(item => item?.type === 'line' && item?.styles?.dashPattern)).toBe(false)
+    expect(schemaItems().filter(item => item?.type === 'rect' && item?.width === 8 && item?.height === 8)).toHaveLength(0)
     app.destroy()
   })
 
@@ -3948,18 +4160,18 @@ describe('nova modeler minimal kernel', () => {
 
     const inputId = 'flow-label-edit-root:task-name-editor:input'
     const input = app.components.requireApi<InputApi>(inputId)
-    const links = app.surfaces.find(item => item.name === 'flow-label-edit-root:links')
-    const linkTexts = () => links
+    const interaction = app.surfaces.find(item => item.name === 'flow-label-edit-root:interaction')
+    const labelTexts = () => interaction
       ?.compileRenderFrame().items
       .map(item => item.schemaItem)
       .filter(item => item?.type === 'text')
       .map(item => item?.text) ?? []
-    expect(linkTexts()).not.toContain('Old label')
+    expect(labelTexts()).not.toContain('Old label')
     expect(pickInputProps(input.getProps())).toMatchObject({
       variant: 'ghost',
       align: 'center',
       wrap: true,
-      maxRows: 1,
+      maxRows: 2,
       fontSize: 12,
       lineHeight: 16,
       border: { width: 0 },
@@ -3969,9 +4181,77 @@ describe('nova modeler minimal kernel', () => {
     input.setValue('Approved path')
     input.commit()
     app.raph.run()
-    expect(root.getApi().getModel().elements.find(element => element.id === 'flow-1')?.data?.name).toBe('Approved path')
-    expect(linkTexts()).toContain('Approved path')
+    const committedFlow = root.getApi().getModel().elements.find(element => element.id === 'flow-1')
+    expect(committedFlow?.data?.name).toBe('Approved path')
+    expect(committedFlow?.data?.label).toMatchObject({ width: expect.any(Number), height: expect.any(Number) })
+    expect(labelTexts()).toEqual(expect.arrayContaining(['Approved', 'path']))
     expect(app.components.get(inputId)).toBeFalsy()
+    app.destroy()
+  })
+
+  it('renders and moves association, message flow and data association labels through the shared runtime', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(createMeasured2DContextStub())
+    const association = createBpmnAssociationElement({
+      id: 'assoc-label',
+      source: { point: { x: 80, y: 120 } },
+      target: { point: { x: 240, y: 120 } },
+      name: 'Assoc label',
+      label: { offsetX: -60, offsetY: 20, width: 120, height: 32 },
+    })
+    const messageFlow = createBpmnMessageFlowElement({
+      id: 'message-label',
+      source: { point: { x: 80, y: 180 } },
+      target: { point: { x: 240, y: 180 } },
+      name: 'Message label',
+      label: { offsetX: -60, offsetY: 20, width: 120, height: 32 },
+    })
+    const dataAssociation = createBpmnDataAssociationElement({
+      id: 'data-label',
+      source: { point: { x: 80, y: 240 } },
+      target: { point: { x: 240, y: 240 } },
+      name: 'Data label',
+      label: { offsetX: -60, offsetY: 20, width: 120, height: 32 },
+    })
+    const app = Nova.createApp({
+      target: document.createElement('canvas'),
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    const root = app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'edge-external-label-root',
+      props: {
+        model: createModelerModel({ elements: [association, messageFlow, dataAssociation] }),
+        width: 640,
+        height: 420,
+      },
+    }) as Root
+    app.raph.run()
+    app.raph.run()
+
+    const interaction = app.surfaces.find(item => item.name === 'edge-external-label-root:interaction')
+    const labelTexts = () => interaction
+      ?.compileRenderFrame().items
+      .map(item => item.schemaItem)
+      .filter(item => item?.type === 'text')
+      .map(item => item?.text) ?? []
+    expect(labelTexts()).toEqual(expect.arrayContaining(['Assoc label', 'Message label', 'Data label']))
+
+    const controller = (root as unknown as { controllerInstance: ReturnType<typeof createModelerController> }).controllerInstance
+    const context = controller.getPluginContext()
+    const moveGesture = controller.getGestures().find(gesture => gesture.id === 'modeler-elements:external-label-move')
+    const labelPoint = { x: 160, y: 150 }
+    expect(controller.hitTest(labelPoint)).toEqual({ type: 'external-label', elementId: association.id })
+    moveGesture?.onPointerDown?.(context, offsetMouseEvent('mousedown', labelPoint.x, labelPoint.y))
+    moveGesture?.onPointerMove?.(context, offsetMouseEvent('mousemove', labelPoint.x + 24, labelPoint.y + 12))
+    moveGesture?.onPointerUp?.(context, offsetMouseEvent('mouseup', labelPoint.x + 24, labelPoint.y + 12))
+
+    expect(controller.getModel().elements.find(element => element.id === association.id)?.data?.label)
+      .toMatchObject({ offsetX: -36, offsetY: 32, width: 120, height: 32 })
+    expect(controller.getModel().selection).toEqual([association.id])
     app.destroy()
   })
 

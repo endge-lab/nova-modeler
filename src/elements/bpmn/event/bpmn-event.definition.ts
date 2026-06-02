@@ -15,6 +15,7 @@ import {
 } from '@/elements/bpmn/event/bpmn-event.label'
 import { createBpmnEventPorts } from '@/elements/bpmn/event/bpmn-event.ports'
 import { BpmnEventVariantProvider } from '@/elements/bpmn/event/bpmn-event.variants'
+import { createBpmnNodeExternalLabelAdapter } from '@/elements/bpmn/bpmn-external-label'
 import type {
   BpmnEventElement,
   BpmnEventElementInput,
@@ -62,6 +63,11 @@ export const BpmnEventDefinition: ModelerElementDefinition<BpmnEventElement> = {
     }),
   },
   variantProvider: BpmnEventVariantProvider,
+  externalLabel: createBpmnNodeExternalLabelAdapter(element => resolveBpmnEventNameLayout({
+    name: element.data?.name,
+    width: element.width,
+    height: element.height,
+  })),
   normalize: element => createBpmnEventElement(element as BpmnEventElementInput),
   render: (context: ModelerElementRenderContext, element) => ({
     type: Modeler.BpmnEventView,
@@ -70,6 +76,7 @@ export const BpmnEventDefinition: ModelerElementDefinition<BpmnEventElement> = {
       element,
       viewport: context.getViewport(),
       selected: context.selected,
+      hideName: true,
     },
   }),
   getPorts: (_context, element) => createBpmnEventPorts(element),

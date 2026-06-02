@@ -1,6 +1,7 @@
 import type {
   ModelerElement,
   ModelerElementInput,
+  ModelerExternalLabelGeometry,
 } from '@/domain/types/index'
 
 export type BpmnEventPosition = 'start' | 'intermediate' | 'end'
@@ -29,6 +30,7 @@ export interface BpmnEventElementData extends Record<string, unknown> {
   signalRef?: string
   errorRef?: string
   escalationRef?: string
+  label?: ModelerExternalLabelGeometry
 }
 
 export type BpmnEventElement = ModelerElement<BpmnEventElementData>
@@ -43,4 +45,5 @@ export type BpmnEventElementInput =
     signalRef?: string
     errorRef?: string
     escalationRef?: string
+    label?: ModelerExternalLabelGeometry
   }

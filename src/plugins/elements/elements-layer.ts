@@ -30,6 +30,7 @@ export class ElementsLayer {
   private readonly disposeConnection: () => void
   private readonly disposeSegmentHover: () => void
   private readonly disposeConnectionWarning: () => void
+  private readonly disposeExternalLabels: () => void
 
   constructor(
     private readonly context: ModelerPluginContext,
@@ -40,6 +41,7 @@ export class ElementsLayer {
     this.disposeConnection = this.runtime.connection.subscribe(() => this.sync())
     this.disposeSegmentHover = this.runtime.edgeSegmentHover.subscribe(() => this.sync())
     this.disposeConnectionWarning = this.runtime.connectionWarnings.subscribe(() => this.sync())
+    this.disposeExternalLabels = this.context.externalLabels.subscribe(() => this.sync())
   }
 
   sync(): void {
@@ -48,6 +50,7 @@ export class ElementsLayer {
     const interactionSchemas: Array<NovaTemplateChildSchema> = []
     const nodeSchemas: Array<NovaTemplateChildSchema> = []
     const nodeOverlaySchemas: Array<NovaTemplateChildSchema> = []
+    const externalLabelSchemas: Array<NovaTemplateChildSchema> = []
     const bpmnRecipeElements: Array<ModelerElement> = []
     const model = this.context.getModel()
     const viewport = this.context.getViewport()
@@ -78,6 +81,7 @@ export class ElementsLayer {
       forcedIds: [connection?.sourceElementId],
       useBpmnRecipes,
       recipeCulling: recipeOptions.culling,
+      resolveExternalLabelBounds: element => this.context.externalLabels.resolveBounds(this.context, element),
       classifier: {
         isEdge: (element) => this.runtime.edges.isEdge(element),
         isRecipeNodeType: isBpmnRecipeNodeType,
@@ -89,6 +93,7 @@ export class ElementsLayer {
     for (const element of edges) {
       this.appendEdgeSchema(linkSchemas, element, selected)
       this.appendEdgeInteractionSchema(interactionSchemas, element, selected)
+      this.appendExternalLabelSchema(externalLabelSchemas, element)
     }
     for (const element of nodes) {
       const band = this.resolveElementRenderBand(element)
@@ -98,6 +103,7 @@ export class ElementsLayer {
           ? linkSchemas
           : nodeSchemas
       this.appendNodeSchema(schemas, nodeOverlaySchemas, element, selected, connectionTargetId)
+      this.appendExternalLabelSchema(externalLabelSchemas, element)
     }
     bpmnRecipeElements.push(...[...visible.recipeNodes].sort(compareNodeRenderOrder))
     if (bpmnRecipeElements.length > 0) {
@@ -117,6 +123,7 @@ export class ElementsLayer {
     }
     interactionSchemas.push(...nodeSchemas)
     interactionSchemas.push(...nodeOverlaySchemas)
+    interactionSchemas.push(...externalLabelSchemas)
     const preview = this.runtime.edgePreview.get()
     if (preview) {
       const definition = this.context.getElementRegistry().get(preview.type)
@@ -213,6 +220,22 @@ export class ElementsLayer {
     }
   }
 
+  private appendExternalLabelSchema(schemas: Array<NovaTemplateChildSchema>, element: ModelerElement): void {
+    const definition = this.context.getElementRegistry().get(element.type)
+    if (!definition?.externalLabel) return
+    const layout = this.context.externalLabels.resolve(this.context, element)
+    if (!layout) return
+    if (!layout.text && !this.context.externalLabels.isSelected(element.id)) return
+    schemas.push({
+      type: Modeler.ExternalLabelView,
+      id: `${element.id}:external-label`,
+      props: {
+        layout,
+        selected: this.context.externalLabels.isSelected(element.id),
+      },
+    })
+  }
+
   private resolveElementRenderBand(element: ModelerElement): ModelerRenderBand {
     const definition = this.context.getElementRegistry().get(element.type)
     if (!definition) return 'nodes'
@@ -225,6 +248,7 @@ export class ElementsLayer {
     this.disposeConnection()
     this.disposeSegmentHover()
     this.disposeConnectionWarning()
+    this.disposeExternalLabels()
     this.disposeContainersLayer?.()
     this.disposeLinksLayer?.()
     this.disposeInteractionLayer?.()

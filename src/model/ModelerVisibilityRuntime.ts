@@ -29,6 +29,7 @@ export class ModelerVisibilityRuntime implements ModelerVisibilityApi {
   private indexedElementsVersion = -1
   private indexedNodes: Array<ModelerElement> = []
   private indexedEdges: Array<ModelerElement> = []
+  private resolveExternalLabelBoundsInput: ((element: ModelerElement) => ModelerRect | null) | undefined
   private revision = 0
   private signature = ''
   private indexRebuilds = 0
@@ -174,6 +175,7 @@ export class ModelerVisibilityRuntime implements ModelerVisibilityApi {
 
     this.indexedModelId = input.model.id
     this.indexedElementsVersion = input.model.elementsVersion
+    this.resolveExternalLabelBoundsInput = input.resolveExternalLabelBounds
     this.elementsById.clear()
     this.indexedNodes = []
     this.indexedEdges = []
@@ -202,12 +204,13 @@ export class ModelerVisibilityRuntime implements ModelerVisibilityApi {
   }
 
   private resolveNodeBounds(element: ModelerElement): NovaBounds {
-    return {
+    const bounds = {
       x: element.x,
       y: element.y,
       width: Math.max(1, element.width),
       height: Math.max(1, element.height),
     }
+    return unionBounds(bounds, this.resolveExternalLabelBoundsInput?.(element))
   }
 
   private resolveEdgeBounds(element: ModelerElement): NovaBounds {
@@ -230,12 +233,27 @@ export class ModelerVisibilityRuntime implements ModelerVisibilityApi {
       maxX = Math.max(maxX, element.x + element.width)
       maxY = Math.max(maxY, element.y + element.height)
     }
-    return {
+    const bounds = {
       x: minX - EDGE_ROUTE_PADDING,
       y: minY - EDGE_ROUTE_PADDING,
       width: Math.max(1, maxX - minX + EDGE_ROUTE_PADDING * 2),
       height: Math.max(1, maxY - minY + EDGE_ROUTE_PADDING * 2),
     }
+    return unionBounds(bounds, this.resolveExternalLabelBoundsInput?.(element))
+  }
+}
+
+function unionBounds(a: NovaBounds, b: ModelerRect | null | undefined): NovaBounds {
+  if (!b) return a
+  const x = Math.min(a.x, b.x)
+  const y = Math.min(a.y, b.y)
+  const right = Math.max(a.x + a.width, b.x + b.width)
+  const bottom = Math.max(a.y + a.height, b.y + b.height)
+  return {
+    x,
+    y,
+    width: Math.max(1, right - x),
+    height: Math.max(1, bottom - y),
   }
 }
 

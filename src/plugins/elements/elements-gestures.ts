@@ -1,6 +1,7 @@
 import type {
   ModelerElement,
   ModelerEdgeElement,
+  ModelerExternalLabelGeometry,
   ModelerHitTarget,
   ModelerPoint,
   ModelerPluginContext,
@@ -41,6 +42,19 @@ export class ElementsGestures {
     primary: ModelerElement
     elements: Array<ModelerElement>
     startWorld: ModelerPoint
+  } | null = null
+
+  private activeExternalLabelMove: {
+    elementId: string
+    startWorld: ModelerPoint
+    startGeometry: ModelerExternalLabelGeometry
+  } | null = null
+
+  private activeExternalLabelResize: {
+    elementId: string
+    handle: ModelerResizeHandle
+    startWorld: ModelerPoint
+    startGeometry: ModelerExternalLabelGeometry
   } | null = null
 
   private activeRotate: {
@@ -129,6 +143,128 @@ export class ElementsGestures {
       },
     }))
     addDisposer(this.context.gestures.add({
+      id: 'modeler-elements:external-label-resize',
+      priority: 118,
+      hitTest: (_context, event, target) => event.button === 0 && target.type === 'external-label-resize-handle',
+      onPointerDown: (context, event) => {
+        const target = context.hitTest(eventPoint(event))
+        if (target.type !== 'external-label-resize-handle') return false
+        const element = context.getModel().elements.find(item => item.id === target.elementId)
+        if (!element) return false
+        const geometry = context.externalLabels.createGeometry(context, element)
+        if (!geometry) return false
+        context.externalLabels.select(element.id)
+        context.applyCommand({ type: 'select', ids: [element.id] })
+        context.applyCommand({
+          type: 'element.patch',
+          id: element.id,
+          patch: { data: { ...(element.data ?? {}), label: geometry } },
+        })
+        this.activeExternalLabelResize = {
+          elementId: element.id,
+          handle: target.handle,
+          startWorld: context.screenToWorld(eventPoint(event)),
+          startGeometry: geometry,
+        }
+        return false
+      },
+      onPointerMove: (context, event) => {
+        if (!this.activeExternalLabelResize) return false
+        const element = context.getModel().elements.find(item => item.id === this.activeExternalLabelResize?.elementId)
+        if (!element) return false
+        const current = context.screenToWorld(eventPoint(event))
+        const geometry = context.externalLabels.resizeGeometry(
+          this.activeExternalLabelResize.startGeometry,
+          this.activeExternalLabelResize.handle,
+          current.x - this.activeExternalLabelResize.startWorld.x,
+          current.y - this.activeExternalLabelResize.startWorld.y,
+        )
+        context.applyCommand({
+          type: 'element.patch',
+          id: element.id,
+          patch: { data: { ...(element.data ?? {}), label: geometry } },
+        })
+        return false
+      },
+      onPointerUp: () => {
+        this.activeExternalLabelResize = null
+        return false
+      },
+      onCancel: context => {
+        if (this.activeExternalLabelResize) {
+          const element = context.getModel().elements.find(item => item.id === this.activeExternalLabelResize?.elementId)
+          if (element) {
+            context.applyCommand({
+              type: 'element.patch',
+              id: element.id,
+              patch: { data: { ...(element.data ?? {}), label: this.activeExternalLabelResize.startGeometry } },
+            })
+          }
+        }
+        this.activeExternalLabelResize = null
+      },
+    }))
+    addDisposer(this.context.gestures.add({
+      id: 'modeler-elements:external-label-move',
+      priority: 92,
+      hitTest: (_context, event, target) => event.button === 0 && target.type === 'external-label',
+      onPointerDown: (context, event) => {
+        const target = context.hitTest(eventPoint(event))
+        if (target.type !== 'external-label') return false
+        const element = context.getModel().elements.find(item => item.id === target.elementId)
+        if (!element) return false
+        const geometry = context.externalLabels.createGeometry(context, element)
+        if (!geometry) return false
+        context.externalLabels.select(element.id)
+        context.applyCommand({ type: 'select', ids: [element.id] })
+        context.applyCommand({
+          type: 'element.patch',
+          id: element.id,
+          patch: { data: { ...(element.data ?? {}), label: geometry } },
+        })
+        this.activeExternalLabelMove = {
+          elementId: element.id,
+          startWorld: context.screenToWorld(eventPoint(event)),
+          startGeometry: geometry,
+        }
+        return false
+      },
+      onPointerMove: (context, event) => {
+        if (!this.activeExternalLabelMove) return false
+        const element = context.getModel().elements.find(item => item.id === this.activeExternalLabelMove?.elementId)
+        if (!element) return false
+        const current = context.screenToWorld(eventPoint(event))
+        const geometry = context.externalLabels.moveGeometry(
+          this.activeExternalLabelMove.startGeometry,
+          current.x - this.activeExternalLabelMove.startWorld.x,
+          current.y - this.activeExternalLabelMove.startWorld.y,
+        )
+        context.applyCommand({
+          type: 'element.patch',
+          id: element.id,
+          patch: { data: { ...(element.data ?? {}), label: geometry } },
+        })
+        return false
+      },
+      onPointerUp: () => {
+        this.activeExternalLabelMove = null
+        return false
+      },
+      onCancel: context => {
+        if (this.activeExternalLabelMove) {
+          const element = context.getModel().elements.find(item => item.id === this.activeExternalLabelMove?.elementId)
+          if (element) {
+            context.applyCommand({
+              type: 'element.patch',
+              id: element.id,
+              patch: { data: { ...(element.data ?? {}), label: this.activeExternalLabelMove.startGeometry } },
+            })
+          }
+        }
+        this.activeExternalLabelMove = null
+      },
+    }))
+    addDisposer(this.context.gestures.add({
       id: 'modeler-elements:waypoint',
       priority: 115,
       hitTest: (_context, event, target) => event.button === 0
@@ -206,6 +342,7 @@ export class ElementsGestures {
         const target = context.hitTest(point)
         const elementId = this.resolveTargetElementId(target)
         if (!elementId) return false
+        context.externalLabels.clearSelection()
         this.runtime.contextPadAnchors.set(elementId, point, target.type === 'element-part'
           ? { partType: target.partType, partId: target.partId }
           : undefined)
@@ -471,6 +608,8 @@ export class ElementsGestures {
     this.activeResize = null
     this.activeLaneResize = null
     this.activeMove = null
+    this.activeExternalLabelMove = null
+    this.activeExternalLabelResize = null
     this.activeRotate = null
     this.activeWaypoint = null
     this.activeSegmentWaypoint = null
@@ -541,6 +680,7 @@ export class ElementsGestures {
   private resolveTargetElementId(target: ModelerHitTarget): string | null {
     if (target.type === 'element') return target.id
     if (target.type === 'element-part') return target.id
+    if (target.type === 'external-label') return target.elementId
     return null
   }
 

@@ -5,6 +5,7 @@ import type {
   BpmnEventPosition,
   BpmnEventTrigger,
 } from '@/elements/bpmn/event/bpmn-event.types'
+import { normalizeExternalLabelGeometry } from '@/tools/external-label-geometry'
 
 export const BPMN_EVENT_TYPE = 'bpmn.event'
 
@@ -48,6 +49,7 @@ export function createBpmnEventElement(input: BpmnEventElementInput): BpmnEventE
       signalRef: normalizeOptionalRef(input.signalRef ?? data.signalRef),
       errorRef: normalizeOptionalRef(input.errorRef ?? data.errorRef),
       escalationRef: normalizeOptionalRef(input.escalationRef ?? data.escalationRef),
+      label: normalizeExternalLabelGeometry(input.label ?? data.label),
     },
     style: input.style ? { ...input.style } : {},
   }

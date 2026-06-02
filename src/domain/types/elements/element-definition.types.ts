@@ -7,6 +7,7 @@ import type {
 } from '@/domain/types/elements/element.types'
 import type { ModelerElementVariantProvider } from '@/domain/types/elements/element-variant.types'
 import type { ModelerHitTarget } from '@/domain/types/interaction/hit-target.types'
+import type { ModelerExternalLabelAdapter } from '@/domain/types/model/external-label.types'
 import type { ModelerKeyboardShortcut } from '@/domain/types/shortcut.types'
 import type { ModelerPoint } from '@/domain/types/model/geometry.types'
 import type { ModelerPaletteItemDefinition } from '@/domain/types/palette.types'
@@ -47,6 +48,7 @@ export interface ModelerElementDefinition<TElement extends ModelerElement = Mode
   createTool?: ModelerElementCreateToolDefinition<TElement>
   createTools?: Array<ModelerElementCreateToolDefinition<TElement>>
   variantProvider?: ModelerElementVariantProvider<TElement>
+  externalLabel?: ModelerExternalLabelAdapter<TElement>
   normalize?(element: TElement): TElement
   render(context: ModelerElementRenderContext, element: TElement): NovaTemplateChildSchema
   getPorts?(context: ModelerElementPortContext, element: TElement): Array<ModelerPort>

@@ -397,6 +397,7 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     }
     this.appendEventTriggerMarker(schema, element, center, Math.min(rect.width, rect.height) * 0.48)
     if (element.type === BPMN_EVENT_TYPE) {
+      if (this.appendExternalGeometryLabel(textWriter, element, 'event-label', center)) return
       const layout = resolveBpmnEventNameLayout({
         name: element.data?.name as string | undefined,
         width: rect.width,
@@ -641,16 +642,17 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
   }
 
   private appendGatewayLabel(textWriter: BpmnRecipeTextWriter, element: ModelerElement, rect: ModelerRect): void {
+    const center = {
+      x: rect.x + rect.width / 2,
+      y: rect.y + rect.height / 2,
+    }
+    if (this.appendExternalGeometryLabel(textWriter, element, 'gateway-label', center)) return
     const layout = resolveBpmnGatewayNameLayout({
       name: typeof element.data?.name === 'string' ? element.data.name : undefined,
       width: rect.width,
       height: rect.height,
     })
     if (!layout.text) return
-    const center = {
-      x: rect.x + rect.width / 2,
-      y: rect.y + rect.height / 2,
-    }
     layout.lines.forEach((line, index) => {
       textWriter.write(element.id, `gateway-label:${index}`, line.text, {
         x: center.x + line.x,
@@ -659,6 +661,33 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
         height: line.height,
       })
     })
+  }
+
+  private appendExternalGeometryLabel(
+    textWriter: BpmnRecipeTextWriter,
+    element: ModelerElement,
+    slotPrefix: string,
+    anchor: { x: number; y: number },
+  ): boolean {
+    const geometry = normalizeRecipeLabelGeometry(element.data?.label)
+    const text = typeof element.data?.name === 'string' ? element.data.name.trim() : ''
+    if (!geometry || !text) return false
+    const rect = {
+      x: anchor.x + geometry.offsetX,
+      y: anchor.y + geometry.offsetY,
+      width: geometry.width,
+      height: geometry.height,
+    }
+    const lines = createRecipeLabelLines(text, rect)
+    lines.forEach((line, index) => {
+      textWriter.write(element.id, `${slotPrefix}:${index}`, line.text, {
+        x: rect.x,
+        y: rect.y + index * 16,
+        width: rect.width,
+        height: 16,
+      })
+    })
+    return true
   }
 
   private appendGatewayMarker(schema: NovaSchema, rect: ModelerRect, gatewayType: BpmnGatewayType): void {
@@ -1175,6 +1204,42 @@ function createFillRect(rect: ModelerRect, color: string, radius = 0): NovaSchem
     ...rect,
     styles: { background: color, radius },
   }
+}
+
+function normalizeRecipeLabelGeometry(value: unknown): { offsetX: number; offsetY: number; width: number; height: number } | null {
+  if (!value || typeof value !== 'object') return null
+  const input = value as { offsetX?: unknown; offsetY?: unknown; width?: unknown; height?: unknown }
+  if (!isFiniteNumber(input.offsetX) || !isFiniteNumber(input.offsetY) || !isFiniteNumber(input.width) || !isFiniteNumber(input.height)) return null
+  return {
+    offsetX: input.offsetX,
+    offsetY: input.offsetY,
+    width: Math.max(1, input.width),
+    height: Math.max(1, input.height),
+  }
+}
+
+function createRecipeLabelLines(text: string, rect: ModelerRect): Array<{ text: string }> {
+  const maxLines = Math.max(1, Math.floor(rect.height / 16))
+  const words = text.split(/\s+/).filter(Boolean)
+  const lines: Array<{ text: string }> = []
+  let current = ''
+  for (const word of words) {
+    const next = current ? `${current} ${word}` : word
+    if (current && next.length * 7 > rect.width) {
+      lines.push({ text: current })
+      current = word
+      if (lines.length >= maxLines) break
+      continue
+    }
+    current = next
+  }
+  if (current && lines.length < maxLines) lines.push({ text: current })
+  if (lines.length === 0) lines.push({ text })
+  return lines.slice(0, maxLines)
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value)
 }
 
 function createSlotSignature(kind: string, elementId: string, slotId: string, rect: ModelerRect, value: string): string {

@@ -16,6 +16,7 @@ import { Grid } from '@/ui/layers/Grid'
 import { MiniMap } from '@/plugins/mini-map/ui/MiniMap'
 import { MarqueeSelection } from '@/plugins/marquee-selection/ui/MarqueeSelection'
 import { BasicRectView } from '@/ui/elements/basic/BasicRectView'
+import { ExternalLabelView } from '@/ui/elements/ExternalLabelView'
 import { BpmnGroupView } from '@/ui/elements/bpmn/artifacts/group/BpmnGroupView'
 import { BpmnTextAnnotationView } from '@/ui/elements/bpmn/artifacts/text-annotation/BpmnTextAnnotationView'
 import { BpmnAssociationView } from '@/ui/elements/bpmn/association/BpmnAssociationView'
@@ -44,6 +45,7 @@ export function registerModeler(registry: NovaSchemaRegistry): void {
   registry.registerDecorated(Background as never, { override: true })
   registry.registerDecorated(Grid as never, { override: true })
   registry.registerDecorated(BpmnRecipeLayerView as never, { override: true })
+  registry.registerDecorated(ExternalLabelView as never, { override: true })
   registry.registerDecorated(BasicRectView as never, { override: true })
   registry.registerDecorated(BpmnAssociationView as never, { override: true })
   registry.registerDecorated(BpmnMessageFlowView as never, { override: true })

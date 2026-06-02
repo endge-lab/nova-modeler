@@ -9,6 +9,7 @@ import {
   createBpmnMessageFlowElement,
 } from '@/elements/bpmn/message-flow/bpmn-message-flow.factory'
 import { BpmnMessageFlowVariantProvider } from '@/elements/bpmn/message-flow/bpmn-message-flow.variants'
+import { createBpmnEdgeExternalLabelAdapter } from '@/elements/bpmn/bpmn-external-label'
 import type {
   BpmnMessageFlowElement,
   BpmnMessageFlowElementInput,
@@ -38,6 +39,7 @@ export const BpmnMessageFlowDefinition: ModelerElementDefinition<BpmnMessageFlow
     },
   },
   variantProvider: BpmnMessageFlowVariantProvider,
+  externalLabel: createBpmnEdgeExternalLabelAdapter(),
   normalize: element => createBpmnMessageFlowElement(element as BpmnMessageFlowElementInput),
   render: (context: ModelerElementRenderContext, element) => ({
     type: Modeler.BpmnMessageFlowView,

@@ -8,6 +8,7 @@ import type {
   BpmnFlowElementInput,
   BpmnFlowType,
 } from '@/elements/bpmn/flow/bpmn-flow.types'
+import { normalizeExternalLabelGeometry } from '@/tools/external-label-geometry'
 
 export const BPMN_FLOW_TYPE = 'bpmn.flow'
 
@@ -23,8 +24,9 @@ export function createBpmnFlowElement(input: BpmnFlowElementInput): BpmnFlowElem
   const data = {
     ...input.data,
     flowType: normalizeBpmnFlowType(input.flowType ?? input.data?.flowType),
-    name: normalizeOptionalText(input.data?.name),
+    name: normalizeOptionalText(input.name ?? input.data?.name),
     conditionExpression: normalizeOptionalText(input.data?.conditionExpression),
+    label: normalizeExternalLabelGeometry(input.label ?? input.data?.label),
   }
   return {
     id: input.id,

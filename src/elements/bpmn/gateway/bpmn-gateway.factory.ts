@@ -3,6 +3,7 @@ import type {
   BpmnGatewayElementInput,
   BpmnGatewayType,
 } from '@/elements/bpmn/gateway/bpmn-gateway.types'
+import { normalizeExternalLabelGeometry } from '@/tools/external-label-geometry'
 
 export const BPMN_GATEWAY_TYPE = 'bpmn.gateway'
 export const BPMN_GATEWAY_DEFAULT_SIZE = 56
@@ -22,6 +23,7 @@ export function createBpmnGatewayElement(input: BpmnGatewayElementInput): BpmnGa
       ...data,
       name: normalizeName(input.name ?? data.name),
       gatewayType: normalizeBpmnGatewayType(input.gatewayType ?? data.gatewayType),
+      label: normalizeExternalLabelGeometry(input.label ?? data.label),
     },
     style: input.style ? { ...input.style } : {},
   }
