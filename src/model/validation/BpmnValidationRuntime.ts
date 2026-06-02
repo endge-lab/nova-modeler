@@ -29,6 +29,8 @@ export class BpmnValidationRuntime {
     const incoming = new Map<string, number>()
     const outgoing = new Map<string, number>()
     const defaultFlowsBySource = new Map<string, Array<BpmnFlowElement>>()
+    const linkCatchEventsByRef = new Map<string, Array<BpmnEventElement>>()
+    const linkThrowEvents: Array<BpmnEventElement> = []
 
     for (const node of bpmnNodes) {
       incoming.set(node.id, 0)
@@ -115,6 +117,48 @@ export class BpmnValidationRuntime {
       issues.push(createIssue('model', 'bpmn.noEndEvent', 'error', 'BPMN diagram must contain at least one End Event.', []))
     }
 
+    for (const event of bpmnNodes.filter((node): node is BpmnEventElement => node.type === BPMN_EVENT_TYPE)) {
+      if (event.data?.trigger !== 'link') continue
+      const linkRef = resolveLinkRef(event)
+      if (event.data?.eventPosition !== 'intermediate') {
+        issues.push(createIssue(event.id, 'bpmn.invalidLinkEvent', 'error', 'Link Event must be an Intermediate Event.', [event.id]))
+      }
+      if (!linkRef) {
+        issues.push(createIssue(event.id, 'bpmn.linkEventNoName', 'error', 'Link Event must define a link name.', [event.id]))
+        continue
+      }
+      if (event.data?.direction === 'throw') {
+        linkThrowEvents.push(event)
+        continue
+      }
+      const catches = linkCatchEventsByRef.get(linkRef) ?? []
+      catches.push(event)
+      linkCatchEventsByRef.set(linkRef, catches)
+    }
+
+    for (const [linkRef, catches] of linkCatchEventsByRef) {
+      if (catches.length <= 1) continue
+      issues.push(createIssue(
+        linkRef,
+        'bpmn.linkDuplicateCatch',
+        'error',
+        'Only one Intermediate Catch Link Event can use the same link name.',
+        catches.map(event => event.id),
+      ))
+    }
+
+    for (const event of linkThrowEvents) {
+      const linkRef = resolveLinkRef(event)
+      if (!linkRef || linkCatchEventsByRef.has(linkRef)) continue
+      issues.push(createIssue(
+        event.id,
+        'bpmn.linkThrowNoTarget',
+        'error',
+        'Intermediate Throw Link Event must target an existing Catch Link Event with the same link name.',
+        [event.id],
+      ))
+    }
+
     for (const node of bpmnNodes) {
       const incomingCount = incoming.get(node.id) ?? 0
       const outgoingCount = outgoing.get(node.id) ?? 0
@@ -187,6 +231,10 @@ function isStartEvent(element: ModelerElement): element is BpmnEventElement {
 
 function isEndEvent(element: ModelerElement): element is BpmnEventElement {
   return element.type === BPMN_EVENT_TYPE && (element as BpmnEventElement).data?.eventPosition === 'end'
+}
+
+function resolveLinkRef(element: BpmnEventElement): string {
+  return typeof element.data?.linkRef === 'string' ? element.data.linkRef.trim() : ''
 }
 
 function createIssue(

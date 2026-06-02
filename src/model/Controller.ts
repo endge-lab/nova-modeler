@@ -67,6 +67,7 @@ export class Controller implements ModelerController {
   private readonly externalLabelRuntime: ModelerExternalLabelRuntime
   private host: ControllerHost | null = null
   private layout: ModelerLayout
+  private committedModel: ModelerModel
 
   //
   private pluginRuntime: ModelerPluginRuntime
@@ -112,6 +113,7 @@ export class Controller implements ModelerController {
     this.ensureDefaultPlugins(options.plugins)
     this.onModelChange = options.onModelChange
     this.onSelectionChange = options.onSelectionChange
+    this.committedModel = this.store.getModel()
     this.layout = this.createLayout()
     this.pluginContext = this.createPluginContext()
   }
@@ -173,14 +175,14 @@ export class Controller implements ModelerController {
   }
 
   setModel(model: ModelerModel | ModelerModelInput): ModelerModel {
-    const previous = this.getModel()
+    const previous = this.committedModel
     const next = this.store.setModel(model)
     return this.afterModelCommit(previous, next)
   }
 
   applyCommand(command: ModelerCommand): ModelerModel {
     if (command.type === 'setViewport') return this.setViewport(command.viewport)
-    const previous = this.getModel()
+    const previous = this.committedModel
     const next = this.store.apply(command)
     return this.afterModelCommit(previous, next)
   }
@@ -190,8 +192,8 @@ export class Controller implements ModelerController {
   }
 
   setViewport(viewport: Partial<ModelerViewport>): ModelerModel {
-    const current = this.getModel().viewport
-    const previous = this.getModel()
+    const current = this.store.viewport.toJSON()
+    const previous = this.committedModel
     this.store.setViewport(this.clampViewport({ ...current, ...viewport }))
     const next = this.getModel()
     return this.afterModelCommit(previous, next)
@@ -265,6 +267,7 @@ export class Controller implements ModelerController {
     this.onSelectionChange?.(next.selection)
     for (const listener of this.modelListeners) listener(next)
     this.host?.onModelCommit(previous, next)
+    this.committedModel = next
     return next
   }
 
@@ -501,13 +504,13 @@ export class Controller implements ModelerController {
   }
 
   private hitTestElements(point: ModelerPoint): ModelerHitTarget {
-    const model = this.getModel()
-    if (model.elements.length === 0) return { type: 'empty' }
-    const selected = model.selection.length > 0 ? new Set(model.selection) : null
+    const elements = this.store.elements.items
+    if (elements.length === 0) return { type: 'empty' }
+    const selected = this.store.selection.ids.length > 0 ? new Set(this.store.selection.ids) : null
     const externalLabelHandle = this.hitTestExternalLabelResizeHandle(point)
     if (externalLabelHandle) return externalLabelHandle
-    for (let index = model.elements.length - 1; index >= 0; index -= 1) {
-      const element = model.elements[index]
+    for (let index = elements.length - 1; index >= 0; index -= 1) {
+      const element = elements[index]
       if (!element) continue
       const definition = this.elementRegistry.get(element.type)
       if (!definition || !selected?.has(element.id)) continue
@@ -524,8 +527,8 @@ export class Controller implements ModelerController {
         return { type: 'rotate-handle', elementId: element.id }
       }
     }
-    for (let index = model.elements.length - 1; index >= 0; index -= 1) {
-      const element = model.elements[index]
+    for (let index = elements.length - 1; index >= 0; index -= 1) {
+      const element = elements[index]
       if (!element) continue
       const definition = this.elementRegistry.get(element.type)
       if (!definition || !selected?.has(element.id)) continue
@@ -542,14 +545,14 @@ export class Controller implements ModelerController {
         }
       }
     }
-    for (let index = model.elements.length - 1; index >= 0; index -= 1) {
-      const element = model.elements[index]
+    for (let index = elements.length - 1; index >= 0; index -= 1) {
+      const element = elements[index]
       if (!element || !selected?.has(element.id) || element.type !== BPMN_PARTICIPANT_TYPE) continue
       const target = this.hitTestBpmnParticipantLaneResizeHandle(point, element as BpmnParticipantElement)
       if (target) return target
     }
-    for (let index = model.elements.length - 1; index >= 0; index -= 1) {
-      const element = model.elements[index]
+    for (let index = elements.length - 1; index >= 0; index -= 1) {
+      const element = elements[index]
       if (!element) continue
       const definition = this.elementRegistry.get(element.type)
       if (!definition || !selected?.has(element.id)) continue
@@ -567,8 +570,8 @@ export class Controller implements ModelerController {
         }
       }
     }
-    for (let index = model.elements.length - 1; index >= 0; index -= 1) {
-      const element = model.elements[index]
+    for (let index = elements.length - 1; index >= 0; index -= 1) {
+      const element = elements[index]
       if (!element || !isModelerEdgeElement(element) || !selected?.has(element.id)) continue
       for (const handle of MODEL_ELEMENTS_RUNTIME.edges.createWaypointHandles(element)) {
         const screen = this.worldToScreen(handle)
@@ -583,8 +586,8 @@ export class Controller implements ModelerController {
         }
       }
     }
-    for (let index = model.elements.length - 1; index >= 0; index -= 1) {
-      const element = model.elements[index]
+    for (let index = elements.length - 1; index >= 0; index -= 1) {
+      const element = elements[index]
       if (!element || !isModelerEdgeElement(element) || !selected?.has(element.id)) continue
       const handle = MODEL_ELEMENTS_RUNTIME.edges.createSegmentHandleAtPoint(
         this.pluginContext,
@@ -593,7 +596,7 @@ export class Controller implements ModelerController {
       )
       if (handle) return { type: 'edge-segment-handle', elementId: element.id, segmentIndex: handle.segmentIndex }
     }
-    const ordered = model.elements.length > 1 ? [...model.elements].sort(compareElementsByZIndex) : model.elements
+    const ordered = elements.length > 1 ? [...elements].sort(compareElementsByZIndex) : elements
     const externalLabelTarget = this.hitTestExternalLabels(ordered, point)
     if (externalLabelTarget) return externalLabelTarget
     for (let index = ordered.length - 1; index >= 0; index -= 1) {
@@ -648,7 +651,7 @@ export class Controller implements ModelerController {
   private hitTestExternalLabelResizeHandle(point: ModelerPoint): ModelerHitTarget | null {
     const selected = this.externalLabelRuntime.getSelected()
     if (!selected) return null
-    const element = this.getModel().elements.find(item => item.id === selected.elementId)
+    const element = this.store.elements.items.find(item => item.id === selected.elementId)
     if (!element) return null
     const layout = this.externalLabelRuntime.resolve(this.pluginContext, element)
     if (!layout) return null

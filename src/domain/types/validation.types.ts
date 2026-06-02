@@ -20,6 +20,10 @@ export type BpmnValidationRuleId =
   | 'bpmn.invalidConditionalFlowSource'
   | 'bpmn.conditionalFlowNoCondition'
   | 'bpmn.instantiateNonReceiveTask'
+  | 'bpmn.invalidLinkEvent'
+  | 'bpmn.linkEventNoName'
+  | 'bpmn.linkDuplicateCatch'
+  | 'bpmn.linkThrowNoTarget'
 
 export interface ModelerValidationIssue {
   id: string

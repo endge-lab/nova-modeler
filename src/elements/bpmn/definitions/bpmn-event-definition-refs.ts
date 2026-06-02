@@ -75,6 +75,7 @@ export function updateBpmnEventDefinitionDraft(
     signalRef: option.data?.signalRef ?? draft.signalRef ?? element.data?.signalRef,
     errorRef: option.data?.errorRef ?? draft.errorRef ?? element.data?.errorRef,
     escalationRef: option.data?.escalationRef ?? draft.escalationRef ?? element.data?.escalationRef,
+    linkRef: option.data?.linkRef ?? draft.linkRef ?? element.data?.linkRef,
   }
 }
 

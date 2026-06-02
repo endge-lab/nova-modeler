@@ -49,6 +49,7 @@ export function createBpmnEventElement(input: BpmnEventElementInput): BpmnEventE
       signalRef: normalizeOptionalRef(input.signalRef ?? data.signalRef),
       errorRef: normalizeOptionalRef(input.errorRef ?? data.errorRef),
       escalationRef: normalizeOptionalRef(input.escalationRef ?? data.escalationRef),
+      linkRef: normalizeOptionalRef(input.linkRef ?? data.linkRef),
       label: normalizeExternalLabelGeometry(input.label ?? data.label),
     },
     style: input.style ? { ...input.style } : {},

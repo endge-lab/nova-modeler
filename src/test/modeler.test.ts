@@ -245,8 +245,22 @@ describe('nova modeler minimal kernel', () => {
       trigger: 'terminate',
       direction: 'throw',
     })
+    const linkCatch = createBpmnEventElement({
+      id: 'link-catch',
+      eventPosition: 'intermediate',
+      trigger: 'link',
+      direction: 'catch',
+      linkRef: 'handoff',
+    })
+    const linkThrow = createBpmnEventElement({
+      id: 'link-throw',
+      eventPosition: 'intermediate',
+      trigger: 'link',
+      direction: 'throw',
+      linkRef: 'handoff',
+    })
     const xml = new BpmnExporter().export({
-      model: createModelerModel({ id: 'event-definitions', elements: [catchEvent, throwEvent, endEvent] }),
+      model: createModelerModel({ id: 'event-definitions', elements: [catchEvent, throwEvent, endEvent, linkCatch, linkThrow] }),
     })
 
     expect(xml).toContain('<intermediateCatchEvent id="Event_catch-message">')
@@ -254,6 +268,10 @@ describe('nova modeler minimal kernel', () => {
     expect(xml).toContain('<messageEventDefinition />')
     expect(xml).toContain('<endEvent id="Event_terminate-end">')
     expect(xml).toContain('<terminateEventDefinition />')
+    expect(xml).toContain('<intermediateCatchEvent id="Event_link-catch">')
+    expect(xml).toContain('<linkEventDefinition id="Event_link-catch_LinkDefinition" name="handoff" />')
+    expect(xml).toContain('<intermediateThrowEvent id="Event_link-throw">')
+    expect(xml).toContain('<linkEventDefinition id="Event_link-throw_LinkDefinition" name="handoff" target="Event_link-catch_LinkDefinition" />')
   })
 
   it('exports BPMN default and conditional sequence flow metadata', () => {
@@ -624,6 +642,31 @@ describe('nova modeler minimal kernel', () => {
       'intermediate:link:catch',
       'intermediate:link:throw',
     ]))
+    const linkEvent = createBpmnEventElement({
+      id: 'link-event',
+      eventPosition: 'intermediate',
+      trigger: 'link',
+      direction: 'throw',
+      linkRef: 'handoff',
+    })
+    controller.applyCommand({ type: 'element.add', element: linkEvent })
+    const linkDraft = provider?.createDraft?.(context, linkEvent) ?? {}
+    const linkDescriptor = provider?.getDescriptor(context, linkEvent, linkDraft)
+    expect(linkDescriptor?.controls.map(control => control.id)).toEqual(['eventPosition', 'trigger', 'linkRef'])
+    const linkRefControl = linkDescriptor?.controls.find(control => control.id === 'linkRef')
+    expect(linkRefControl).toMatchObject({
+      kind: 'input',
+      title: 'Link name',
+      value: 'handoff',
+    })
+    provider?.apply({
+      context,
+      element: linkEvent,
+      draft: linkDraft,
+      control: linkRefControl!,
+      option: { id: 'linkRef', title: 'review-handoff', data: { linkRef: 'review-handoff' } },
+    })
+    expect(controller.getModel().elements.find(element => element.id === 'link-event')?.data?.linkRef).toBe('review-handoff')
     controller.unmount()
   })
 
@@ -2956,6 +2999,38 @@ describe('nova modeler minimal kernel', () => {
       'bpmn.invalidConditionalFlowSource',
       'bpmn.conditionalFlowNoCondition',
     ]))
+    expect(BpmnValidationRuntime.validate(createModelerModel({
+      elements: [
+        ...valid,
+        createBpmnEventElement({ id: 'link-catch', eventPosition: 'intermediate', trigger: 'link', direction: 'catch', linkRef: 'handoff' }),
+        createBpmnEventElement({ id: 'link-throw', eventPosition: 'intermediate', trigger: 'link', direction: 'throw', linkRef: 'handoff' }),
+      ],
+    })).issues.map(issue => issue.ruleId)).not.toEqual(expect.arrayContaining([
+      'bpmn.linkEventNoName',
+      'bpmn.linkThrowNoTarget',
+      'bpmn.linkDuplicateCatch',
+    ]))
+    expect(validateBpmnRules([
+      ...valid,
+      createBpmnEventElement({ id: 'link-no-name', eventPosition: 'intermediate', trigger: 'link', direction: 'catch' }),
+      createBpmnEventElement({ id: 'link-throw-missing', eventPosition: 'intermediate', trigger: 'link', direction: 'throw', linkRef: 'missing-target' }),
+      createBpmnEventElement({ id: 'link-catch-a', eventPosition: 'intermediate', trigger: 'link', direction: 'catch', linkRef: 'duplicate' }),
+      createBpmnEventElement({ id: 'link-catch-b', eventPosition: 'intermediate', trigger: 'link', direction: 'catch', linkRef: 'duplicate' }),
+    ])).toEqual(expect.arrayContaining([
+      'bpmn.linkEventNoName',
+      'bpmn.linkThrowNoTarget',
+      'bpmn.linkDuplicateCatch',
+    ]))
+    const invalidLinkPositionModel = createModelerModel({ elements: [
+      ...valid,
+      createBpmnEventElement({ id: 'link-start-raw', eventPosition: 'intermediate', trigger: 'link', direction: 'catch', linkRef: 'raw' }),
+    ] })
+    expect(BpmnValidationRuntime.validate({
+      ...invalidLinkPositionModel,
+      elements: invalidLinkPositionModel.elements.map(element => element.id === 'link-start-raw'
+        ? { ...element, data: { ...element.data, eventPosition: 'start', trigger: 'link', direction: 'catch', linkRef: 'raw' } }
+        : element),
+    }).issues.map(issue => issue.ruleId)).toContain('bpmn.invalidLinkEvent')
     const nonReceiveInstantiateModel = createModelerModel({ elements: [
       createBpmnEventElement({ id: 'start', eventPosition: 'start' }),
       createBpmnTaskElement({ id: 'task', taskType: 'user' }),

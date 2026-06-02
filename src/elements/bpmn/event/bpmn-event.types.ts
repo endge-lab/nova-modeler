@@ -30,6 +30,7 @@ export interface BpmnEventElementData extends Record<string, unknown> {
   signalRef?: string
   errorRef?: string
   escalationRef?: string
+  linkRef?: string
   label?: ModelerExternalLabelGeometry
 }
 
@@ -45,5 +46,6 @@ export type BpmnEventElementInput =
     signalRef?: string
     errorRef?: string
     escalationRef?: string
+    linkRef?: string
     label?: ModelerExternalLabelGeometry
   }

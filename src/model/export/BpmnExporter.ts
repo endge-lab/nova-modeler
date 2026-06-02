@@ -48,6 +48,7 @@ interface BpmnExportState {
   idByDefinition: Map<string, string>
   defaultFlowBySource: Map<string, string>
   dataAssociationsByActivity: Map<string, Array<BpmnDataAssociationElement>>
+  linkCatchDefinitionByRef: Map<string, string>
   geometry: ModelerExportGeometry
 }
 
@@ -121,6 +122,15 @@ export class BpmnExporter {
       associations.push(element as BpmnDataAssociationElement)
       dataAssociationsByActivity.set(activityId, associations)
     }
+    const linkCatchDefinitionByRef = new Map<string, string>()
+    for (const element of context.model.elements) {
+      if (element.type !== BPMN_EVENT_TYPE) continue
+      const event = element as BpmnEventElement
+      const eventData = normalizeBpmnEventVariantData(event.data?.eventPosition, event.data?.trigger, event.data?.direction)
+      const linkRef = resolveLinkRef(event)
+      if (eventData.trigger !== 'link' || eventData.direction !== 'catch' || !linkRef) continue
+      if (!linkCatchDefinitionByRef.has(linkRef)) linkCatchDefinitionByRef.set(linkRef, toBpmnLinkDefinitionId(event, idByElement))
+    }
     return {
       processId,
       collaborationId: `${processId}_Collaboration`,
@@ -130,6 +140,7 @@ export class BpmnExporter {
       idByDefinition,
       defaultFlowBySource,
       dataAssociationsByActivity,
+      linkCatchDefinitionByRef,
       geometry: new ModelerExportGeometry(),
     }
   }
@@ -259,12 +270,25 @@ export class BpmnExporter {
     if (trigger === 'cancel') return '<cancelEventDefinition />'
     if (trigger === 'compensation') return '<compensateEventDefinition />'
     if (trigger === 'conditional') return '<conditionalEventDefinition />'
-    if (trigger === 'link') return '<linkEventDefinition />'
+    if (trigger === 'link') return this.serializeLinkEventDefinition(element, state)
     if (trigger === 'signal') return this.serializeReferencedEventDefinition('signal', element, state)
     if (trigger === 'terminate') return '<terminateEventDefinition />'
     if (trigger === 'multiple') return '<multipleEventDefinition />'
     if (trigger === 'parallelMultiple') return '<parallelMultipleEventDefinition />'
     return ''
+  }
+
+  private serializeLinkEventDefinition(element: BpmnEventElement, state: BpmnExportState): string {
+    const eventData = normalizeBpmnEventVariantData(element.data?.eventPosition, element.data?.trigger, element.data?.direction)
+    const linkRef = resolveLinkRef(element)
+    const attrs = [
+      `id="${toBpmnLinkDefinitionId(element, state.idByElement)}"`,
+      linkRef ? `name="${escapeXml(linkRef)}"` : '',
+      eventData.direction === 'throw' && linkRef && state.linkCatchDefinitionByRef.get(linkRef)
+        ? `target="${escapeXml(state.linkCatchDefinitionByRef.get(linkRef)!)}"`
+        : '',
+    ].filter(Boolean).join(' ')
+    return `<linkEventDefinition ${attrs} />`
   }
 
   private serializeBoundaryEvent(element: BpmnBoundaryEventElement, state: BpmnExportState): string {
@@ -514,6 +538,14 @@ function toBpmnElementId(element: ModelerElement): string {
                       ? 'Flow'
                       : 'Element'
   return toBpmnId(prefix, element.id)
+}
+
+function toBpmnLinkDefinitionId(element: BpmnEventElement, idByElement: Map<string, string>): string {
+  return `${idByElement.get(element.id) ?? toBpmnElementId(element)}_LinkDefinition`
+}
+
+function resolveLinkRef(element: BpmnEventElement): string {
+  return typeof element.data?.linkRef === 'string' ? element.data.linkRef.trim() : ''
 }
 
 function resolveDataAssociationActivityId(element: BpmnDataAssociationElement): string | undefined {

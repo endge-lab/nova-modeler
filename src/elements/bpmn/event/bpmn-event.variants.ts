@@ -38,6 +38,7 @@ export const BpmnEventVariantProvider: ModelerElementVariantProvider<BpmnEventEl
     signalRef: element.data?.signalRef,
     errorRef: element.data?.errorRef,
     escalationRef: element.data?.escalationRef,
+    linkRef: element.data?.linkRef,
   }),
   getDescriptor: (context, element, draft) => {
     const data = element.data ?? { eventPosition: 'start' as const, trigger: 'none' as const }
@@ -72,6 +73,7 @@ export const BpmnEventVariantProvider: ModelerElementVariantProvider<BpmnEventEl
           value: `${eventPosition}:${trigger}:${direction}`,
           options: createBpmnEventVariantOptions(eventPosition, element, draft),
         },
+        ...createBpmnLinkEventRefControls(element, trigger, draft),
         ...createBpmnEventDefinitionRefControls(context, element, trigger, draft),
       ],
     }
@@ -85,6 +87,15 @@ export const BpmnEventVariantProvider: ModelerElementVariantProvider<BpmnEventEl
   },
   apply: ({ context, element, draft, control, option }) => {
     const data = resolveBpmnEventVariantData(option.data, draft, element)
+    const linkPatch = applyBpmnLinkEventRefControl(element, data.trigger, control, option)
+    if (linkPatch) {
+      context.applyCommand({
+        type: 'element.patch',
+        id: element.id,
+        patch: { data: linkPatch },
+      })
+      return
+    }
     const definitionOnlyPatch = applyBpmnEventDefinitionRefControl({ context, element, trigger: data.trigger, draft, control, option })
     if (definitionOnlyPatch) {
       context.applyCommand({
@@ -102,6 +113,7 @@ export const BpmnEventVariantProvider: ModelerElementVariantProvider<BpmnEventEl
           eventPosition: data.eventPosition,
           trigger: data.trigger,
           direction: data.direction,
+          ...ensureBpmnLinkEventPatch(element, data.trigger, draft),
           ...ensureBpmnGlobalDefinitionPatchForTrigger(context, element, data.trigger, draft),
         },
       },
@@ -176,4 +188,56 @@ export function resolveBpmnEventTriggerIcon(trigger: BpmnEventTrigger) {
 
 export function resolveBpmnEventTriggers(eventPosition: BpmnEventPosition): Array<BpmnEventVariantData & { id: string; title: string }> {
   return resolveBpmnEventVariants(eventPosition)
+}
+
+function createBpmnLinkEventRefControls(
+  element: BpmnEventElement,
+  trigger: BpmnEventTrigger,
+  draft: ModelerElementVariantDraft,
+) {
+  if (trigger !== 'link') return []
+  const value = resolveBpmnLinkRef(element, draft) ?? defaultBpmnLinkRef(element)
+  return [{
+    id: 'linkRef',
+    kind: 'input' as const,
+    title: 'Link name',
+    value,
+    placeholder: defaultBpmnLinkRef(element),
+    options: [],
+  }]
+}
+
+function applyBpmnLinkEventRefControl(
+  element: BpmnEventElement,
+  trigger: BpmnEventTrigger,
+  control: { id: string },
+  option: ModelerElementVariantOption,
+): Record<string, unknown> | null {
+  if (trigger !== 'link' || control.id !== 'linkRef') return null
+  return {
+    linkRef: normalizeBpmnLinkRef(option.data?.linkRef ?? option.title) ?? defaultBpmnLinkRef(element),
+  }
+}
+
+function ensureBpmnLinkEventPatch(
+  element: BpmnEventElement,
+  trigger: BpmnEventTrigger,
+  draft: ModelerElementVariantDraft,
+): Record<string, unknown> {
+  if (trigger !== 'link') return {}
+  return {
+    linkRef: resolveBpmnLinkRef(element, draft) ?? defaultBpmnLinkRef(element),
+  }
+}
+
+function resolveBpmnLinkRef(element: BpmnEventElement, draft: ModelerElementVariantDraft): string | undefined {
+  return normalizeBpmnLinkRef(draft.linkRef ?? element.data?.linkRef)
+}
+
+function normalizeBpmnLinkRef(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined
+}
+
+function defaultBpmnLinkRef(element: BpmnEventElement): string {
+  return `link-${element.id}`
 }
