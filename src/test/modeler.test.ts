@@ -1883,6 +1883,28 @@ describe('nova modeler minimal kernel', () => {
     })
   })
 
+  it('shrinks visibility padding in world units when zooming in', () => {
+    const runtime = new ModelerVisibilityRuntime()
+    const visibleTask = createBpmnTaskElement({ id: 'zoom-visible-task', x: 20, y: 20 })
+    const hiddenTask = createBpmnTaskElement({ id: 'zoom-hidden-task', x: 700, y: 20 })
+    const viewport = { x: 0, y: 0, scale: 3 }
+    const snapshot = runtime.resolve({
+      model: createModelerModel({ viewport, elements: [visibleTask, hiddenTask] }),
+      layout: createVisibilityLayout(viewport, 400, 240),
+      viewport,
+      useBpmnRecipes: true,
+      recipeCulling: true,
+      classifier: createVisibilityClassifier(),
+    })
+
+    expect(snapshot.recipeNodes.map(element => element.id)).toEqual(['zoom-visible-task'])
+    expect(snapshot.visibleIds.has(hiddenTask.id)).toBe(false)
+    expect(createModelerVisibleWorldRect(viewport, createVisibilityLayout(viewport, 400, 240))).toMatchObject({
+      x: -96,
+      y: -96,
+    })
+  })
+
   it('keeps BPMN edges visible when viewport intersects route bounds', () => {
     const runtime = new ModelerVisibilityRuntime()
     const flow = createBpmnFlowElement({

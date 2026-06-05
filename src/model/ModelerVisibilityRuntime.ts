@@ -13,6 +13,8 @@ import type {
 import { isModelerEdgeElement } from '@/domain/types/index'
 
 const DEFAULT_VIEWPORT_PADDING = 512
+const DEFAULT_VIEWPORT_SCREEN_PADDING = 256
+const MIN_VIEWPORT_PADDING = 96
 const EDGE_ROUTE_PADDING = 160
 
 export class ModelerVisibilityRuntime implements ModelerVisibilityApi {
@@ -263,12 +265,19 @@ export function createModelerVisibleWorldRect(
   padding = DEFAULT_VIEWPORT_PADDING,
 ): ModelerRect {
   const scale = viewport.scale > 0 ? viewport.scale : 1
+  const effectivePadding = resolveViewportPadding(padding, scale)
   return {
-    x: (-viewport.x) / scale - padding,
-    y: (-viewport.y) / scale - padding,
-    width: layout.width / scale + padding * 2,
-    height: layout.height / scale + padding * 2,
+    x: (-viewport.x) / scale - effectivePadding,
+    y: (-viewport.y) / scale - effectivePadding,
+    width: layout.width / scale + effectivePadding * 2,
+    height: layout.height / scale + effectivePadding * 2,
   }
+}
+
+function resolveViewportPadding(maxWorldPadding: number, scale: number): number {
+  if (maxWorldPadding <= 0) return 0
+  const screenPadding = DEFAULT_VIEWPORT_SCREEN_PADDING / scale
+  return Math.min(maxWorldPadding, Math.max(MIN_VIEWPORT_PADDING, screenPadding))
 }
 
 function resolveEdgeRoutePoints(element: ModelerEdgeElement): Array<{ x: number; y: number }> {
