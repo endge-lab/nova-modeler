@@ -70,6 +70,8 @@ import {
   type ModelerSettingsDialogApi,
   type ModelerValidationResult,
   type ModelerViewport,
+  type ModelerElement,
+  type ModelerExternalLabelLayout,
   type BpmnParticipantElement,
   type BpmnRecipeLayerDiagnostics,
 } from '@/index'
@@ -1648,7 +1650,141 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('renders BPMN participant geometry in viewport scale', () => {
+  it('renders unselected BPMN participants through the container recipe layer', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const participant = createBpmnParticipantElement({
+      id: 'pool-recipe',
+      x: 80,
+      y: 80,
+      width: 520,
+      height: 260,
+      name: 'Recipe pool',
+      lanes: [
+        { id: 'lane-a', name: 'Lane A', size: 130, style: { fill: '#eff6ff' } },
+        { id: 'lane-b', name: 'Lane B', size: 130 },
+      ],
+    })
+    const app = Nova.createApp({
+      target: document.createElement('canvas'),
+      size: { width: 800, height: 520, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'swimlane-recipe-root',
+      props: {
+        model: createModelerModel({
+          elements: [participant],
+        }),
+        width: 800,
+        height: 520,
+      },
+    })
+    app.raph.run()
+    app.raph.run()
+
+    const containers = app.surfaces.find(item => item.name === 'swimlane-recipe-root:containers')
+    const containerIds = containers?.children.map(child => (child as { componentId?: string }).componentId) ?? []
+    expect(containerIds).toContain('modeler-elements:bpmn-container-recipe-layer')
+    expect(containerIds).not.toContain('pool-recipe:view')
+    const frameItems = containers?.compileRenderFrame().items ?? []
+    expect(frameItems.some(item => item.kind === 'rect-batch')).toBe(true)
+    expect(frameItems.some(item => item.schemaItem?.type === 'text' && item.schemaItem.text === 'Recipe pool')).toBe(true)
+    app.destroy()
+  })
+
+  it('keeps unselected BPMN participants retained in the container recipe layer across viewport culling changes', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const nearParticipant = createBpmnParticipantElement({
+      id: 'pool-retained-near',
+      x: 80,
+      y: 80,
+      width: 520,
+      height: 260,
+    })
+    const farParticipant = createBpmnParticipantElement({
+      id: 'pool-retained-far',
+      x: 4200,
+      y: 80,
+      width: 520,
+      height: 260,
+    })
+    const app = Nova.createApp({
+      target: document.createElement('canvas'),
+      size: { width: 800, height: 520, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    const root = app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'swimlane-retained-culling-root',
+      props: {
+        model: createModelerModel({
+          viewport: { x: 0, y: 0, scale: 1 },
+          elements: [nearParticipant, farParticipant],
+        }),
+        width: 800,
+        height: 520,
+      },
+    }) as Root
+    app.raph.run()
+    app.raph.run()
+
+    const recipeLayer = app.components.require('modeler-elements:bpmn-container-recipe-layer') as unknown as {
+      props: { elements: Array<ModelerElement> }
+      render: () => void
+    }
+    const firstElements = recipeLayer.props.elements
+    expect(firstElements.map(element => element.id)).toEqual(['pool-retained-near', 'pool-retained-far'])
+    const renderSpy = vi.spyOn(recipeLayer, 'render')
+
+    root.getApi().setViewport({ x: -3600, y: 0, scale: 1 })
+    app.raph.run()
+
+    expect(recipeLayer.props.elements).toBe(firstElements)
+    expect(renderSpy).not.toHaveBeenCalled()
+    app.destroy()
+  })
+
+  it('keeps selected BPMN participants on the precise container view while recipes are active', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const participant = createBpmnParticipantElement({ id: 'pool-selected-recipe', x: 80, y: 80, width: 520, height: 260 })
+    const app = Nova.createApp({
+      target: document.createElement('canvas'),
+      size: { width: 800, height: 520, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'swimlane-selected-recipe-root',
+      props: {
+        model: createModelerModel({
+          elements: [participant],
+          selection: [participant.id],
+        }),
+        width: 800,
+        height: 520,
+      },
+    })
+    app.raph.run()
+    app.raph.run()
+
+    const containers = app.surfaces.find(item => item.name === 'swimlane-selected-recipe-root:containers')
+    const containerIds = containers?.children.map(child => (child as { componentId?: string }).componentId) ?? []
+    expect(containerIds).toContain('pool-selected-recipe:view')
+    expect(containerIds).not.toContain('modeler-elements:bpmn-container-recipe-layer')
+    app.destroy()
+  })
+
+  it('renders BPMN participant geometry in retained world-space under viewport scale', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const participant = createBpmnParticipantElement({
       id: 'pool-scaled',
@@ -1677,6 +1813,11 @@ describe('nova modeler minimal kernel', () => {
           viewport: { x: 0, y: 0, scale: 0.1 },
           elements: [participant],
         }),
+        options: {
+          rendering: {
+            bpmnRecipes: { enabled: false },
+          },
+        },
         width: 800,
         height: 520,
       },
@@ -1686,8 +1827,18 @@ describe('nova modeler minimal kernel', () => {
 
     const containers = app.surfaces.find(item => item.name === 'swimlane-scaled-root:containers')
     const schemaItems = containers?.compileRenderFrame().items.map(item => item.schemaItem).filter(Boolean) ?? []
-    expect(schemaItems.some(item => item.type === 'rect' && item.width === 52 && item.height === 26)).toBe(true)
-    expect(schemaItems.some(item => item.type === 'rect' && item.width === 520 && item.height === 260)).toBe(false)
+    const participantView = app.components.require('pool-scaled:view') as unknown as {
+      x: number
+      y: number
+      scaleX: number
+      scaleY: number
+    }
+    expect(schemaItems.some(item => item.type === 'rect' && item.width === 520 && item.height === 260)).toBe(true)
+    expect(schemaItems.some(item => item.type === 'rect' && item.width === 52 && item.height === 26)).toBe(false)
+    expect(participantView.x).toBe(34)
+    expect(participantView.y).toBe(21)
+    expect(participantView.scaleX).toBe(0.1)
+    expect(participantView.scaleY).toBe(0.1)
     app.destroy()
   })
 
@@ -1743,7 +1894,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('updates BPMN participant geometry when viewport scale changes', () => {
+  it('updates BPMN participant transform without rebuilding schema when viewport scale changes', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const participant = createBpmnParticipantElement({
       id: 'pool-dynamic-scale',
@@ -1773,20 +1924,65 @@ describe('nova modeler minimal kernel', () => {
           viewport: { x: 0, y: 0, scale: 1 },
           elements: [participant],
         }),
+        options: {
+          rendering: {
+            bpmnRecipes: { enabled: false },
+          },
+        },
         width: 800,
         height: 520,
       },
     }) as Root
     app.raph.run()
+    app.raph.run()
+
+    const containers = app.surfaces.find(item => item.name === 'swimlane-dynamic-scale-root:containers')
+    containers?.compileRenderFrame()
+    const participantView = app.components.require('pool-dynamic-scale:view') as unknown as {
+      render: () => void
+      setProps: (patch: Partial<{
+        element: BpmnParticipantElement
+        selected: boolean
+      }>) => void
+      x: number
+      y: number
+      scaleX: number
+      scaleY: number
+    }
+    const renderSpy = vi.spyOn(participantView, 'render')
 
     root.getApi().setViewport({ scale: 0.1 })
     app.raph.run()
     app.raph.run()
 
-    const containers = app.surfaces.find(item => item.name === 'swimlane-dynamic-scale-root:containers')
     const schemaItems = containers?.compileRenderFrame().items.map(item => item.schemaItem).filter(Boolean) ?? []
-    expect(schemaItems.some(item => item.type === 'rect' && item.width === 52 && item.height === 26)).toBe(true)
-    expect(schemaItems.some(item => item.type === 'rect' && item.width === 520 && item.height === 260)).toBe(false)
+    expect(renderSpy).not.toHaveBeenCalled()
+    expect(schemaItems.some(item => item.type === 'rect' && item.width === 520 && item.height === 260)).toBe(true)
+    expect(schemaItems.some(item => item.type === 'rect' && item.width === 52 && item.height === 26)).toBe(false)
+    const currentViewport = root.getApi().getViewport()
+    expect(participantView.x).toBe((participant.x + participant.width / 2) * currentViewport.scale + currentViewport.x)
+    expect(participantView.y).toBe((participant.y + participant.height / 2) * currentViewport.scale + currentViewport.y)
+    expect(participantView.scaleX).toBe(currentViewport.scale)
+    expect(participantView.scaleY).toBe(currentViewport.scale)
+
+    renderSpy.mockClear()
+    participantView.setProps({ selected: true })
+    containers?.compileRenderFrame()
+    expect(renderSpy).toHaveBeenCalled()
+
+    renderSpy.mockClear()
+    participantView.setProps({
+      element: createBpmnParticipantElement({
+        ...participant,
+        name: 'Updated pool',
+        lanes: [
+          { id: 'lane-a', name: 'Updated A', size: 130 },
+          { id: 'lane-b', name: 'B', size: 130, style: { fill: '#eef2ff' } },
+        ],
+      }),
+    })
+    containers?.compileRenderFrame()
+    expect(renderSpy).toHaveBeenCalled()
     app.destroy()
   })
 
@@ -3238,6 +3434,151 @@ describe('nova modeler minimal kernel', () => {
     const next = controller.setViewport({ y: -1000, scale: 1 }).viewport
     expect(next.y).toBe(-896)
     expect(controller.worldToScreen({ x: 0, y: 900 }).y).toBe(4)
+  })
+
+  it('keeps viewport-only commits off world-bounds resolution and filtered subscribers', () => {
+    const event = createBpmnEventElement({
+      id: 'viewport-label-event',
+      x: 120,
+      y: 120,
+      name: 'Policy received',
+      label: { offsetX: -48, offsetY: 64, width: 144, height: 40 },
+    })
+    const controller = createModelerController({
+      model: createModelerModel({
+        canvas: { x: -1000, y: -1000, width: 6000, height: 4000 },
+        elements: [event],
+      }),
+    })
+    const internals = controller as unknown as {
+      resolveExternalLabelWorldBounds: (element: ModelerElement) => ModelerRect | null
+    }
+    const externalLabelBoundsSpy = vi.spyOn(internals, 'resolveExternalLabelWorldBounds')
+    controller.mount(createControllerHost(640, 420))
+    expect(externalLabelBoundsSpy).toHaveBeenCalled()
+    externalLabelBoundsSpy.mockClear()
+
+    const viewportListener = vi.fn()
+    const dataListener = vi.fn()
+    const unsubscribeViewport = controller.getPluginContext().model.subscribe(viewportListener)
+    const unsubscribeData = controller.getPluginContext().model.subscribe(dataListener, { includeViewport: false })
+
+    controller.setViewport({ x: -24, y: -12, scale: 1.1 })
+    expect(externalLabelBoundsSpy).not.toHaveBeenCalled()
+    expect(viewportListener).toHaveBeenCalledTimes(1)
+    expect(viewportListener.mock.calls[0]?.[1]).toMatchObject({ viewportOnly: true, changed: ['viewport'] })
+    expect(dataListener).not.toHaveBeenCalled()
+
+    controller.applyCommand({
+      type: 'element.patch',
+      id: event.id,
+      patch: { data: { ...event.data, name: 'Policy approved' } },
+    })
+    expect(externalLabelBoundsSpy).toHaveBeenCalled()
+    expect(dataListener).toHaveBeenCalledTimes(1)
+    expect(dataListener.mock.calls[0]?.[1]).toMatchObject({ viewportOnly: false, changed: ['data'] })
+
+    unsubscribeViewport()
+    unsubscribeData()
+    controller.unmount()
+  })
+
+  it('uses ElementsLayer viewport fast path inside the overscan window', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const app = Nova.createApp({
+      target: document.createElement('canvas'),
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    const root = app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'viewport-fast-path-root',
+      props: {
+        model: createModelerModel({
+          canvas: { x: -1000, y: -1000, width: 7000, height: 5000 },
+          viewport: { x: 0, y: 0, scale: 1 },
+          elements: [
+            createBasicRectElement({ id: 'near-node', x: 100, y: 120, width: 120, height: 80 }),
+            createBasicRectElement({ id: 'far-node', x: 4200, y: 120, width: 120, height: 80 }),
+          ],
+        }),
+        width: 640,
+        height: 420,
+      },
+    }) as Root
+    app.raph.run()
+    app.raph.run()
+
+    const controller = (root as unknown as { controllerInstance: ReturnType<typeof createModelerController> }).controllerInstance
+    const context = controller.getPluginContext()
+    const visibilitySpy = vi.spyOn(context.visibility, 'resolve')
+    const reconcileSpy = vi.spyOn(context.layers, 'reconcile')
+
+    root.getApi().setViewport({ x: -80, y: -24, scale: 1 })
+    expect(visibilitySpy).not.toHaveBeenCalled()
+    expect(reconcileSpy).not.toHaveBeenCalled()
+
+    root.getApi().setViewport({ x: -1800, y: 0, scale: 1 })
+    expect(visibilitySpy).toHaveBeenCalled()
+    expect(reconcileSpy).toHaveBeenCalled()
+
+    visibilitySpy.mockClear()
+    reconcileSpy.mockClear()
+    controller.applyCommand({ type: 'select', ids: ['near-node'] })
+    expect(visibilitySpy).toHaveBeenCalled()
+    expect(reconcileSpy).toHaveBeenCalled()
+    app.destroy()
+  })
+
+  it('keeps retained flow and external-label schemas stable on viewport-only props', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
+    const app = Nova.createApp({
+      target: document.createElement('canvas'),
+      size: { width: 640, height: 420, dpr: 1 },
+      renderer: { main: RendererType.Web2D },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    const flow = createBpmnFlowElement({
+      id: 'retained-flow',
+      source: { point: { x: 80, y: 120 } },
+      target: { point: { x: 260, y: 120 } },
+      data: { name: 'Approved' },
+    })
+    const flowNode = app.schema.createNode(surface, {
+      type: Modeler.BpmnFlowView,
+      id: 'retained-flow-view',
+      props: {
+        element: flow,
+        viewport: { x: 0, y: 0, scale: 1 },
+        path: [{ x: 80, y: 120 }, { x: 260, y: 120 }],
+      },
+    }) as unknown as { render: () => void; setProps: (patch: Record<string, unknown>) => void }
+    const labelNode = app.schema.createNode(surface, {
+      type: Modeler.ExternalLabelView,
+      id: 'retained-external-label-view',
+      props: {
+        layout: createExternalLabelLayoutFixture('retained-flow'),
+        viewport: { x: 0, y: 0, scale: 1 },
+      },
+    }) as unknown as { render: () => void; setProps: (patch: Record<string, unknown>) => void }
+    app.raph.run()
+    surface.compileRenderFrame()
+    const flowRenderSpy = vi.spyOn(flowNode, 'render')
+    const labelRenderSpy = vi.spyOn(labelNode, 'render')
+
+    flowNode.setProps({ viewport: { x: 48, y: 24, scale: 1.6 } })
+    labelNode.setProps({ viewport: { x: 48, y: 24, scale: 1.6 } })
+    app.raph.run()
+    surface.compileRenderFrame()
+
+    expect(flowRenderSpy).not.toHaveBeenCalled()
+    expect(labelRenderSpy).not.toHaveBeenCalled()
+    app.destroy()
   })
 
   it('keeps the viewport center stable when zoom controls change scale', () => {
@@ -7317,6 +7658,32 @@ function createVisibilityClassifier() {
     isEdge: (element: { source?: unknown; target?: unknown }) => Boolean(element.source && element.target),
     isRecipeNodeType: isBpmnRecipeNodeType,
     isRecipeRenderable: isBpmnRecipeRenderableNode,
+  }
+}
+
+function createExternalLabelLayoutFixture(elementId: string): ModelerExternalLabelLayout {
+  const worldRect = { x: 120, y: 152, width: 112, height: 24 }
+  const line = { text: 'Approved', x: 120, y: 156, width: 112, widthLimit: 112, height: 16 }
+  return {
+    elementId,
+    text: 'Approved',
+    worldRect,
+    screenRect: { ...worldRect },
+    worldAnchor: { x: 170, y: 120 },
+    screenAnchor: { x: 170, y: 120 },
+    worldConnectorStart: { x: 170, y: 120 },
+    worldConnectorEnd: { x: 176, y: 152 },
+    screenConnectorStart: { x: 170, y: 120 },
+    screenConnectorEnd: { x: 176, y: 152 },
+    lines: [line],
+    worldLines: [line],
+    fontFamily: 'Inter, sans-serif',
+    fontSize: 12,
+    worldFontSize: 12,
+    fontWeight: '500',
+    lineHeight: 16,
+    worldLineHeight: 16,
+    clipped: false,
   }
 }
 

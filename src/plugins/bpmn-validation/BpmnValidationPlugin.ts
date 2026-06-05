@@ -50,6 +50,8 @@ export class BpmnValidationPlugin implements ModelerPlugin {
       this.lastModelId = nextModel.id
       this.lastElementsVersion = nextModel.elementsVersion
       this.schedule(nextModel)
+    }, {
+      includeViewport: false,
     })
   }
 

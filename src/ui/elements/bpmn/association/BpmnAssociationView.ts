@@ -51,7 +51,7 @@ export type BpmnAssociationViewDescriptor = NovaComponentDescriptor<
   version: '0.1.0',
   dirtyPolicy: {
     update: ['viewport'],
-    render: ['element', 'viewport', 'path', 'selected', 'preview'],
+    render: ['element', 'path', 'selected', 'preview'],
   },
 })
 export class BpmnAssociationView<E extends EventList = Record<string, any>>
@@ -74,6 +74,7 @@ export class BpmnAssociationView<E extends EventList = Record<string, any>>
   ) {
     super(app, surface, descriptor, props, options)
     this.options({ width: surface.width, height: surface.height, interactive: false })
+    this.syncViewportTransform()
   }
 
   static normalizeProps(props: BpmnAssociationViewProps): BpmnAssociationViewResolvedProps {
@@ -88,7 +89,21 @@ export class BpmnAssociationView<E extends EventList = Record<string, any>>
 
   update(): void {
     super.update()
-    this.options({ width: this.surface.width, height: this.surface.height, interactive: false })
+    this.syncViewportTransform()
+  }
+
+  override setProps(patch: Partial<BpmnAssociationViewResolvedProps>): this {
+    const changedKeys = (Object.keys(patch) as Array<keyof BpmnAssociationViewResolvedProps>)
+      .filter(key => patch[key] !== undefined && this.props[key] !== patch[key])
+    if (changedKeys.length === 0) return this
+    if (changedKeys.every(key => key === 'viewport')) {
+      this.props.viewport = patch.viewport ?? this.props.viewport
+      this.syncViewportTransform()
+      this.notifySyncPortChanged('viewport', this.props.viewport)
+      this.dirty({ matrix: true })
+      return this
+    }
+    return super.setProps(patch)
   }
 
   render(): void {
@@ -100,8 +115,6 @@ export class BpmnAssociationView<E extends EventList = Record<string, any>>
     const color = this.resolveStroke()
     const width = this.resolveStrokeWidth()
     const path = this.props.path
-      .map(point => this.worldToScreen(point))
-      .map(point => this.alignPointToPixel(point, width))
     if (path.length < 2) return []
     const opacity = Number(this.props.element.style?.opacity ?? this.resolveThemeNumber('elementOpacity'))
     const schema: NovaSchema = []
@@ -142,7 +155,7 @@ export class BpmnAssociationView<E extends EventList = Record<string, any>>
     opacity: number,
   ): void {
     const angle = Math.atan2(point.y - previous.y, point.x - previous.x)
-    const length = 11 * this.props.viewport.scale
+    const length = 11
     const spread = Math.PI / 7
     schema.push({
       type: 'line',
@@ -178,26 +191,17 @@ export class BpmnAssociationView<E extends EventList = Record<string, any>>
     return null
   }
 
-  private worldToScreen(point: ModelerPoint): ModelerPoint {
-    return {
-      x: point.x * this.props.viewport.scale + this.props.viewport.x,
-      y: point.y * this.props.viewport.scale + this.props.viewport.y,
-    }
-  }
-
-  private alignPointToPixel(point: ModelerPoint, strokeWidth: number): ModelerPoint {
-    return {
-      x: this.alignCoordinateToPixel(point.x, strokeWidth),
-      y: this.alignCoordinateToPixel(point.y, strokeWidth),
-    }
-  }
-
-  private alignCoordinateToPixel(value: number, strokeWidth: number): number {
-    const roundedWidth = Math.round(strokeWidth)
-    if (Math.abs(strokeWidth - roundedWidth) > 0.001) return value
-    return roundedWidth % 2 === 0
-      ? Math.round(value)
-      : Math.round(value) + 0.5
+  private syncViewportTransform(): void {
+    const scale = Math.max(0.0001, this.props.viewport.scale)
+    this.options({
+      x: this.props.viewport.x,
+      y: this.props.viewport.y,
+      width: Math.ceil(this.surface.width / scale),
+      height: Math.ceil(this.surface.height / scale),
+      scaleX: scale,
+      scaleY: scale,
+      interactive: false,
+    })
   }
 
   private resolveStroke(): string {
@@ -210,7 +214,7 @@ export class BpmnAssociationView<E extends EventList = Record<string, any>>
   private resolveStrokeWidth(): number {
     const width = Number(this.props.element.style?.strokeWidth ?? this.resolveThemeNumber('bpmnFlowStrokeWidth'))
     const normalized = Number.isFinite(width) && width > 0 ? width : this.resolveThemeNumber('bpmnFlowStrokeWidth')
-    return normalized * this.props.viewport.scale
+    return normalized
   }
 
   private resolveThemeColor(token: ModelerThemeTokenKey): string {

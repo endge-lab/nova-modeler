@@ -805,11 +805,10 @@ export class Root<E extends EventList = Record<string, any>>
     const surface = this.getLayerSurface(name)
     let runtime = this.layerOwnerRuntimes.get(key)
     if (!runtime) {
-      runtime = new NovaTemplateRuntime(surface)
+      runtime = new NovaTemplateRuntime(surface, { refs: {} }, { parentRenderDirty: 'structural' })
       this.layerOwnerRuntimes.set(key, runtime)
     }
     runtime.reconcile(schema)
-    surface.dirty({ update: true, matrix: true, render: true })
     return () => {
       runtime?.dispose()
       this.layerOwnerRuntimes.delete(key)
@@ -824,9 +823,9 @@ export class Root<E extends EventList = Record<string, any>>
       width: this.props.width,
       height: this.props.height,
       invalidate: phase => this.invalidate(phase),
-      onModelCommit: (previous, next) => {
+      onModelCommit: (previous, next, meta) => {
         this.props.model = next
-        if (Controller.shouldSyncLayerTemplates(previous, next)) {
+        if (!meta.viewportOnly && Controller.shouldSyncLayerTemplates(previous, next)) {
           this.layerSlotsDirty = true
           this.syncLayerTemplates()
         }

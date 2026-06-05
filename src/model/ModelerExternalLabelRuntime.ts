@@ -75,10 +75,13 @@ export class ModelerExternalLabelRuntime implements ModelerExternalLabelApi {
           height: line.height * context.getViewport().scale,
         }
       }),
+      worldLines: visibleLines,
       fontFamily: LABEL_FONT_FAMILY,
       fontSize: LABEL_FONT_SIZE * context.getViewport().scale,
+      worldFontSize: LABEL_FONT_SIZE,
       fontWeight: LABEL_FONT_WEIGHT,
       lineHeight: LABEL_LINE_HEIGHT * context.getViewport().scale,
+      worldLineHeight: LABEL_LINE_HEIGHT,
       clipped,
     }
   }

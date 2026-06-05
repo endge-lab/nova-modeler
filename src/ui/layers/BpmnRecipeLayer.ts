@@ -63,6 +63,12 @@ import type { BpmnTaskElementData } from '@/elements/bpmn/task/bpmn-task.types'
 import { resolveBpmnActivityNameLayout } from '@/ui/elements/bpmn/activity/BpmnActivityView'
 import { resolveBpmnTaskNameLayout } from '@/ui/elements/bpmn/task/BpmnTaskView'
 
+const BPMN_PARTICIPANT_LABEL_FONT_FAMILY = 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+const BPMN_PARTICIPANT_LABEL_FONT_SIZE = 12
+const BPMN_PARTICIPANT_LABEL_FONT_WEIGHT = '500' as const
+const BPMN_PARTICIPANT_LABEL_LINE_HEIGHT = 16
+const HORIZONTAL_PARTICIPANT_LABEL_ROTATION = -Math.PI / 2
+
 export interface BpmnRecipeLayerViewProps {
   elements: Array<ModelerElement>
   viewport: ModelerViewport
@@ -174,6 +180,7 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
   ) {
     super(app, surface, descriptor, props, options)
     this.options({ width: surface.width, height: surface.height, interactive: false })
+    this.syncViewportTransform()
   }
 
   static normalizeProps(props: BpmnRecipeLayerViewProps): BpmnRecipeLayerViewResolvedProps {
@@ -189,14 +196,44 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
 
   update(): void {
     super.update()
+    this.syncViewportTransform()
+  }
+
+  override setProps(patch: Partial<BpmnRecipeLayerViewResolvedProps>): this {
+    const changedKeys = (Object.keys(patch) as Array<keyof BpmnRecipeLayerViewResolvedProps>)
+      .filter(key => patch[key] !== undefined && this.props[key] !== patch[key])
+    if (changedKeys.length === 0) return this
+
+    const nextViewport = patch.viewport ?? this.props.viewport
+    const viewportOnly = changedKeys.every(key => key === 'viewport')
+    if (viewportOnly && this.canApplyViewportWithoutResize(nextViewport)) {
+      this.props.viewport = nextViewport
+      this.syncViewportTransform()
+      this.notifySyncPortChanged('viewport', this.props.viewport)
+      this.dirty({ matrix: true })
+      return this
+    }
+
+    return super.setProps(patch)
+  }
+
+  private canApplyViewportWithoutResize(viewport: ModelerViewport): boolean {
+    const scale = normalizePositiveNumber(viewport.scale, 1)
+    return Math.ceil(this.surface.width / scale) <= this.width
+      && Math.ceil(this.surface.height / scale) <= this.height
+  }
+
+  private syncViewportTransform(): void {
     const scale = normalizePositiveNumber(this.props.viewport.scale, 1)
+    const requiredWidth = Math.ceil(this.surface.width / scale)
+    const requiredHeight = Math.ceil(this.surface.height / scale)
     this.options({
       x: this.props.viewport.x,
       y: this.props.viewport.y,
       scaleX: scale,
       scaleY: scale,
-      width: Math.ceil(this.surface.width / scale),
-      height: Math.ceil(this.surface.height / scale),
+      ...(requiredWidth > this.width ? { width: requiredWidth } : {}),
+      ...(requiredHeight > this.height ? { height: requiredHeight } : {}),
       interactive: false,
     })
   }
@@ -264,7 +301,7 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     element: ModelerElement,
   ): void {
     if (element.type === 'bpmn.participant') {
-      this.appendParticipantRecipe(schema, element as BpmnParticipantElement)
+      this.appendParticipantRecipe(schema, fillWriter, element as BpmnParticipantElement)
       return
     }
     if (element.type === BPMN_TASK_TYPE || element.type === BPMN_SUB_PROCESS_TYPE || element.type === BPMN_CALL_ACTIVITY_TYPE) {
@@ -874,18 +911,29 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     textWriter.write(element.id, 'text-annotation-label', text, insetRect(rect, 14, 4))
   }
 
-  private appendParticipantRecipe(schema: NovaSchema, element: BpmnParticipantElement): void {
+  private appendParticipantRecipe(schema: NovaSchema, fillWriter: BpmnRecipeFillWriter, element: BpmnParticipantElement): void {
     const layout = createBpmnParticipantLayout(element)
     const bounds = this.worldRect(layout.bounds)
     const stroke = this.resolveElementStroke(element, 'elementStroke')
     const fill = this.resolveElementFill(element, 'elementFill')
     const lineWidth = this.resolveElementStrokeWidth(element, 'elementStrokeWidth')
+    const radius = Number(element.style?.radius ?? 4)
+    if (!fillWriter.write(element.id, 'participant-fill', bounds, fill, radius)) {
+      schema.push({
+        type: 'rect',
+        ...bounds,
+        styles: {
+          background: fill,
+          border: { color: 'rgba(0,0,0,0)', width: 0, radius },
+        },
+      })
+    }
     schema.push({
       type: 'rect',
       ...bounds,
       styles: {
-        background: fill,
-        border: { color: stroke, width: lineWidth, radius: 4 },
+        background: 'rgba(0,0,0,0)',
+        border: { color: stroke, width: lineWidth, radius },
       },
     })
     const participantHeader = this.worldRect(layout.participantHeaderRect)
@@ -894,10 +942,23 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     const headerFill = 'rgba(248, 250, 252, 0.66)'
     layout.lanes.forEach(lane => {
       const fill = typeof lane.style?.fill === 'string' ? lane.style.fill : undefined
-      if (fill) schema.push({ type: 'rect', ...this.worldRect(lane.contentRect), styles: { background: fill } })
-      if (laneHeadersVisible) schema.push({ type: 'rect', ...this.worldRect(lane.headerRect), styles: { background: fill ?? headerFill } })
+      if (fill) {
+        const rect = this.worldRect(lane.contentRect)
+        if (!fillWriter.write(element.id, `lane-content:${lane.id}`, rect, fill, 0)) {
+          schema.push({ type: 'rect', ...rect, styles: { background: fill } })
+        }
+      }
+      if (laneHeadersVisible) {
+        const rect = this.worldRect(lane.headerRect)
+        const laneFill = fill ?? headerFill
+        if (!fillWriter.write(element.id, `lane-header:${lane.id}`, rect, laneFill, 0)) {
+          schema.push({ type: 'rect', ...rect, styles: { background: laneFill } })
+        }
+      }
     })
-    schema.push({ type: 'rect', ...participantHeader, styles: { background: headerFill } })
+    if (!fillWriter.write(element.id, 'participant-header', participantHeader, headerFill, 0)) {
+      schema.push({ type: 'rect', ...participantHeader, styles: { background: headerFill } })
+    }
     const vertical = normalizeBpmnParticipantOrientation(element.data?.orientation) === 'vertical'
     if (vertical) {
       this.appendLine(schema, participantHeader.x, participantHeader.y + participantHeader.height, participantHeader.x + participantHeader.width, participantHeader.y + participantHeader.height, stroke, lineWidth)
@@ -911,6 +972,48 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
       if (vertical) this.appendLine(schema, rect.x, rect.y, rect.x, rect.y + rect.height, stroke, lineWidth)
       else this.appendLine(schema, rect.x, rect.y, rect.x + rect.width, rect.y, stroke, lineWidth)
     })
+    this.appendParticipantLabels(schema, element, layout)
+  }
+
+  private appendParticipantLabels(schema: NovaSchema, element: BpmnParticipantElement, layout: ReturnType<typeof createBpmnParticipantLayout>): void {
+    const participant = createParticipantRenderLabelLayout(
+      element.data?.name ?? 'Participant',
+      this.worldRect(layout.participantHeaderRect),
+      element.data?.orientation,
+    )
+    this.appendParticipantLabel(schema, participant)
+    if (!areBpmnParticipantLaneHeadersVisible(element)) return
+    layout.lanes.forEach(lane => {
+      const laneLayout = createParticipantRenderLabelLayout(lane.name, this.worldRect(lane.headerRect), element.data?.orientation)
+      this.appendParticipantLabel(schema, laneLayout)
+    })
+  }
+
+  private appendParticipantLabel(schema: NovaSchema, layout: BpmnParticipantRecipeLabelLayout): void {
+    const color = this.resolveThemeColor('bpmnTaskTextColor')
+    for (const line of layout.lines) {
+      schema.push({
+        type: 'text',
+        text: line.text,
+        x: line.x,
+        y: line.y,
+        width: line.widthLimit,
+        height: line.height,
+        rotation: layout.rotation,
+        clip: true,
+        styles: {
+          color,
+          font: {
+            family: layout.fontFamily,
+            size: layout.fontSize,
+            weight: layout.fontWeight,
+          },
+          lineHeight: layout.lineHeight,
+          align: { horizontal: 'center', vertical: 'middle' },
+          ellipsis: true,
+        },
+      })
+    }
   }
 
   private appendTinyPlusMarker(schema: NovaSchema, rect: ModelerRect, color: string): void {
@@ -1169,6 +1272,91 @@ interface BpmnRecipeFillWriter {
 
 interface BpmnRecipeTextWriter {
   write(elementId: string, slotId: string, text: string, rect: ModelerRect): void
+}
+
+interface BpmnParticipantRecipeLabelLayout {
+  lines: Array<{
+    text: string
+    x: number
+    y: number
+    widthLimit: number
+    height: number
+  }>
+  fontFamily: string
+  fontSize: number
+  fontWeight: typeof BPMN_PARTICIPANT_LABEL_FONT_WEIGHT
+  lineHeight: number
+  rotation?: number
+}
+
+function createParticipantRenderLabelLayout(
+  text: string,
+  rect: ModelerRect,
+  orientation: unknown,
+): BpmnParticipantRecipeLabelLayout {
+  if (normalizeBpmnParticipantOrientation(orientation) !== 'horizontal') {
+    return createParticipantLabelLayout(text, rect, orientation)
+  }
+  const normalizedText = typeof text === 'string' && text.trim().length > 0 ? text : 'Lane'
+  const fontSize = BPMN_PARTICIPANT_LABEL_FONT_SIZE
+  const lineHeight = BPMN_PARTICIPANT_LABEL_LINE_HEIGHT
+  const inset = 8
+  const widthLimit = Math.max(1, rect.height - inset * 2)
+  const centerX = rect.x + rect.width / 2
+  const centerY = rect.y + rect.height / 2
+  return {
+    lines: [{
+      text: normalizedText,
+      x: centerX - widthLimit / 2,
+      y: centerY - lineHeight / 2,
+      widthLimit,
+      height: lineHeight,
+    }],
+    fontFamily: BPMN_PARTICIPANT_LABEL_FONT_FAMILY,
+    fontSize,
+    fontWeight: BPMN_PARTICIPANT_LABEL_FONT_WEIGHT,
+    lineHeight,
+    rotation: HORIZONTAL_PARTICIPANT_LABEL_ROTATION,
+  }
+}
+
+function createParticipantLabelLayout(
+  text: string,
+  rect: ModelerRect,
+  orientation: unknown,
+): BpmnParticipantRecipeLabelLayout {
+  const normalizedText = typeof text === 'string' && text.trim().length > 0 ? text : 'Lane'
+  const isHorizontal = normalizeBpmnParticipantOrientation(orientation) === 'horizontal'
+  const fontSize = BPMN_PARTICIPANT_LABEL_FONT_SIZE
+  const lineHeight = BPMN_PARTICIPANT_LABEL_LINE_HEIGHT
+  const insetX = 4
+  const verticalInset = 8
+  const textRect = isHorizontal
+    ? {
+        x: rect.x + insetX,
+        y: rect.y + Math.max(0, (rect.height - lineHeight) / 2),
+        width: Math.max(1, rect.width - insetX * 2),
+        height: lineHeight,
+      }
+    : {
+        x: rect.x + verticalInset,
+        y: rect.y + Math.max(0, (rect.height - lineHeight) / 2),
+        width: Math.max(1, rect.width - verticalInset * 2),
+        height: lineHeight,
+      }
+  return {
+    lines: [{
+      text: normalizedText,
+      x: textRect.x,
+      y: textRect.y,
+      widthLimit: textRect.width,
+      height: textRect.height,
+    }],
+    fontFamily: BPMN_PARTICIPANT_LABEL_FONT_FAMILY,
+    fontSize,
+    fontWeight: BPMN_PARTICIPANT_LABEL_FONT_WEIGHT,
+    lineHeight,
+  }
 }
 
 function createEmptyRectBatch(): NovaRectBatch {

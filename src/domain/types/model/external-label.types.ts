@@ -30,10 +30,13 @@ export interface ModelerExternalLabelLayout {
   screenConnectorStart: ModelerPoint
   screenConnectorEnd: ModelerPoint
   lines: Array<ModelerExternalLabelLine>
+  worldLines?: Array<ModelerExternalLabelLine>
   fontFamily: string
   fontSize: number
+  worldFontSize?: number
   fontWeight: '500'
   lineHeight: number
+  worldLineHeight?: number
   clipped: boolean
 }
 

@@ -53,7 +53,7 @@ export type BpmnFlowViewDescriptor = NovaComponentDescriptor<
   version: '0.1.0',
   dirtyPolicy: {
     update: ['viewport'],
-    render: ['element', 'viewport', 'path', 'selected', 'preview', 'hideName'],
+    render: ['element', 'path', 'selected', 'preview', 'hideName'],
   },
 })
 export class BpmnFlowView<E extends EventList = Record<string, any>>
@@ -76,6 +76,7 @@ export class BpmnFlowView<E extends EventList = Record<string, any>>
   ) {
     super(app, surface, descriptor, props, options)
     this.options({ width: surface.width, height: surface.height, interactive: false })
+    this.syncViewportTransform()
   }
 
   static normalizeProps(props: BpmnFlowViewProps): BpmnFlowViewResolvedProps {
@@ -91,7 +92,21 @@ export class BpmnFlowView<E extends EventList = Record<string, any>>
 
   update(): void {
     super.update()
-    this.options({ width: this.surface.width, height: this.surface.height, interactive: false })
+    this.syncViewportTransform()
+  }
+
+  override setProps(patch: Partial<BpmnFlowViewResolvedProps>): this {
+    const changedKeys = (Object.keys(patch) as Array<keyof BpmnFlowViewResolvedProps>)
+      .filter(key => patch[key] !== undefined && this.props[key] !== patch[key])
+    if (changedKeys.length === 0) return this
+    if (changedKeys.every(key => key === 'viewport')) {
+      this.props.viewport = patch.viewport ?? this.props.viewport
+      this.syncViewportTransform()
+      this.notifySyncPortChanged('viewport', this.props.viewport)
+      this.dirty({ matrix: true })
+      return this
+    }
+    return super.setProps(patch)
   }
 
   render(): void {
@@ -103,8 +118,6 @@ export class BpmnFlowView<E extends EventList = Record<string, any>>
     const color = this.resolveStroke()
     const width = this.resolveStrokeWidth()
     const path = this.props.path
-      .map(point => this.worldToScreen(point))
-      .map(point => this.alignPointToPixel(point, width))
     if (path.length < 2) return []
     const opacity = Number(this.props.element.style?.opacity ?? this.resolveThemeNumber('elementOpacity'))
     const schema: NovaSchema = []
@@ -134,7 +147,7 @@ export class BpmnFlowView<E extends EventList = Record<string, any>>
     const layout = resolveBpmnFlowLabelLayout({
       name: this.props.element.data?.name,
       path,
-      scale: this.props.viewport.scale,
+      scale: 1,
     })
     if (!layout.text) return
     schema.push({
@@ -219,7 +232,7 @@ export class BpmnFlowView<E extends EventList = Record<string, any>>
   }
 
   private resolveTargetArrowLength(): number {
-    return 12 * this.props.viewport.scale
+    return 12
   }
 
   private appendSourceMarker(schema: NovaSchema, path: Array<ModelerPoint>, color: string, width: number, opacity: number): void {
@@ -238,10 +251,10 @@ export class BpmnFlowView<E extends EventList = Record<string, any>>
 
   private appendConditionalMarker(schema: NovaSchema, start: ModelerPoint, angle: number, color: string, width: number, opacity: number): void {
     const center = {
-      x: start.x + Math.cos(angle) * 10 * this.props.viewport.scale,
-      y: start.y + Math.sin(angle) * 10 * this.props.viewport.scale,
+      x: start.x + Math.cos(angle) * 10,
+      y: start.y + Math.sin(angle) * 10,
     }
-    const size = 6 * this.props.viewport.scale
+    const size = 6
     const normal = angle + Math.PI / 2
     schema.push({
       type: 'polygon',
@@ -262,13 +275,13 @@ export class BpmnFlowView<E extends EventList = Record<string, any>>
 
   private appendDefaultMarker(schema: NovaSchema, start: ModelerPoint, angle: number, color: string, width: number, opacity: number): void {
     const center = {
-      x: start.x + Math.cos(angle) * 10 * this.props.viewport.scale,
-      y: start.y + Math.sin(angle) * 10 * this.props.viewport.scale,
+      x: start.x + Math.cos(angle) * 10,
+      y: start.y + Math.sin(angle) * 10,
     }
     const normal = angle + Math.PI / 2
     const tangent = angle
-    const offset = 6 * this.props.viewport.scale
-    const length = 4 * this.props.viewport.scale
+    const offset = 6
+    const length = 4
     schema.push({
       type: 'line',
       x1: center.x - Math.cos(normal) * offset - Math.cos(tangent) * length,
@@ -295,26 +308,17 @@ export class BpmnFlowView<E extends EventList = Record<string, any>>
     return null
   }
 
-  private worldToScreen(point: ModelerPoint): ModelerPoint {
-    return {
-      x: point.x * this.props.viewport.scale + this.props.viewport.x,
-      y: point.y * this.props.viewport.scale + this.props.viewport.y,
-    }
-  }
-
-  private alignPointToPixel(point: ModelerPoint, strokeWidth: number): ModelerPoint {
-    return {
-      x: this.alignCoordinateToPixel(point.x, strokeWidth),
-      y: this.alignCoordinateToPixel(point.y, strokeWidth),
-    }
-  }
-
-  private alignCoordinateToPixel(value: number, strokeWidth: number): number {
-    const roundedWidth = Math.round(strokeWidth)
-    if (Math.abs(strokeWidth - roundedWidth) > 0.001) return value
-    return roundedWidth % 2 === 0
-      ? Math.round(value)
-      : Math.round(value) + 0.5
+  private syncViewportTransform(): void {
+    const scale = Math.max(0.0001, this.props.viewport.scale)
+    this.options({
+      x: this.props.viewport.x,
+      y: this.props.viewport.y,
+      width: Math.ceil(this.surface.width / scale),
+      height: Math.ceil(this.surface.height / scale),
+      scaleX: scale,
+      scaleY: scale,
+      interactive: false,
+    })
   }
 
   private resolveStroke(): string {
@@ -327,7 +331,7 @@ export class BpmnFlowView<E extends EventList = Record<string, any>>
   private resolveStrokeWidth(): number {
     const width = Number(this.props.element.style?.strokeWidth ?? this.resolveThemeNumber('bpmnFlowStrokeWidth'))
     const normalized = Number.isFinite(width) && width > 0 ? width : this.resolveThemeNumber('bpmnFlowStrokeWidth')
-    return normalized * this.props.viewport.scale
+    return normalized
   }
 
   private resolveThemeColor(token: ModelerThemeTokenKey, fallback?: string): string {

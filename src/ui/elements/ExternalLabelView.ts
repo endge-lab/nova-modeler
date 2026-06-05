@@ -15,16 +15,18 @@ import {
   MODELER_THEME_TOKENS,
   type ModelerThemeTokenKey,
 } from '@/config/theme.config'
-import type { ModelerExternalLabelLayout } from '@/domain/types/index'
+import type { ModelerExternalLabelLayout, ModelerViewport } from '@/domain/types/index'
 
 export interface ExternalLabelViewProps {
   layout: ModelerExternalLabelLayout
+  viewport?: ModelerViewport
   selected?: boolean
   hideText?: boolean
 }
 
 export interface ExternalLabelViewResolvedProps {
   layout: ModelerExternalLabelLayout
+  viewport: ModelerViewport
   selected: boolean
   hideText: boolean
 }
@@ -44,6 +46,7 @@ const LABEL_HANDLES = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'] as const
   name: 'ExternalLabelView',
   version: '0.1.0',
   dirtyPolicy: {
+    update: ['viewport'],
     render: ['layout', 'selected', 'hideText'],
   },
 })
@@ -51,6 +54,9 @@ export class ExternalLabelView<E extends EventList = Record<string, any>>
   extends NovaComponentNode<ExternalLabelViewResolvedProps, Record<string, never>, Record<string, never>, ExternalLabelViewProps, E> {
   @Prop.object<ModelerExternalLabelLayout>({ required: true })
   declare layout: ModelerExternalLabelLayout
+
+  @Prop.object<ModelerViewport>({ required: true })
+  declare viewport: ModelerViewport
 
   constructor(
     app: NovaApp<E>,
@@ -61,11 +67,13 @@ export class ExternalLabelView<E extends EventList = Record<string, any>>
   ) {
     super(app, surface, descriptor, props, options)
     this.options({ width: surface.width, height: surface.height, interactive: false })
+    this.syncViewportTransform()
   }
 
   static normalizeProps(props: ExternalLabelViewProps): ExternalLabelViewResolvedProps {
     return {
       layout: props.layout,
+      viewport: props.viewport ?? { x: 0, y: 0, scale: 1 },
       selected: props.selected ?? false,
       hideText: props.hideText ?? false,
     }
@@ -73,7 +81,21 @@ export class ExternalLabelView<E extends EventList = Record<string, any>>
 
   update(): void {
     super.update()
-    this.options({ width: this.surface.width, height: this.surface.height, interactive: false })
+    this.syncViewportTransform()
+  }
+
+  override setProps(patch: Partial<ExternalLabelViewResolvedProps>): this {
+    const changedKeys = (Object.keys(patch) as Array<keyof ExternalLabelViewResolvedProps>)
+      .filter(key => patch[key] !== undefined && this.props[key] !== patch[key])
+    if (changedKeys.length === 0) return this
+    if (changedKeys.every(key => key === 'viewport')) {
+      this.props.viewport = patch.viewport ?? this.props.viewport
+      this.syncViewportTransform()
+      this.notifySyncPortChanged('viewport', this.props.viewport)
+      this.dirty({ matrix: true })
+      return this
+    }
+    return super.setProps(patch)
   }
 
   render(): void {
@@ -83,15 +105,15 @@ export class ExternalLabelView<E extends EventList = Record<string, any>>
 
   private createSchema(): NovaSchema {
     const layout = this.props.layout
-    const rect = layout.screenRect
+    const rect = layout.worldRect
     const schema: NovaSchema = []
     if (this.props.selected) {
       schema.push({
         type: 'line',
-        x1: layout.screenConnectorStart.x,
-        y1: layout.screenConnectorStart.y,
-        x2: layout.screenConnectorEnd.x,
-        y2: layout.screenConnectorEnd.y,
+        x1: layout.worldConnectorStart.x,
+        y1: layout.worldConnectorStart.y,
+        x2: layout.worldConnectorEnd.x,
+        y2: layout.worldConnectorEnd.y,
         styles: {
           color: '#7cc8ff',
           width: 3,
@@ -112,7 +134,7 @@ export class ExternalLabelView<E extends EventList = Record<string, any>>
       })
     }
     if (layout.text && !this.props.hideText) {
-      for (const line of layout.lines) {
+      for (const line of layout.worldLines ?? layout.lines) {
         schema.push({
           type: 'text',
           text: line.text,
@@ -125,10 +147,10 @@ export class ExternalLabelView<E extends EventList = Record<string, any>>
             color: this.resolveThemeColor('bpmnTaskTextColor'),
             font: {
               family: layout.fontFamily,
-              size: layout.fontSize,
+              size: layout.worldFontSize ?? layout.fontSize,
               weight: layout.fontWeight,
             },
-            lineHeight: layout.lineHeight,
+            lineHeight: layout.worldLineHeight ?? layout.lineHeight,
             align: { horizontal: 'center', vertical: 'top' },
             ellipsis: false,
           },
@@ -137,6 +159,19 @@ export class ExternalLabelView<E extends EventList = Record<string, any>>
     }
     if (this.props.selected) this.appendHandles(schema, rect)
     return schema
+  }
+
+  private syncViewportTransform(): void {
+    const scale = Math.max(0.0001, this.props.viewport.scale)
+    this.options({
+      x: this.props.viewport.x,
+      y: this.props.viewport.y,
+      width: Math.ceil(this.surface.width / scale),
+      height: Math.ceil(this.surface.height / scale),
+      scaleX: scale,
+      scaleY: scale,
+      interactive: false,
+    })
   }
 
   private appendHandles(schema: NovaSchema, rect: { x: number; y: number; width: number; height: number }): void {

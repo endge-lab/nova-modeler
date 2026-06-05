@@ -50,7 +50,27 @@ export interface ModelerContextModelApi {
   get(): ModelerModel
   set(model: ModelerModel): void
   update(updater: (model: ModelerModel) => ModelerModel): ModelerModel
-  subscribe(listener: (model: ModelerModel) => void): () => void
+  subscribe(listener: ModelerModelListener, options?: ModelerModelSubscribeOptions): () => void
+}
+
+export type ModelerCommitChange =
+  | 'viewport'
+  | 'data'
+  | 'selection'
+  | 'canvas'
+  | 'bpmnDefinitions'
+  | 'overlay'
+  | 'theme'
+
+export interface ModelerCommitMeta {
+  viewportOnly: boolean
+  changed: Array<ModelerCommitChange>
+}
+
+export type ModelerModelListener = (model: ModelerModel, meta: ModelerCommitMeta) => void
+
+export interface ModelerModelSubscribeOptions {
+  includeViewport?: boolean
 }
 
 export interface ModelerGesture {

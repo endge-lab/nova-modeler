@@ -1,4 +1,4 @@
-import type { NovaTemplateChildSchema } from '@endge/nova'
+import type { NovaApp, NovaTemplateChildSchema } from '@endge/nova'
 import { NovaUIKit } from '@endge/nova-ui-kit'
 import { Modeler } from '@/config/schema.config'
 import type {
@@ -6,10 +6,11 @@ import type {
   ModelerElement,
   ModelerElementDefinition,
   ModelerPluginContext,
+  ModelerRect,
   ModelerRenderBand,
+  ModelerViewport,
 } from '@/domain/types/index'
 import { isModelerEdgeElement } from '@/domain/types/index'
-import { BPMN_PARTICIPANT_TYPE } from '@/elements/bpmn/participant/bpmn-participant.factory'
 import { MODELER_PORT_RADIUS } from '@/plugins/elements/elements.constants'
 import type { ElementsRuntime } from '@/plugins/elements/model/ElementsRuntime'
 import {
@@ -20,7 +21,15 @@ import {
 } from '@/ui/layers/BpmnRecipeLayer'
 
 export class ElementsLayer {
-  private stableBpmnRecipeElements: Array<ModelerElement> = []
+  private stableBpmnContainerRecipeElements: Array<ModelerElement> = []
+  private stableBpmnNodeRecipeElements: Array<ModelerElement> = []
+  private stableBpmnContainerRecipeSignature = ''
+  private renderedElementIds = new Set<string>()
+  private renderedExternalLabelIds = new Set<string>()
+  private renderedOverlayComponentIds = new Set<string>()
+  private viewportFastPathWindow: ModelerRect | null = null
+  private viewportFastPathScaleBucket = Number.NaN
+  private viewportFastPathUseBpmnRecipes = false
   private disposeContainersLayer: (() => void) | undefined
   private disposeLinksLayer: (() => void) | undefined
   private disposeInteractionLayer: (() => void) | undefined
@@ -52,13 +61,19 @@ export class ElementsLayer {
     const nodeOverlaySchemas: Array<NovaTemplateChildSchema> = []
     const externalLabelSchemas: Array<NovaTemplateChildSchema> = []
     const bpmnRecipeElements: Array<ModelerElement> = []
+    const renderedElementIds = new Set<string>()
+    const renderedExternalLabelIds = new Set<string>()
+    const renderedOverlayComponentIds = new Set<string>()
     const model = this.context.getModel()
     const viewport = this.context.getViewport()
+    const layout = this.context.getLayout()
     const options = this.context.getOptions()
     const recipeOptions = normalizeBpmnRecipeRenderingOptions(options)
     const selected = new Set(model.selection)
     const connection = this.runtime.connection.get()
     const connectionTargetId = connection?.targetElementId
+    const forcedRecipeNodeIds = new Set<string>()
+    if (connection?.sourceElementId) forcedRecipeNodeIds.add(connection.sourceElementId)
     const segmentHover = this.runtime.edgeSegmentHover.get()
     const useBpmnRecipes = shouldUseBpmnRecipeRendering(options, viewport)
     if (options.interaction?.dragShadow !== false) {
@@ -73,7 +88,7 @@ export class ElementsLayer {
     }
     const visible = this.context.visibility.resolve({
       model,
-      layout: this.context.getLayout(),
+      layout,
       viewport,
       selectedIds: model.selection,
       connectionTargetId,
@@ -85,29 +100,52 @@ export class ElementsLayer {
       classifier: {
         isEdge: (element) => this.runtime.edges.isEdge(element),
         isRecipeNodeType: isBpmnRecipeNodeType,
-        isRecipeRenderable: (element) => element.type !== BPMN_PARTICIPANT_TYPE && isBpmnRecipeRenderableNode(element),
+        isRecipeRenderable: (element) => isBpmnRecipeRenderableNode(element),
       },
     })
     const edges = visible.edges
     const nodes = [...visible.schemaNodes].sort(compareNodeRenderOrder)
     for (const element of edges) {
+      renderedElementIds.add(element.id)
       this.appendEdgeSchema(linkSchemas, element, selected)
-      this.appendEdgeInteractionSchema(interactionSchemas, element, selected)
-      this.appendExternalLabelSchema(externalLabelSchemas, element)
+      this.appendEdgeInteractionSchema(interactionSchemas, element, selected, renderedOverlayComponentIds)
+      this.appendExternalLabelSchema(externalLabelSchemas, element, renderedExternalLabelIds)
     }
     for (const element of nodes) {
+      renderedElementIds.add(element.id)
       const band = this.resolveElementRenderBand(element)
       const schemas = band === 'containers'
         ? containerSchemas
         : band === 'links'
           ? linkSchemas
           : nodeSchemas
-      this.appendNodeSchema(schemas, nodeOverlaySchemas, element, selected, connectionTargetId)
-      this.appendExternalLabelSchema(externalLabelSchemas, element)
+      this.appendNodeSchema(schemas, nodeOverlaySchemas, element, selected, connectionTargetId, renderedOverlayComponentIds)
+      this.appendExternalLabelSchema(externalLabelSchemas, element, renderedExternalLabelIds)
     }
     bpmnRecipeElements.push(...[...visible.recipeNodes].sort(compareNodeRenderOrder))
-    if (bpmnRecipeElements.length > 0) {
-      const stableBpmnRecipeElements = this.resolveStableBpmnRecipeElements(bpmnRecipeElements)
+    const containerRecipeElements = useBpmnRecipes
+      ? model.elements
+          .filter(element => this.isRetainedContainerRecipeElement(element, selected, connectionTargetId, forcedRecipeNodeIds))
+          .sort(compareNodeRenderOrder)
+      : []
+    const nodeRecipeElements = bpmnRecipeElements.filter(element => this.resolveElementRenderBand(element) !== 'containers')
+    if (containerRecipeElements.length > 0) {
+      const stableBpmnRecipeElements = this.resolveStableBpmnRecipeElements('containers', containerRecipeElements)
+      containerSchemas.push({
+        type: Modeler.BpmnRecipeLayerView,
+        id: 'modeler-elements:bpmn-container-recipe-layer',
+        props: {
+          elements: stableBpmnRecipeElements,
+          viewport,
+          textMode: recipeOptions.text,
+          visibleElements: stableBpmnRecipeElements.length,
+          culledElements: 0,
+          schemaFallbacks: 0,
+        },
+      })
+    }
+    if (nodeRecipeElements.length > 0) {
+      const stableBpmnRecipeElements = this.resolveStableBpmnRecipeElements('nodes', nodeRecipeElements)
       nodeSchemas.push({
         type: Modeler.BpmnRecipeLayerView,
         id: 'modeler-elements:bpmn-recipe-layer',
@@ -137,17 +175,96 @@ export class ElementsLayer {
     this.disposeContainersLayer = this.context.layers.reconcile('containers', 'modeler-elements-containers', containerSchemas)
     this.disposeLinksLayer = this.context.layers.reconcile('links', 'modeler-elements-links', linkSchemas)
     this.disposeInteractionLayer = this.context.layers.reconcile('interaction', 'modeler-elements', interactionSchemas)
+    this.renderedElementIds = renderedElementIds
+    this.renderedExternalLabelIds = renderedExternalLabelIds
+    this.renderedOverlayComponentIds = renderedOverlayComponentIds
+    this.viewportFastPathWindow = createViewportOverscanWindow(viewport, layout)
+    this.viewportFastPathScaleBucket = createViewportScaleBucket(viewport.scale)
+    this.viewportFastPathUseBpmnRecipes = useBpmnRecipes
     this.syncConnectionWarning()
-    this.context.invalidate('render')
   }
 
-  private resolveStableBpmnRecipeElements(elements: Array<ModelerElement>): Array<ModelerElement> {
-    if (elements.length === this.stableBpmnRecipeElements.length
-      && elements.every((element, index) => element === this.stableBpmnRecipeElements[index])) {
-      return this.stableBpmnRecipeElements
+  syncViewport(): void {
+    const viewport = this.context.getViewport()
+    if (!this.canUseViewportFastPath(viewport)) {
+      this.sync()
+      return
     }
-    this.stableBpmnRecipeElements = [...elements]
-    return this.stableBpmnRecipeElements
+    const app = this.resolveNovaApp()
+    const patch = () => {
+      this.patchComponentViewport('modeler-elements:bpmn-container-recipe-layer', viewport, app)
+      this.patchComponentViewport('modeler-elements:bpmn-recipe-layer', viewport, app)
+      for (const elementId of this.renderedElementIds) {
+        this.patchComponentViewport(`${elementId}:view`, viewport, app)
+      }
+      for (const elementId of this.renderedExternalLabelIds) {
+        this.patchComponentViewport(`${elementId}:external-label`, viewport, app)
+      }
+      for (const componentId of this.renderedOverlayComponentIds) {
+        this.patchComponentViewport(componentId, viewport, app)
+      }
+    }
+    if (app) app.raph.kernel.transaction(patch)
+    else patch()
+  }
+
+  private canUseViewportFastPath(viewport: ModelerViewport): boolean {
+    if (!this.viewportFastPathWindow) return false
+    if (this.runtime.dragShadow.getElements().length > 0) return false
+    if (this.runtime.edgePreview.get()) return false
+    if (this.runtime.connection.get()) return false
+    if (this.runtime.connectionWarnings.get()) return false
+    if (createViewportScaleBucket(viewport.scale) !== this.viewportFastPathScaleBucket) return false
+    if (shouldUseBpmnRecipeRendering(this.context.getOptions(), viewport) !== this.viewportFastPathUseBpmnRecipes) return false
+    return containsRect(this.viewportFastPathWindow, createViewportWorldRect(viewport, this.context.getLayout()))
+  }
+
+  private resolveNovaApp(): NovaApp | null {
+    try {
+      return this.context.layers.get('interaction')?.nova ?? null
+    } catch {
+      return null
+    }
+  }
+
+  private patchComponentViewport(componentId: string, viewport: ModelerViewport, app: NovaApp | null = this.resolveNovaApp()): void {
+    const node = app?.components.get(componentId) as { setProps?: (patch: { viewport: ModelerViewport }) => void } | undefined
+    node?.setProps?.({ viewport })
+  }
+
+  private resolveStableBpmnRecipeElements(kind: 'containers' | 'nodes', elements: Array<ModelerElement>): Array<ModelerElement> {
+    const stable = kind === 'containers'
+      ? this.stableBpmnContainerRecipeElements
+      : this.stableBpmnNodeRecipeElements
+    if (kind === 'containers') {
+      const nextSignature = createContainerRecipeSignature(elements)
+      if (nextSignature === this.stableBpmnContainerRecipeSignature) return stable
+      const next = [...elements]
+      this.stableBpmnContainerRecipeElements = next
+      this.stableBpmnContainerRecipeSignature = nextSignature
+      return next
+    }
+    if (elements.length === stable.length
+      && elements.every((element, index) => element === stable[index])) {
+      return stable
+    }
+    const next = [...elements]
+    this.stableBpmnNodeRecipeElements = next
+    return next
+  }
+
+  private isRetainedContainerRecipeElement(
+    element: ModelerElement,
+    selected: Set<string>,
+    connectionTargetId: string | undefined,
+    forcedRecipeNodeIds: Set<string>,
+  ): boolean {
+    return !isModelerEdgeElement(element)
+      && isBpmnRecipeRenderableNode(element)
+      && !selected.has(element.id)
+      && connectionTargetId !== element.id
+      && !forcedRecipeNodeIds.has(element.id)
+      && this.resolveElementRenderBand(element) === 'containers'
   }
 
   private appendEdgeSchema(
@@ -164,10 +281,12 @@ export class ElementsLayer {
     schemas: Array<NovaTemplateChildSchema>,
     element: ModelerElement,
     selected: Set<string>,
+    overlayIds: Set<string>,
   ): void {
     if (!selected.has(element.id) || !isModelerEdgeElement(element)) return
     const segmentHover = this.runtime.edgeSegmentHover.get()
     if (segmentHover?.elementId === element.id) {
+      overlayIds.add(`${element.id}:segment:${segmentHover.segmentIndex}`)
       schemas.push({
         type: Modeler.EdgeWaypointHandleView,
         id: `${element.id}:segment:${segmentHover.segmentIndex}`,
@@ -175,6 +294,7 @@ export class ElementsLayer {
       })
     }
     for (const handle of this.runtime.edges.createWaypointHandles(element as ModelerEdgeElement)) {
+      overlayIds.add(`${element.id}:waypoint:${handle.waypointIndex}`)
       schemas.push({
         type: Modeler.EdgeWaypointHandleView,
         id: `${element.id}:waypoint:${handle.waypointIndex}`,
@@ -189,6 +309,7 @@ export class ElementsLayer {
     element: ModelerElement,
     selected: Set<string>,
     connectionTargetId?: string,
+    overlayIds?: Set<string>,
   ): void {
     const definition = this.context.getElementRegistry().get(element.type)
     if (!definition) return
@@ -197,6 +318,7 @@ export class ElementsLayer {
     if (!isSelected) return
     const rotateHandle = this.runtime.handles.createRotateHandle(element, definition)
     if (rotateHandle) {
+      overlayIds?.add(`${element.id}:rotate`)
       overlaySchemas.push({
         type: Modeler.RotateHandleView,
         id: `${element.id}:rotate`,
@@ -204,6 +326,7 @@ export class ElementsLayer {
       })
     }
     for (const handle of this.runtime.handles.createResizeHandles(element, definition)) {
+      overlayIds?.add(`${element.id}:resize:${handle.handle}`)
       overlaySchemas.push({
         type: Modeler.ResizeHandleView,
         id: `${element.id}:resize:${handle.handle}`,
@@ -212,6 +335,7 @@ export class ElementsLayer {
     }
     if (definition.capabilities?.ports === false) return
     for (const port of this.runtime.ports.createElementPorts(element, definition.getPorts?.(this.context, element) ?? [])) {
+      overlayIds?.add(`${element.id}:port:${port.id}`)
       overlaySchemas.push({
         type: Modeler.PortView,
         id: `${element.id}:port:${port.id}`,
@@ -220,17 +344,23 @@ export class ElementsLayer {
     }
   }
 
-  private appendExternalLabelSchema(schemas: Array<NovaTemplateChildSchema>, element: ModelerElement): void {
+  private appendExternalLabelSchema(
+    schemas: Array<NovaTemplateChildSchema>,
+    element: ModelerElement,
+    renderedIds: Set<string>,
+  ): void {
     const definition = this.context.getElementRegistry().get(element.type)
     if (!definition?.externalLabel) return
     const layout = this.context.externalLabels.resolve(this.context, element)
     if (!layout) return
     if (!layout.text && !this.context.externalLabels.isSelected(element.id)) return
+    renderedIds.add(element.id)
     schemas.push({
       type: Modeler.ExternalLabelView,
       id: `${element.id}:external-label`,
       props: {
         layout,
+        viewport: this.context.getViewport(),
         selected: this.context.externalLabels.isSelected(element.id),
       },
     })
@@ -390,6 +520,70 @@ function compareNodeRenderOrder(a: ModelerElement, b: ModelerElement): number {
   const zIndexDelta = (a.zIndex ?? 0) - (b.zIndex ?? 0)
   if (zIndexDelta !== 0) return zIndexDelta
   return 0
+}
+
+function createContainerRecipeSignature(elements: Array<ModelerElement>): string {
+  return elements.map(element => {
+    const data = element.data as Record<string, any> | undefined
+    const style = element.style as Record<string, any> | undefined
+    const lanes = Array.isArray(data?.lanes)
+      ? data.lanes.map((lane: Record<string, any>) => [
+          lane.id,
+          lane.name,
+          lane.size,
+          lane.style?.fill,
+          lane.style?.stroke,
+        ].join(':')).join(',')
+      : ''
+    return [
+      element.id,
+      element.type,
+      element.x,
+      element.y,
+      element.width,
+      element.height,
+      element.rotation ?? 0,
+      element.zIndex ?? 0,
+      data?.name,
+      data?.hideName,
+      data?.orientation,
+      style?.fill,
+      style?.stroke,
+      style?.strokeWidth,
+      lanes,
+    ].join('|')
+  }).join('||')
+}
+
+function createViewportWorldRect(viewport: ModelerViewport, layout: { width: number; height: number }): ModelerRect {
+  const scale = Math.max(0.0001, viewport.scale)
+  return {
+    x: -viewport.x / scale,
+    y: -viewport.y / scale,
+    width: layout.width / scale,
+    height: layout.height / scale,
+  }
+}
+
+function createViewportOverscanWindow(viewport: ModelerViewport, layout: { width: number; height: number }): ModelerRect {
+  const rect = createViewportWorldRect(viewport, layout)
+  return {
+    x: rect.x - rect.width,
+    y: rect.y - rect.height,
+    width: rect.width * 3,
+    height: rect.height * 3,
+  }
+}
+
+function createViewportScaleBucket(scale: number): number {
+  return Math.round(Math.log2(Math.max(0.0001, scale)) * 2)
+}
+
+function containsRect(outer: ModelerRect, inner: ModelerRect): boolean {
+  return inner.x >= outer.x
+    && inner.y >= outer.y
+    && inner.x + inner.width <= outer.x + outer.width
+    && inner.y + inner.height <= outer.y + outer.height
 }
 
 function resolveElementRenderBand(

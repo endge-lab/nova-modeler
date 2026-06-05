@@ -1,3 +1,4 @@
+import { Nova } from '@endge/nova'
 import type {
   ControllerHost,
   ControllerOptions,
@@ -9,8 +10,12 @@ import type {
   ModelerGesture,
   ModelerHitTarget,
   ModelerLayout,
+  ModelerCommitChange,
+  ModelerCommitMeta,
   ModelerModel,
   ModelerModelInput,
+  ModelerModelListener,
+  ModelerModelSubscribeOptions,
   ModelerOptions,
   ModelerOptionsRef,
   ModelerPlugin,
@@ -25,7 +30,6 @@ import type {
   ModelerViewport,
 } from '@/domain/types/index'
 import { isModelerEdgeElement } from '@/domain/types/index'
-import { Nova } from '@endge/nova'
 import { normalizeModelerOptions } from '@/config/options.config'
 import { clamp } from '@/tools/number'
 import { Store } from '@/model/Store'
@@ -33,6 +37,7 @@ import { createModelerElementRegistry } from '@/model/ElementRegistry'
 import { createPluginRuntime } from '@/model/plugin-runtime/PluginRuntime'
 import { ModelerVisibilityRuntime } from '@/model/ModelerVisibilityRuntime'
 import { ModelerExternalLabelRuntime } from '@/model/ModelerExternalLabelRuntime'
+import { ModelerInvalidationScope } from '@/model/ModelerInvalidationScope'
 import { ActionRegistry } from '@/model/registry/ActionRegistry'
 import { ElementVariantRegistry } from '@/model/registry/ElementVariantRegistry'
 import { PaletteRegistry } from '@/model/registry/PaletteRegistry'
@@ -59,6 +64,16 @@ const BPMN_LANE_RESIZE_HANDLE_SCREEN_TOLERANCE = 6
 const MODELER_EXTERNAL_LABEL_HANDLE_SIZE = 8
 const MODELER_EXTERNAL_LABEL_HANDLES: Array<ModelerResizeHandle> = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w']
 
+interface ModelerModelListenerEntry {
+  listener: ModelerModelListener
+  options: ModelerModelSubscribeOptions
+}
+
+interface ModelerWorldBoundsCache {
+  signature: string
+  bounds: ModelerRect
+}
+
 export class Controller implements ModelerController {
   readonly store: ModelerStore
   private options: ModelerOptionsRef
@@ -76,7 +91,9 @@ export class Controller implements ModelerController {
 
   //
   private readonly storeValues = new Map<ModelerStoreKey<unknown>, unknown>()
-  private readonly modelListeners = new Set<(model: ModelerModel) => void>()
+  private readonly modelListeners = new Set<ModelerModelListenerEntry>()
+  private readonly invalidation = new ModelerInvalidationScope()
+  private worldBoundsCache: ModelerWorldBoundsCache | null = null
 
   //
   private readonly actions: ActionRegistry
@@ -124,6 +141,7 @@ export class Controller implements ModelerController {
       app: host.app,
       scope: `modeler.${host.id}`,
     })
+    this.worldBoundsCache = null
     this.recomputeLayout()
     this.pluginRuntime.bindRoot(this.pluginContext)
     this.activateConfiguredTool()
@@ -196,7 +214,10 @@ export class Controller implements ModelerController {
     const previous = this.committedModel
     this.store.setViewport(this.clampViewport({ ...current, ...viewport }))
     const next = this.getModel()
-    return this.afterModelCommit(previous, next)
+    return this.afterModelCommit(previous, next, {
+      viewportOnly: true,
+      changed: ['viewport'],
+    })
   }
 
   fitView(): ModelerViewport {
@@ -259,16 +280,37 @@ export class Controller implements ModelerController {
     this.host?.invalidate(phase)
   }
 
-  private afterModelCommit(previous: ModelerModel, next: ModelerModel): ModelerModel {
+  private afterModelCommit(previous: ModelerModel, next: ModelerModel, meta = this.resolveCommitMeta(previous, next)): ModelerModel {
     const selectedLabel = this.externalLabelRuntime.getSelected()
     if (selectedLabel && !next.selection.includes(selectedLabel.elementId)) this.externalLabelRuntime.clearSelection()
-    this.recomputeLayout()
+    if (meta.viewportOnly) this.layout = { ...this.layout, viewport: next.viewport }
+    else {
+      this.worldBoundsCache = null
+      this.recomputeLayout()
+    }
+    this.invalidation.bumpMany(meta.changed)
     this.onModelChange?.(next)
     this.onSelectionChange?.(next.selection)
-    for (const listener of this.modelListeners) listener(next)
-    this.host?.onModelCommit(previous, next)
+    for (const entry of this.modelListeners) {
+      if (meta.viewportOnly && entry.options.includeViewport === false) continue
+      entry.listener(next, meta)
+    }
+    this.host?.onModelCommit(previous, next, meta)
     this.committedModel = next
     return next
+  }
+
+  private resolveCommitMeta(previous: ModelerModel, next: ModelerModel): ModelerCommitMeta {
+    const changed: Array<ModelerCommitChange> = []
+    if (previous.viewportVersion !== next.viewportVersion) changed.push('viewport')
+    if (previous.elementsVersion !== next.elementsVersion) changed.push('data')
+    if (previous.bpmnDefinitionsVersion !== next.bpmnDefinitionsVersion) changed.push('bpmnDefinitions')
+    if (previous.selectionVersion !== next.selectionVersion) changed.push('selection')
+    if (!sameCanvas(previous, next)) changed.push('canvas')
+    return {
+      changed,
+      viewportOnly: changed.length === 1 && changed[0] === 'viewport',
+    }
   }
 
   private setPluginRuntime(pluginRuntime: ModelerPluginRuntime): void {
@@ -293,8 +335,16 @@ export class Controller implements ModelerController {
       height: this.host?.height ?? 0,
       canvas: { x: 0, y: 0, width: this.host?.width ?? 0, height: this.host?.height ?? 0 },
       viewport: model.viewport,
-      worldBounds: this.resolveWorldBounds(model),
+      worldBounds: this.resolveCachedWorldBounds(model),
     }
+  }
+
+  private resolveCachedWorldBounds(model: ModelerModel): ModelerRect {
+    const signature = createWorldBoundsSignature(model)
+    if (this.worldBoundsCache?.signature === signature) return this.worldBoundsCache.bounds
+    const bounds = this.resolveWorldBounds(model)
+    this.worldBoundsCache = { signature, bounds }
+    return bounds
   }
 
   private resolveWorldBounds(model: ModelerModel): ModelerRect {
@@ -311,11 +361,9 @@ export class Controller implements ModelerController {
   }
 
   private resolveEdgeWorldBounds(element: ModelerEdgeElement): ModelerRect {
-    const points = [
-      element.source.point,
-      ...element.waypoints,
-      element.target.point,
-    ].filter((point): point is ModelerPoint => Boolean(point))
+    const points = [element.source.point, ...element.waypoints, element.target.point].filter(
+      (point): point is ModelerPoint => Boolean(point),
+    )
     if (points.length === 0) return { x: 0, y: 0, width: 1, height: 1 }
     let minX = Number.POSITIVE_INFINITY
     let minY = Number.POSITIVE_INFINITY
@@ -392,9 +440,13 @@ export class Controller implements ModelerController {
         get: () => this.getModel(),
         set: (model) => this.setModel(model),
         update: (updater) => this.setModel(updater(this.getModel())),
-        subscribe: (listener) => {
-          this.modelListeners.add(listener)
-          return () => this.modelListeners.delete(listener)
+        subscribe: (listener, options = {}) => {
+          const entry: ModelerModelListenerEntry = {
+            listener,
+            options: { includeViewport: options.includeViewport ?? true },
+          }
+          this.modelListeners.add(entry)
+          return () => this.modelListeners.delete(entry)
         },
       },
       store: {
@@ -476,13 +528,7 @@ export class Controller implements ModelerController {
   static shouldSyncLayerTemplates(previous: ModelerModel, next: ModelerModel): boolean {
     if (previous.id !== next.id) return true
     if (previous.selectionVersion !== next.selectionVersion) return true
-    return (
-      previous.canvas.x !== next.canvas.x ||
-      previous.canvas.y !== next.canvas.y ||
-      previous.canvas.width !== next.canvas.width ||
-      previous.canvas.height !== next.canvas.height ||
-      previous.canvas.gridSize !== next.canvas.gridSize
-    )
+    return !sameCanvas(previous, next)
   }
 
   private ensureDefaultPlugins(plugins: Array<ModelerPlugin> = []): void {
@@ -605,9 +651,7 @@ export class Controller implements ModelerController {
       const definition = this.elementRegistry.get(element.type)
       if (!definition) continue
       const world = this.screenToWorld(point)
-      const contains = definition.hitTest
-        ? definition.hitTest(this.pluginContext, element, world)
-        : false
+      const contains = definition.hitTest ? definition.hitTest(this.pluginContext, element, world) : false
       if (contains) {
         return { type: 'element', id: element.id }
       }
@@ -651,7 +695,7 @@ export class Controller implements ModelerController {
   private hitTestExternalLabelResizeHandle(point: ModelerPoint): ModelerHitTarget | null {
     const selected = this.externalLabelRuntime.getSelected()
     if (!selected) return null
-    const element = this.store.elements.items.find(item => item.id === selected.elementId)
+    const element = this.store.elements.items.find((item) => item.id === selected.elementId)
     if (!element) return null
     const layout = this.externalLabelRuntime.resolve(this.pluginContext, element)
     if (!layout) return null
@@ -684,9 +728,9 @@ export class Controller implements ModelerController {
         const top = this.worldToScreen({ x: lane.rect.x, y: lane.rect.y }).y
         const bottom = this.worldToScreen({ x: lane.rect.x, y: lane.rect.y + lane.rect.height }).y
         if (
-          Math.abs(point.x - x) <= BPMN_LANE_RESIZE_HANDLE_SCREEN_TOLERANCE
-          && point.y >= Math.min(top, bottom)
-          && point.y <= Math.max(top, bottom)
+          Math.abs(point.x - x) <= BPMN_LANE_RESIZE_HANDLE_SCREEN_TOLERANCE &&
+          point.y >= Math.min(top, bottom) &&
+          point.y <= Math.max(top, bottom)
         ) {
           return { type: 'bpmn-lane-resize-handle', elementId: element.id, laneId: lane.id, orientation }
         }
@@ -696,15 +740,36 @@ export class Controller implements ModelerController {
       const left = this.worldToScreen({ x: lane.rect.x, y: lane.rect.y }).x
       const right = this.worldToScreen({ x: lane.rect.x + lane.rect.width, y: lane.rect.y }).x
       if (
-        Math.abs(point.y - y) <= BPMN_LANE_RESIZE_HANDLE_SCREEN_TOLERANCE
-        && point.x >= Math.min(left, right)
-        && point.x <= Math.max(left, right)
+        Math.abs(point.y - y) <= BPMN_LANE_RESIZE_HANDLE_SCREEN_TOLERANCE &&
+        point.x >= Math.min(left, right) &&
+        point.x <= Math.max(left, right)
       ) {
         return { type: 'bpmn-lane-resize-handle', elementId: element.id, laneId: lane.id, orientation }
       }
     }
     return null
   }
+}
+
+function sameCanvas(previous: ModelerModel, next: ModelerModel): boolean {
+  return previous.canvas.x === next.canvas.x
+    && previous.canvas.y === next.canvas.y
+    && previous.canvas.width === next.canvas.width
+    && previous.canvas.height === next.canvas.height
+    && previous.canvas.gridSize === next.canvas.gridSize
+}
+
+function createWorldBoundsSignature(model: ModelerModel): string {
+  return [
+    model.id,
+    model.elementsVersion,
+    model.bpmnDefinitionsVersion,
+    model.canvas.x,
+    model.canvas.y,
+    model.canvas.width,
+    model.canvas.height,
+    model.canvas.gridSize,
+  ].join('|')
 }
 
 export function createModelerController(options: ControllerOptions = {}): Controller {

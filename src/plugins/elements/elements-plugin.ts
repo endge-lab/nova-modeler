@@ -78,7 +78,10 @@ export class ElementsPlugin extends PluginBase {
     this.layer = new ElementsLayer(this.context, this.runtime)
     this.gestures = new ElementsGestures(this.context, this.runtime)
     this.layer.sync()
-    this.addDisposer(this.context.model.subscribe(() => this.layer?.sync()))
+    this.addDisposer(this.context.model.subscribe((_model, meta) => {
+      if (meta.viewportOnly) this.layer?.syncViewport()
+      else this.layer?.sync()
+    }))
     this.gestures.bind(dispose => this.addDisposer(dispose))
   }
 

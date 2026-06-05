@@ -23,6 +23,7 @@ import type {
   ModelerPlugin,
   ModelerPluginContext,
   ModelerPluginLayer,
+  ModelerCommitMeta,
 } from '@/domain/types/plugins/plugin.types'
 import type { ModelerPluginRuntime } from '@/domain/types/plugins/plugin-runtime.types'
 import type { ModelerStore } from '@/domain/types/model/store.types'
@@ -44,7 +45,7 @@ export interface ControllerHost {
   width: number
   height: number
   invalidate(phase?: 'update' | 'render' | 'both'): void
-  onModelCommit(previous: ModelerModel, next: ModelerModel): void
+  onModelCommit(previous: ModelerModel, next: ModelerModel, meta: ModelerCommitMeta): void
   layers: {
     get(name: ModelerLayerName): NovaSurface<any>
     mount(name: ModelerLayerName, schema: NovaTemplateChildSchema): NovaNode<any>

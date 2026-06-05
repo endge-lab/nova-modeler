@@ -26,6 +26,7 @@ import {
 } from '@/elements/bpmn/participant/bpmn-participant.factory'
 import type {
   BpmnParticipantElement,
+  BpmnParticipantLane,
   BpmnParticipantLayout,
   BpmnParticipantLayoutLane,
 } from '@/elements/bpmn/participant/bpmn-participant.types'
@@ -89,8 +90,8 @@ export function resolveBpmnParticipantNameLayout(input: {
   name: 'BpmnParticipantView',
   version: '0.1.0',
   dirtyPolicy: {
-    update: ['element', 'viewport'],
-    render: ['element', 'viewport', 'selected', 'hideName'],
+    update: ['element'],
+    render: ['element', 'selected', 'hideName'],
   },
 })
 export class BpmnParticipantView<E extends EventList = Record<string, any>>
@@ -109,7 +110,8 @@ export class BpmnParticipantView<E extends EventList = Record<string, any>>
     options: { componentId?: string } = {},
   ) {
     super(app, surface, descriptor, props, options)
-    this.options({ width: surface.width, height: surface.height, interactive: false })
+    this.options({ width: props.element.width, height: props.element.height, interactive: false })
+    this.syncViewportTransform()
   }
 
   static normalizeProps(props: BpmnParticipantViewProps): BpmnParticipantViewResolvedProps {
@@ -121,18 +123,58 @@ export class BpmnParticipantView<E extends EventList = Record<string, any>>
     }
   }
 
+  override setProps(patch: Partial<BpmnParticipantViewResolvedProps>): this {
+    const changedKeys = (Object.keys(patch) as Array<keyof BpmnParticipantViewResolvedProps>)
+      .filter(key => patch[key] !== undefined && this.props[key] !== patch[key])
+    if (changedKeys.length === 0) return this
+
+    const nextElement = patch.element ?? this.props.element
+    const nextViewport = patch.viewport ?? this.props.viewport
+    const nextSelected = patch.selected ?? this.props.selected
+    const nextHideName = patch.hideName ?? this.props.hideName
+    const transformOnly = nextSelected === this.props.selected
+      && nextHideName === this.props.hideName
+      && areBpmnParticipantRenderInputsEqual(this.props.element, nextElement)
+      && changedKeys.every(key => key === 'element' || key === 'viewport')
+    if (transformOnly) {
+      const elementChanged = this.props.element !== nextElement
+      const viewportChanged = this.props.viewport !== nextViewport
+      this.props.element = nextElement
+      this.props.viewport = nextViewport
+      this.syncViewportTransform()
+      if (elementChanged) this.notifySyncPortChanged('element', this.props.element)
+      if (viewportChanged) this.notifySyncPortChanged('viewport', this.props.viewport)
+      this.dirty({ matrix: true })
+      return this
+    }
+
+    return super.setProps(patch)
+  }
+
   update(): void {
     super.update()
+    this.syncViewportTransform()
+  }
+
+  private syncViewportTransform(): void {
     const element = this.props.element
     const viewport = this.props.viewport
     const scale = viewport.scale
     this.options({
       x: (element.x + element.width / 2) * scale + viewport.x,
       y: (element.y + element.height / 2) * scale + viewport.y,
-      width: element.width * scale,
-      height: element.height * scale,
+      scaleX: scale,
+      scaleY: scale,
+      width: element.width,
+      height: element.height,
       rotation: element.rotation ?? 0,
       interactive: false,
+    })
+    this.setLocalRenderBounds({
+      x: -element.width / 2,
+      y: -element.height / 2,
+      width: element.width,
+      height: element.height,
     })
   }
 
@@ -148,7 +190,7 @@ export class BpmnParticipantView<E extends EventList = Record<string, any>>
     const borderColor = selected
       ? String(style.selectedStroke ?? this.resolveThemeColor('elementSelectedStroke'))
       : String(style.stroke ?? this.resolveThemeColor('elementStroke'))
-    const strokeWidth = this.resolveStyleNumber(style.strokeWidth, 'elementStrokeWidth') * this.props.viewport.scale
+    const strokeWidth = this.resolveStyleNumber(style.strokeWidth, 'elementStrokeWidth')
     const layout = this.createLocalLayout()
     const schema: NovaSchema = [{
       type: 'rect',
@@ -158,7 +200,7 @@ export class BpmnParticipantView<E extends EventList = Record<string, any>>
         border: {
           color: borderColor,
           width: strokeWidth,
-          radius: Number(style.radius ?? 4) * this.props.viewport.scale,
+          radius: Number(style.radius ?? 4),
         },
         opacity: this.resolveStyleNumber(style.opacity, 'elementOpacity'),
       },
@@ -166,8 +208,8 @@ export class BpmnParticipantView<E extends EventList = Record<string, any>>
 
     const laneHeadersVisible = areBpmnParticipantLaneHeadersVisible(element)
     this.appendLaneBackgrounds(schema, layout.lanes, laneHeadersVisible)
-    this.appendHeaders(schema, layout.participantHeaderRect, layout.laneHeaderAreaRect, laneHeadersVisible)
-    this.appendLaneLines(schema, layout.lanes)
+    this.appendHeaders(schema, layout.participantHeaderRect, layout.laneHeaderAreaRect, laneHeadersVisible, strokeWidth)
+    this.appendLaneLines(schema, layout.lanes, strokeWidth)
     if (!this.props.hideName) this.appendLabels(schema)
     return schema
   }
@@ -192,7 +234,13 @@ export class BpmnParticipantView<E extends EventList = Record<string, any>>
     })
   }
 
-  private appendHeaders(schema: NovaSchema, participantHeader: ModelerRect, laneHeaderArea: ModelerRect, laneHeadersVisible: boolean): void {
+  private appendHeaders(
+    schema: NovaSchema,
+    participantHeader: ModelerRect,
+    laneHeaderArea: ModelerRect,
+    laneHeadersVisible: boolean,
+    strokeWidth: number,
+  ): void {
     const headerFill = 'rgba(248, 250, 252, 0.66)'
     const color = this.resolveThemeColor('elementStroke')
     schema.push({
@@ -203,27 +251,27 @@ export class BpmnParticipantView<E extends EventList = Record<string, any>>
     const participant = participantHeader
     const laneHeader = laneHeaderArea
     if (normalizeBpmnParticipantOrientation(this.props.element.data?.orientation) === 'vertical') {
-      schema.push({ type: 'line', x1: participant.x, y1: participant.y + participant.height, x2: participant.x + participant.width, y2: participant.y + participant.height, styles: { color, width: this.props.viewport.scale } })
+      schema.push({ type: 'line', x1: participant.x, y1: participant.y + participant.height, x2: participant.x + participant.width, y2: participant.y + participant.height, styles: { color, width: strokeWidth } })
       if (laneHeadersVisible) {
-        schema.push({ type: 'line', x1: laneHeader.x, y1: laneHeader.y + laneHeader.height, x2: laneHeader.x + laneHeader.width, y2: laneHeader.y + laneHeader.height, styles: { color, width: this.props.viewport.scale } })
+        schema.push({ type: 'line', x1: laneHeader.x, y1: laneHeader.y + laneHeader.height, x2: laneHeader.x + laneHeader.width, y2: laneHeader.y + laneHeader.height, styles: { color, width: strokeWidth } })
       }
       return
     }
-    schema.push({ type: 'line', x1: participant.x + participant.width, y1: participant.y, x2: participant.x + participant.width, y2: participant.y + participant.height, styles: { color, width: this.props.viewport.scale } })
+    schema.push({ type: 'line', x1: participant.x + participant.width, y1: participant.y, x2: participant.x + participant.width, y2: participant.y + participant.height, styles: { color, width: strokeWidth } })
     if (laneHeadersVisible) {
-      schema.push({ type: 'line', x1: laneHeader.x + laneHeader.width, y1: laneHeader.y, x2: laneHeader.x + laneHeader.width, y2: laneHeader.y + laneHeader.height, styles: { color, width: this.props.viewport.scale } })
+      schema.push({ type: 'line', x1: laneHeader.x + laneHeader.width, y1: laneHeader.y, x2: laneHeader.x + laneHeader.width, y2: laneHeader.y + laneHeader.height, styles: { color, width: strokeWidth } })
     }
   }
 
-  private appendLaneLines(schema: NovaSchema, lanes: Array<BpmnParticipantLayoutLane>): void {
+  private appendLaneLines(schema: NovaSchema, lanes: Array<BpmnParticipantLayoutLane>, strokeWidth: number): void {
     const color = this.resolveThemeColor('elementStroke')
     const orientation = normalizeBpmnParticipantOrientation(this.props.element.data?.orientation)
     lanes.slice(1).forEach(lane => {
       const rect = lane.rect
       if (orientation === 'vertical') {
-        schema.push({ type: 'line', x1: rect.x, y1: rect.y, x2: rect.x, y2: rect.y + rect.height, styles: { color, width: this.props.viewport.scale } })
+        schema.push({ type: 'line', x1: rect.x, y1: rect.y, x2: rect.x, y2: rect.y + rect.height, styles: { color, width: strokeWidth } })
       } else {
-        schema.push({ type: 'line', x1: rect.x, y1: rect.y, x2: rect.x + rect.width, y2: rect.y, styles: { color, width: this.props.viewport.scale } })
+        schema.push({ type: 'line', x1: rect.x, y1: rect.y, x2: rect.x + rect.width, y2: rect.y, styles: { color, width: strokeWidth } })
       }
     })
   }
@@ -235,12 +283,11 @@ export class BpmnParticipantView<E extends EventList = Record<string, any>>
       element.data?.name ?? 'Participant',
       layout.participantHeaderRect,
       element.data?.orientation,
-      this.props.viewport.scale,
     )
     this.appendLabel(schema, participant)
     if (areBpmnParticipantLaneHeadersVisible(element)) {
       layout.lanes.forEach(lane => {
-        const laneLayout = createRenderLabelLayout(lane.name, lane.headerRect, element.data?.orientation, this.props.viewport.scale)
+        const laneLayout = createRenderLabelLayout(lane.name, lane.headerRect, element.data?.orientation)
         this.appendLabel(schema, laneLayout)
       })
     }
@@ -291,12 +338,11 @@ export class BpmnParticipantView<E extends EventList = Record<string, any>>
 
   private toLocalRect(rect: ModelerRect): ModelerRect {
     const element = this.props.element
-    const scale = this.props.viewport.scale
     return {
-      x: (rect.x - element.x - element.width / 2) * scale,
-      y: (rect.y - element.y - element.height / 2) * scale,
-      width: rect.width * scale,
-      height: rect.height * scale,
+      x: rect.x - element.x - element.width / 2,
+      y: rect.y - element.y - element.height / 2,
+      width: rect.width,
+      height: rect.height,
     }
   }
 
@@ -409,6 +455,42 @@ function measureParticipantLabelText(text: string, fontSize = PARTICIPANT_LABEL_
   if (!context) return Math.ceil(text.length * fontSize * 0.6)
   context.font = `normal ${PARTICIPANT_LABEL_FONT_WEIGHT} ${fontSize}px ${PARTICIPANT_LABEL_FONT_FAMILY}`
   return Math.ceil(context.measureText(text).width)
+}
+
+function areBpmnParticipantRenderInputsEqual(prev: BpmnParticipantElement, next: BpmnParticipantElement): boolean {
+  if (prev === next) return true
+  if (prev.id !== next.id) return false
+  if (prev.type !== next.type) return false
+  if (prev.width !== next.width || prev.height !== next.height) return false
+  if (!recordsEqual(prev.style, next.style)) return false
+  const prevData = (prev.data ?? {}) as Partial<NonNullable<BpmnParticipantElement['data']>>
+  const nextData = (next.data ?? {}) as Partial<NonNullable<BpmnParticipantElement['data']>>
+  if (prevData.name !== nextData.name) return false
+  if (prevData.orientation !== nextData.orientation) return false
+  if (prevData.singleLaneVisible !== nextData.singleLaneVisible) return false
+  const prevLanes: Array<BpmnParticipantLane> = Array.isArray(prevData.lanes) ? prevData.lanes : []
+  const nextLanes: Array<BpmnParticipantLane> = Array.isArray(nextData.lanes) ? nextData.lanes : []
+  if (prevLanes.length !== nextLanes.length) return false
+  return prevLanes.every((lane, index) => {
+    const nextLane = nextLanes[index]
+    if (!nextLane) return false
+    return lane.id === nextLane.id
+      && lane.name === nextLane.name
+      && lane.size === nextLane.size
+      && recordsEqual(lane.style, nextLane.style)
+  })
+}
+
+function recordsEqual(
+  prev: Record<string, unknown> | null | undefined,
+  next: Record<string, unknown> | null | undefined,
+): boolean {
+  const prevRecord = prev ?? {}
+  const nextRecord = next ?? {}
+  const prevKeys = Object.keys(prevRecord)
+  const nextKeys = Object.keys(nextRecord)
+  if (prevKeys.length !== nextKeys.length) return false
+  return prevKeys.every(key => Object.is(prevRecord[key], nextRecord[key]))
 }
 
 export const MODELER_BPMN_PARTICIPANT_VIEW_DESCRIPTOR = createNovaDecoratedComponentDescriptor<
