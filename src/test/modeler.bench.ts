@@ -313,6 +313,115 @@ describe('nova modeler minimal benchmarks', () => {
     app.destroy()
   })
 
+  it('keeps full insurance WebGL pan uploads bounded after resident schema batch warmup', () => {
+    if (!URL.createObjectURL) URL.createObjectURL = vi.fn(() => 'blob:nova-modeler-bench')
+    if (!URL.revokeObjectURL) URL.revokeObjectURL = vi.fn()
+    const gl = createBenchWebGLContextStub()
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(function getContextMock(this: HTMLCanvasElement, type: string) {
+      if (type === RendererType.WebGL || type === 'webgl2' || type === 'webgl' || type === 'experimental-webgl') return gl
+      if (type === '2d') {
+        const context = createBench2DContextStub()
+        ;(context as { canvas?: HTMLCanvasElement }).canvas = this
+        return context
+      }
+      return null
+    } as unknown as typeof HTMLCanvasElement.prototype.getContext)
+    const viewports = createInsuranceDiagnosticPanViewports(90)
+    const app = Nova.createApp({
+      target: document.createElement('canvas'),
+      size: { width: 2048, height: 1240, dpr: 1 },
+      renderer: { main: RendererType.WebGL },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+    })
+    registerModeler(app.schema)
+    const surface = app.createSurface('modeler')
+    const root = app.schema.createNode(surface, {
+      type: Modeler.Root,
+      id: 'full-insurance-webgl-resident-root',
+      props: {
+        model: createFullInsuranceBenchModel(viewports[0]!),
+        width: 2048,
+        height: 1240,
+      },
+    }) as Root
+    app.raph.run()
+    app.raph.run()
+
+    for (let frame = 1; frame < 30; frame += 1) {
+      root.getApi().setViewport(viewports[frame]!)
+      app.raph.run()
+    }
+
+    const backendInstrumentation = instrumentBackendReplay(app)
+    for (let frame = 30; frame < viewports.length; frame += 1) {
+      root.getApi().setViewport(viewports[frame]!)
+      app.raph.run()
+    }
+    const report = backendInstrumentation.report()
+    const compositeSurface = report.bySurface.find(item => item.name === 'nova:surface-cache:composite')
+    const controlsSurface = report.bySurface.find(item => item.name.endsWith(':controls'))
+    const surfaceCount = Math.max(1, app.surfaces.length)
+    const replayFrames = Math.max(1, controlsSurface?.calls ?? compositeSurface?.calls ?? report.total.calls / surfaceCount)
+    const totals = report.bySurface.reduce((acc, item) => ({
+      bufferSubDataCalls: acc.bufferSubDataCalls + item.bufferSubDataCalls,
+      drawCalls: acc.drawCalls + item.drawCalls,
+      schemaResidentBatchHits: acc.schemaResidentBatchHits + item.schemaResidentBatchHits,
+      schemaResidentBatchUploads: acc.schemaResidentBatchUploads + item.schemaResidentBatchUploads,
+      renderTargetDraws: acc.renderTargetDraws + item.renderTargetDraws,
+      renderTargetRepaints: acc.renderTargetRepaints + item.renderTargetRepaints,
+    }), {
+      bufferSubDataCalls: 0,
+      drawCalls: 0,
+      schemaResidentBatchHits: 0,
+      schemaResidentBatchUploads: 0,
+      renderTargetDraws: 0,
+      renderTargetRepaints: 0,
+    })
+    const worldTotals = report.bySurface
+      .filter(item => !item.name.endsWith(':controls'))
+      .reduce((acc, item) => ({
+        bufferSubDataCalls: acc.bufferSubDataCalls + item.bufferSubDataCalls,
+        drawCalls: acc.drawCalls + item.drawCalls,
+      }), {
+        bufferSubDataCalls: 0,
+        drawCalls: 0,
+      })
+    if (isDiagnosticsBenchEnabled()) {
+      console.info(`\n[nova-modeler diagnostics:webgl-pan]\n${JSON.stringify({
+        replayFrames: round(replayFrames),
+        perReplay: {
+          bufferSubDataCalls: round(totals.bufferSubDataCalls / replayFrames),
+          drawCalls: round(totals.drawCalls / replayFrames),
+          worldBufferSubDataCalls: round(worldTotals.bufferSubDataCalls / replayFrames),
+          controlsBufferSubDataCalls: round((controlsSurface?.bufferSubDataCalls ?? 0) / replayFrames),
+          schemaResidentBatchUploads: round(totals.schemaResidentBatchUploads / replayFrames),
+          renderTargetDraws: round(totals.renderTargetDraws / replayFrames),
+          renderTargetRepaints: round(totals.renderTargetRepaints / replayFrames),
+        },
+        bySurface: report.bySurface.map(item => ({
+          name: item.name,
+          calls: item.calls,
+          bufferSubDataCalls: item.bufferSubDataCalls,
+          drawCalls: item.drawCalls,
+          schemaResidentBatchHits: item.schemaResidentBatchHits,
+          schemaResidentBatchUploads: item.schemaResidentBatchUploads,
+          renderTargetDraws: item.renderTargetDraws,
+          renderTargetRepaints: item.renderTargetRepaints,
+        })),
+      }, null, 2)}`)
+    }
+    backendInstrumentation.restore()
+    app.destroy()
+
+    expect(round(worldTotals.bufferSubDataCalls / replayFrames)).toBeLessThan(35)
+    expect(round(totals.schemaResidentBatchUploads / replayFrames)).toBeLessThan(10)
+    expect(round(worldTotals.drawCalls / replayFrames)).toBeLessThan(80)
+    expect(controlsSurface?.calls ?? 0).toBeGreaterThan(0)
+    expect(round((compositeSurface?.bufferSubDataCalls ?? 0) / replayFrames)).toBe(0)
+    expect(round(totals.renderTargetDraws / replayFrames)).toBe(0)
+    expect(round(totals.renderTargetRepaints / replayFrames)).toBe(0)
+  })
+
   diagnosticsIt('diagnoses full insurance data stages before Nova rendering', () => {
     const viewports = createInsuranceDiagnosticViewports()
     const model = createFullInsuranceBenchModel(viewports[0]!)
@@ -780,6 +889,107 @@ function createInsuranceLikeParticipants(): Array<ModelerElement> {
   }))
 }
 
+function benchNoop(): void {}
+
+function createBenchWebGLContextStub(): WebGL2RenderingContext {
+  const constants: Record<string, number> = {
+    ARRAY_BUFFER: 0x8892,
+    BLEND: 0x0be2,
+    CLAMP_TO_EDGE: 0x812f,
+    COLOR_ATTACHMENT0: 0x8ce0,
+    COLOR_BUFFER_BIT: 0x4000,
+    COMPILE_STATUS: 0x8b81,
+    CULL_FACE: 0x0b44,
+    DEPTH_TEST: 0x0b71,
+    DYNAMIC_DRAW: 0x88e8,
+    FLOAT: 0x1406,
+    FRAMEBUFFER: 0x8d40,
+    FRAMEBUFFER_COMPLETE: 0x8cd5,
+    FRAGMENT_SHADER: 0x8b30,
+    LINEAR: 0x2601,
+    LINK_STATUS: 0x8b82,
+    NO_ERROR: 0,
+    ONE: 1,
+    ONE_MINUS_SRC_ALPHA: 0x0303,
+    RGBA: 0x1908,
+    REPEAT: 0x2901,
+    SCISSOR_TEST: 0x0c11,
+    SRC_ALPHA: 0x0302,
+    STATIC_DRAW: 0x88e4,
+    TEXTURE0: 0x84c0,
+    TEXTURE_2D: 0x0de1,
+    TEXTURE_MAG_FILTER: 0x2800,
+    TEXTURE_MIN_FILTER: 0x2801,
+    TEXTURE_WRAP_S: 0x2802,
+    TEXTURE_WRAP_T: 0x2803,
+    TRIANGLES: 0x0004,
+    UNPACK_PREMULTIPLY_ALPHA_WEBGL: 0x9241,
+    UNSIGNED_BYTE: 0x1401,
+    VERTEX_SHADER: 0x8b31,
+  }
+
+  return {
+    ...constants,
+    activeTexture: benchNoop,
+    attachShader: benchNoop,
+    bindBuffer: benchNoop,
+    bindFramebuffer: benchNoop,
+    bindTexture: benchNoop,
+    bindVertexArray: benchNoop,
+    blendFuncSeparate: benchNoop,
+    bufferData: benchNoop,
+    bufferSubData: benchNoop,
+    checkFramebufferStatus: () => constants.FRAMEBUFFER_COMPLETE,
+    clear: benchNoop,
+    clearColor: benchNoop,
+    compileShader: benchNoop,
+    createBuffer: () => ({}),
+    createFramebuffer: () => ({}),
+    createProgram: () => ({}),
+    createShader: () => ({}),
+    createTexture: () => ({}),
+    createVertexArray: () => ({}),
+    deleteBuffer: benchNoop,
+    deleteFramebuffer: benchNoop,
+    deleteProgram: benchNoop,
+    deleteShader: benchNoop,
+    deleteTexture: benchNoop,
+    deleteVertexArray: benchNoop,
+    detachShader: benchNoop,
+    disable: benchNoop,
+    drawArrays: benchNoop,
+    drawArraysInstanced: benchNoop,
+    enable: benchNoop,
+    enableVertexAttribArray: benchNoop,
+    framebufferTexture2D: benchNoop,
+    getAttribLocation: () => 0,
+    getError: () => constants.NO_ERROR,
+    getExtension: () => null,
+    getParameter: () => 4096,
+    getProgramInfoLog: () => '',
+    getProgramParameter: () => true,
+    getShaderInfoLog: () => '',
+    getShaderParameter: () => true,
+    getUniformLocation: () => ({}),
+    linkProgram: benchNoop,
+    pixelStorei: benchNoop,
+    scissor: benchNoop,
+    shaderSource: benchNoop,
+    texImage2D: benchNoop,
+    texParameteri: benchNoop,
+    texSubImage2D: benchNoop,
+    uniform1f: benchNoop,
+    uniform1i: benchNoop,
+    uniform2f: benchNoop,
+    uniform4f: benchNoop,
+    uniformMatrix3fv: benchNoop,
+    useProgram: benchNoop,
+    vertexAttribDivisor: benchNoop,
+    vertexAttribPointer: benchNoop,
+    viewport: benchNoop,
+  } as unknown as WebGL2RenderingContext
+}
+
 function createBench2DContextStub(): CanvasRenderingContext2D {
   return {
     canvas: document.createElement('canvas'),
@@ -830,6 +1040,14 @@ function createInsuranceDiagnosticViewports(frames = 120): Array<ModelerViewport
     x: -840 - frame * 9,
     y: -320 + frame * 5,
     scale: 1.84 + (frame % 5) * 0.02,
+  }))
+}
+
+function createInsuranceDiagnosticPanViewports(frames = 120): Array<ModelerViewport> {
+  return Array.from({ length: frames }, (_item, frame) => ({
+    x: -840 - frame * 9,
+    y: -320 + frame * 5,
+    scale: 1.88,
   }))
 }
 
@@ -972,6 +1190,11 @@ function instrumentBackendReplay(app: unknown) {
     atlasUploads: number
     bufferDataCalls: number
     bufferSubDataCalls: number
+    schemaResidentBatchHits: number
+    schemaResidentBatchMisses: number
+    schemaResidentBatchUploads: number
+    renderTargetDraws: number
+    renderTargetRepaints: number
   }>()
 
   backend.renderFrame = (frame) => {
@@ -994,6 +1217,11 @@ function instrumentBackendReplay(app: unknown) {
       atlasUploads: 0,
       bufferDataCalls: 0,
       bufferSubDataCalls: 0,
+      schemaResidentBatchHits: 0,
+      schemaResidentBatchMisses: 0,
+      schemaResidentBatchUploads: 0,
+      renderTargetDraws: 0,
+      renderTargetRepaints: 0,
     }
     entry.calls += 1
     entry.wallSamples.push(elapsed)
@@ -1008,6 +1236,11 @@ function instrumentBackendReplay(app: unknown) {
     entry.atlasUploads += metrics.atlasUploads ?? 0
     entry.bufferDataCalls += metrics.bufferDataCalls ?? 0
     entry.bufferSubDataCalls += metrics.bufferSubDataCalls ?? 0
+    entry.schemaResidentBatchHits += metrics.schemaResidentBatchHits ?? 0
+    entry.schemaResidentBatchMisses += metrics.schemaResidentBatchMisses ?? 0
+    entry.schemaResidentBatchUploads += metrics.schemaResidentBatchUploads ?? 0
+    entry.renderTargetDraws += metrics.renderTargetDraws ?? 0
+    entry.renderTargetRepaints += metrics.renderTargetRepaints ?? 0
     bySurface.set(key, entry)
     return metrics
   }
@@ -1034,6 +1267,11 @@ function instrumentBackendReplay(app: unknown) {
         atlasUploads: entry.atlasUploads,
         bufferDataCalls: entry.bufferDataCalls,
         bufferSubDataCalls: entry.bufferSubDataCalls,
+        schemaResidentBatchHits: entry.schemaResidentBatchHits,
+        schemaResidentBatchMisses: entry.schemaResidentBatchMisses,
+        schemaResidentBatchUploads: entry.schemaResidentBatchUploads,
+        renderTargetDraws: entry.renderTargetDraws,
+        renderTargetRepaints: entry.renderTargetRepaints,
       })),
     }),
     restore: () => {
