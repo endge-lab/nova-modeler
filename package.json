@@ -1,7 +1,7 @@
 {
   "name": "@endge/nova-modeler",
   "private": false,
-  "version": "0.29.7",
+  "version": "0.29.8",
   "license": "Apache-2.0",
   "type": "module",
   "module": "./dist/nova-modeler.js",
@@ -26,7 +26,9 @@
     "dev:watch": "vite build --watch",
     "build": "vite build",
     "test": "vitest run --config vite.config.ts --coverage",
-    "bench": "vitest run --config vite.bench.config.ts"
+    "bench": "vitest run --config vite.bench.config.ts",
+    "lint-check": "eslint . --cache",
+    "lint-fix": "eslint . --fix --cache"
   },
   "dependencies": {
     "@endge/nova": "workspace:*",
@@ -34,8 +36,10 @@
     "@endge/utils": "workspace:*"
   },
   "devDependencies": {
+    "@antfu/eslint-config": "9.3.0",
     "@vitest/coverage-v8": "^3.2.4",
     "@vue/tsconfig": "^0.9.1",
+    "eslint": "10.9.1",
     "rimraf": "^6.0.1",
     "typescript": "~6.0.3",
     "unplugin-dts": "^1.0.3",
