@@ -143,6 +143,182 @@ export function isBpmnRecipeRenderableNode(element: ModelerElement): boolean {
     && element.height > 0
 }
 
+export class BpmnBatchRuntime {
+  private readonly _fillBatch: NovaRectBatch = createEmptyRectBatch()
+  private readonly _textBatch: NovaTextBatch = createEmptyTextBatch()
+  private readonly _slotMap = new Map<string, { fill: Array<number>, text: Array<number> }>()
+  private readonly _slotSignatures: Array<string> = []
+  private _previousSlotSignatures: Array<string> = []
+  private _revision = 0
+  private _diagnostics: BpmnRecipeLayerDiagnostics = {
+    recipeElements: 0,
+    schemaFallbacks: 0,
+    visibleElements: 0,
+    culledElements: 0,
+    dirtySlots: 0,
+    batchRebuilds: 0,
+    batchRevision: 0,
+    panZoomRenderSkips: 0,
+  }
+
+  private _fillCount = 0
+  private _textCount = 0
+
+  begin(): { fill: BpmnRecipeFillWriter, text: BpmnRecipeTextWriter } {
+    this._fillCount = 0
+    this._textCount = 0
+    this._slotMap.clear()
+    this._slotSignatures.length = 0
+    return {
+      fill: {
+        write: (elementId, slotId, rect, color, radius) => this._writeFill(elementId, slotId, rect, color, radius),
+      },
+      text: {
+        write: (elementId, slotId, text, rect) => this._writeText(elementId, slotId, text, rect),
+      },
+    }
+  }
+
+  finalize(input: BpmnBatchRuntimeFinalizeInput): void {
+    const dirtySlots = countChangedSlots(this._previousSlotSignatures, this._slotSignatures)
+    const changed = dirtySlots > 0
+    if (changed) {
+      this._revision += 1
+      this._previousSlotSignatures = [...this._slotSignatures]
+      this._diagnostics.batchRebuilds += 1
+    }
+    else {
+      this._diagnostics.panZoomRenderSkips += 1
+    }
+
+    this._fillBatch.count = this._fillCount
+    this._fillBatch.revision = this._revision
+    this._fillBatch.staticRevision = this._revision
+    this._textBatch.count = input.textEnabled ? this._textCount : 0
+    this._textBatch.revision = this._revision
+    this._textBatch.staticRevision = this._revision
+    this._textBatch.color = input.textColor
+    this._textBatch.font = {
+      family: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      size: 12,
+      weight: '500',
+    }
+    this._textBatch.align = { horizontal: 'center', vertical: 'middle' }
+    this._textBatch.lineHeight = 16
+    this._textBatch.ellipsis = true
+    this._textBatch.meta = { ...(this._textBatch.meta ?? {}), textRole: 'task-label' }
+    this._textBatch.dirtyIndices = changed ? createDirtyIndices(this._textCount, dirtySlots) : []
+    this._diagnostics = {
+      ...this._diagnostics,
+      recipeElements: input.recipeElements,
+      schemaFallbacks: input.schemaFallbacks,
+      visibleElements: input.visibleElements,
+      culledElements: input.culledElements,
+      dirtySlots,
+      batchRevision: this._revision,
+    }
+  }
+
+  getFillBatch(): NovaRectBatch {
+    return this._fillBatch
+  }
+
+  getTextBatch(): NovaTextBatch {
+    return this._textBatch
+  }
+
+  getSlotMap(): ReadonlyMap<string, { fill: Array<number>, text: Array<number> }> {
+    return this._slotMap
+  }
+
+  getDiagnostics(): BpmnRecipeLayerDiagnostics {
+    return { ...this._diagnostics }
+  }
+
+  private _writeFill(elementId: string, slotId: string, rect: ModelerRect, color: string, radius = 0): boolean {
+    const rgba = parseCssColor(color)
+    if (!rgba) {
+      return false
+    }
+    this._ensureFillCapacity(this._fillCount + 1)
+    const index = this._fillCount
+    const x = this._fillBatch.x as Float32Array
+    const y = this._fillBatch.y as Float32Array
+    const width = this._fillBatch.width as Float32Array
+    const height = this._fillBatch.height as Float32Array
+    const colors = this._fillBatch.colors as Float32Array
+    const radii = this._fillBatch.radii as Float32Array
+    x[index] = rect.x
+    y[index] = rect.y
+    width[index] = rect.width
+    height[index] = rect.height
+    colors[index * 4] = rgba[0]
+    colors[index * 4 + 1] = rgba[1]
+    colors[index * 4 + 2] = rgba[2]
+    colors[index * 4 + 3] = rgba[3]
+    radii[index] = radius
+    this._trackSlot(elementId, 'fill', index)
+    this._slotSignatures.push(createSlotSignature('fill', elementId, slotId, rect, `${color}:${radius}`))
+    this._fillCount += 1
+    return true
+  }
+
+  private _writeText(elementId: string, slotId: string, text: string, rect: ModelerRect): void {
+    if (text.trim().length === 0 || rect.width <= 1 || rect.height <= 1) {
+      return
+    }
+    this._ensureTextCapacity(this._textCount + 1)
+    const index = this._textCount
+    const x = this._textBatch.x as Float32Array
+    const y = this._textBatch.y as Float32Array
+    const width = this._textBatch.width as Float32Array
+    const height = this._textBatch.height as Float32Array
+    ;(this._textBatch.text as Array<string>)[index] = text
+    x[index] = rect.x
+    y[index] = rect.y
+    width[index] = rect.width
+    height[index] = rect.height
+    this._trackSlot(elementId, 'text', index)
+    this._slotSignatures.push(createSlotSignature('text', elementId, slotId, rect, text))
+    this._textCount += 1
+  }
+
+  private _trackSlot(elementId: string, kind: 'fill' | 'text', index: number): void {
+    const entry = this._slotMap.get(elementId) ?? { fill: [], text: [] }
+    entry[kind].push(index)
+    this._slotMap.set(elementId, entry)
+  }
+
+  private _ensureFillCapacity(capacity: number): void {
+    if (this._fillBatch.x.length >= capacity) {
+      return
+    }
+    const nextCapacity = growCapacity(this._fillBatch.x.length, capacity)
+    this._fillBatch.x = copyFloat32(this._fillBatch.x, nextCapacity)
+    this._fillBatch.y = copyFloat32(this._fillBatch.y, nextCapacity)
+    this._fillBatch.width = copyFloat32(this._fillBatch.width, nextCapacity)
+    this._fillBatch.height = copyFloat32(this._fillBatch.height, nextCapacity)
+    this._fillBatch.colors = copyFloat32(this._fillBatch.colors, nextCapacity * 4)
+    this._fillBatch.radii = copyFloat32(this._fillBatch.radii ?? new Float32Array(0), nextCapacity)
+  }
+
+  private _ensureTextCapacity(capacity: number): void {
+    if (this._textBatch.x.length >= capacity) {
+      return
+    }
+    const nextCapacity = growCapacity(this._textBatch.x.length, capacity)
+    this._textBatch.x = copyFloat32(this._textBatch.x, nextCapacity)
+    this._textBatch.y = copyFloat32(this._textBatch.y, nextCapacity)
+    this._textBatch.width = copyFloat32(this._textBatch.width, nextCapacity)
+    this._textBatch.height = copyFloat32(this._textBatch.height, nextCapacity)
+    const nextText = new Array<string>(nextCapacity)
+    for (let index = 0; index < (this._textBatch.text as Array<string>).length; index += 1) {
+      nextText[index] = this._textBatch.text[index] ?? ''
+    }
+    this._textBatch.text = nextText
+  }
+}
+
 @NovaComponent({
   type: Modeler.BpmnRecipeLayerView,
   name: 'BpmnRecipeLayerView',
@@ -1141,183 +1317,6 @@ interface BpmnBatchRuntimeFinalizeInput {
   textEnabled: boolean
   textColor: string
 }
-
-export class BpmnBatchRuntime {
-  private readonly _fillBatch: NovaRectBatch = createEmptyRectBatch()
-  private readonly _textBatch: NovaTextBatch = createEmptyTextBatch()
-  private readonly _slotMap = new Map<string, { fill: Array<number>, text: Array<number> }>()
-  private readonly _slotSignatures: Array<string> = []
-  private _previousSlotSignatures: Array<string> = []
-  private _revision = 0
-  private _diagnostics: BpmnRecipeLayerDiagnostics = {
-    recipeElements: 0,
-    schemaFallbacks: 0,
-    visibleElements: 0,
-    culledElements: 0,
-    dirtySlots: 0,
-    batchRebuilds: 0,
-    batchRevision: 0,
-    panZoomRenderSkips: 0,
-  }
-
-  private _fillCount = 0
-  private _textCount = 0
-
-  begin(): { fill: BpmnRecipeFillWriter, text: BpmnRecipeTextWriter } {
-    this._fillCount = 0
-    this._textCount = 0
-    this._slotMap.clear()
-    this._slotSignatures.length = 0
-    return {
-      fill: {
-        write: (elementId, slotId, rect, color, radius) => this._writeFill(elementId, slotId, rect, color, radius),
-      },
-      text: {
-        write: (elementId, slotId, text, rect) => this._writeText(elementId, slotId, text, rect),
-      },
-    }
-  }
-
-  finalize(input: BpmnBatchRuntimeFinalizeInput): void {
-    const dirtySlots = countChangedSlots(this._previousSlotSignatures, this._slotSignatures)
-    const changed = dirtySlots > 0
-    if (changed) {
-      this._revision += 1
-      this._previousSlotSignatures = [...this._slotSignatures]
-      this._diagnostics.batchRebuilds += 1
-    }
-    else {
-      this._diagnostics.panZoomRenderSkips += 1
-    }
-
-    this._fillBatch.count = this._fillCount
-    this._fillBatch.revision = this._revision
-    this._fillBatch.staticRevision = this._revision
-    this._textBatch.count = input.textEnabled ? this._textCount : 0
-    this._textBatch.revision = this._revision
-    this._textBatch.staticRevision = this._revision
-    this._textBatch.color = input.textColor
-    this._textBatch.font = {
-      family: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-      size: 12,
-      weight: '500',
-    }
-    this._textBatch.align = { horizontal: 'center', vertical: 'middle' }
-    this._textBatch.lineHeight = 16
-    this._textBatch.ellipsis = true
-    this._textBatch.meta = { ...(this._textBatch.meta ?? {}), textRole: 'task-label' }
-    this._textBatch.dirtyIndices = changed ? createDirtyIndices(this._textCount, dirtySlots) : []
-    this._diagnostics = {
-      ...this._diagnostics,
-      recipeElements: input.recipeElements,
-      schemaFallbacks: input.schemaFallbacks,
-      visibleElements: input.visibleElements,
-      culledElements: input.culledElements,
-      dirtySlots,
-      batchRevision: this._revision,
-    }
-  }
-
-  getFillBatch(): NovaRectBatch {
-    return this._fillBatch
-  }
-
-  getTextBatch(): NovaTextBatch {
-    return this._textBatch
-  }
-
-  getSlotMap(): ReadonlyMap<string, { fill: Array<number>, text: Array<number> }> {
-    return this._slotMap
-  }
-
-  getDiagnostics(): BpmnRecipeLayerDiagnostics {
-    return { ...this._diagnostics }
-  }
-
-  private _writeFill(elementId: string, slotId: string, rect: ModelerRect, color: string, radius = 0): boolean {
-    const rgba = parseCssColor(color)
-    if (!rgba) {
-      return false
-    }
-    this._ensureFillCapacity(this._fillCount + 1)
-    const index = this._fillCount
-    const x = this._fillBatch.x as Float32Array
-    const y = this._fillBatch.y as Float32Array
-    const width = this._fillBatch.width as Float32Array
-    const height = this._fillBatch.height as Float32Array
-    const colors = this._fillBatch.colors as Float32Array
-    const radii = this._fillBatch.radii as Float32Array
-    x[index] = rect.x
-    y[index] = rect.y
-    width[index] = rect.width
-    height[index] = rect.height
-    colors[index * 4] = rgba[0]
-    colors[index * 4 + 1] = rgba[1]
-    colors[index * 4 + 2] = rgba[2]
-    colors[index * 4 + 3] = rgba[3]
-    radii[index] = radius
-    this._trackSlot(elementId, 'fill', index)
-    this._slotSignatures.push(createSlotSignature('fill', elementId, slotId, rect, `${color}:${radius}`))
-    this._fillCount += 1
-    return true
-  }
-
-  private _writeText(elementId: string, slotId: string, text: string, rect: ModelerRect): void {
-    if (text.trim().length === 0 || rect.width <= 1 || rect.height <= 1) {
-      return
-    }
-    this._ensureTextCapacity(this._textCount + 1)
-    const index = this._textCount
-    const x = this._textBatch.x as Float32Array
-    const y = this._textBatch.y as Float32Array
-    const width = this._textBatch.width as Float32Array
-    const height = this._textBatch.height as Float32Array
-    ;(this._textBatch.text as Array<string>)[index] = text
-    x[index] = rect.x
-    y[index] = rect.y
-    width[index] = rect.width
-    height[index] = rect.height
-    this._trackSlot(elementId, 'text', index)
-    this._slotSignatures.push(createSlotSignature('text', elementId, slotId, rect, text))
-    this._textCount += 1
-  }
-
-  private _trackSlot(elementId: string, kind: 'fill' | 'text', index: number): void {
-    const entry = this._slotMap.get(elementId) ?? { fill: [], text: [] }
-    entry[kind].push(index)
-    this._slotMap.set(elementId, entry)
-  }
-
-  private _ensureFillCapacity(capacity: number): void {
-    if (this._fillBatch.x.length >= capacity) {
-      return
-    }
-    const nextCapacity = growCapacity(this._fillBatch.x.length, capacity)
-    this._fillBatch.x = copyFloat32(this._fillBatch.x, nextCapacity)
-    this._fillBatch.y = copyFloat32(this._fillBatch.y, nextCapacity)
-    this._fillBatch.width = copyFloat32(this._fillBatch.width, nextCapacity)
-    this._fillBatch.height = copyFloat32(this._fillBatch.height, nextCapacity)
-    this._fillBatch.colors = copyFloat32(this._fillBatch.colors, nextCapacity * 4)
-    this._fillBatch.radii = copyFloat32(this._fillBatch.radii ?? new Float32Array(0), nextCapacity)
-  }
-
-  private _ensureTextCapacity(capacity: number): void {
-    if (this._textBatch.x.length >= capacity) {
-      return
-    }
-    const nextCapacity = growCapacity(this._textBatch.x.length, capacity)
-    this._textBatch.x = copyFloat32(this._textBatch.x, nextCapacity)
-    this._textBatch.y = copyFloat32(this._textBatch.y, nextCapacity)
-    this._textBatch.width = copyFloat32(this._textBatch.width, nextCapacity)
-    this._textBatch.height = copyFloat32(this._textBatch.height, nextCapacity)
-    const nextText = new Array<string>(nextCapacity)
-    for (let index = 0; index < (this._textBatch.text as Array<string>).length; index += 1) {
-      nextText[index] = this._textBatch.text[index] ?? ''
-    }
-    this._textBatch.text = nextText
-  }
-}
-
 interface BpmnRecipeFillWriter {
   write: (elementId: string, slotId: string, rect: ModelerRect, color: string, radius?: number) => boolean
 }

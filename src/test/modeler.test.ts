@@ -73,6 +73,24 @@ import {
   toggleBpmnParticipantSingleLane,
 } from '@/index'
 
+class TestMultiLayerPlugin extends PluginBase {
+  readonly id = 'test-plugin'
+
+  protected onSetup(): void {
+    this.addDisposer(this.context.store.provide('test-plugin:state', { ready: true }))
+    this.mountMany([
+      {
+        layer: 'controls',
+        schema: { type: Modeler.Background, id: 'test-plugin:controls' },
+      },
+      {
+        layer: 'overlay',
+        schema: { type: Modeler.Background, id: 'test-plugin:overlay' },
+      },
+    ])
+  }
+}
+
 describe('nova modeler minimal kernel', () => {
   beforeEach(() => {
     if (!URL.createObjectURL) {
@@ -7572,25 +7590,6 @@ describe('nova modeler minimal kernel', () => {
     disposeMiniMap()
   })
 })
-
-class TestMultiLayerPlugin extends PluginBase {
-  readonly id = 'test-plugin'
-
-  protected onSetup(): void {
-    this.addDisposer(this.context.store.provide('test-plugin:state', { ready: true }))
-    this.mountMany([
-      {
-        layer: 'controls',
-        schema: { type: Modeler.Background, id: 'test-plugin:controls' },
-      },
-      {
-        layer: 'overlay',
-        schema: { type: Modeler.Background, id: 'test-plugin:overlay' },
-      },
-    ])
-  }
-}
-
 function createValidBpmnProcessElements() {
   return [
     createBpmnEventElement({ id: 'start', x: 100, y: 100, eventPosition: 'start' }),
