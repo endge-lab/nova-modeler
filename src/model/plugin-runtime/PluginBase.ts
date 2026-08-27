@@ -30,7 +30,9 @@ export abstract class PluginBase implements ModelerPlugin {
    * Отключает plugin и очищает все зарегистрированные ресурсы.
    */
   dispose(): void {
-    for (const dispose of this.disposers.splice(0)) dispose()
+    for (const dispose of this.disposers.splice(0)) {
+      dispose()
+    }
     this.onDispose()
   }
 
@@ -66,7 +68,7 @@ export abstract class PluginBase implements ModelerPlugin {
   /**
    * Монтирует несколько nodes в разные слои.
    */
-  protected mountMany(items: Array<{ layer: ModelerLayerName; schema: NovaTemplateChildSchema }>): Array<NovaNode<any>> {
+  protected mountMany(items: Array<{ layer: ModelerLayerName, schema: NovaTemplateChildSchema }>): Array<NovaNode<any>> {
     return items.map(item => this.mount(item.layer, item.schema))
   }
 

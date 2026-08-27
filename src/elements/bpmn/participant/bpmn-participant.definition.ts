@@ -1,9 +1,13 @@
-import { Modeler } from '@/config/schema.config'
 import type {
   ModelerElementDefinition,
   ModelerElementRenderContext,
   ModelerPoint,
 } from '@/domain/types/index'
+import type {
+  BpmnParticipantElement,
+  BpmnParticipantElementInput,
+} from '@/elements/bpmn/participant/bpmn-participant.types'
+import { Modeler } from '@/config/schema.config'
 import {
   BPMN_PARTICIPANT_DEFAULT_HEIGHT,
   BPMN_PARTICIPANT_DEFAULT_WIDTH,
@@ -14,10 +18,6 @@ import {
   resolveBpmnParticipantPartAt,
 } from '@/elements/bpmn/participant/bpmn-participant.factory'
 import { createBpmnParticipantPorts } from '@/elements/bpmn/participant/bpmn-participant.ports'
-import type {
-  BpmnParticipantElement,
-  BpmnParticipantElementInput,
-} from '@/elements/bpmn/participant/bpmn-participant.types'
 import { BpmnParticipantVariantProvider } from '@/elements/bpmn/participant/bpmn-participant.variants'
 
 export const BpmnParticipantDefinition: ModelerElementDefinition<BpmnParticipantElement> = {

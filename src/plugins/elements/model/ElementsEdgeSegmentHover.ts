@@ -9,7 +9,9 @@ export class ElementsEdgeSegmentHover {
   }
 
   set(handle: ModelerEdgeSegmentHandleDescriptor | null): void {
-    if (this.isSameHandle(handle)) return
+    if (this.isSameHandle(handle)) {
+      return
+    }
     this.handle = handle ? { ...handle } : null
     this.notify()
   }
@@ -24,15 +26,21 @@ export class ElementsEdgeSegmentHover {
   }
 
   private isSameHandle(next: ModelerEdgeSegmentHandleDescriptor | null): boolean {
-    if (!this.handle && !next) return true
-    if (!this.handle || !next) return false
-    return this.handle.elementId === next.elementId &&
-      this.handle.segmentIndex === next.segmentIndex &&
-      this.handle.x === next.x &&
-      this.handle.y === next.y
+    if (!this.handle && !next) {
+      return true
+    }
+    if (!this.handle || !next) {
+      return false
+    }
+    return this.handle.elementId === next.elementId
+      && this.handle.segmentIndex === next.segmentIndex
+      && this.handle.x === next.x
+      && this.handle.y === next.y
   }
 
   private notify(): void {
-    for (const listener of this.listeners) listener()
+    for (const listener of this.listeners) {
+      listener()
+    }
   }
 }

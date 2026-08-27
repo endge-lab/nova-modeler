@@ -1,9 +1,14 @@
-import { Modeler } from '@/config/schema.config'
 import type {
   ModelerElementDefinition,
   ModelerElementRenderContext,
   ModelerPoint,
 } from '@/domain/types/index'
+import type {
+  BpmnDataStoreElement,
+  BpmnDataStoreElementInput,
+} from '@/elements/bpmn/data/data-store/bpmn-data-store.types'
+import { Modeler } from '@/config/schema.config'
+import { BpmnDataVariantProvider } from '@/elements/bpmn/data/bpmn-data.variants'
 import {
   BPMN_DATA_STORE_DEFAULT_HEIGHT,
   BPMN_DATA_STORE_DEFAULT_WIDTH,
@@ -11,11 +16,6 @@ import {
   createBpmnDataStoreElement,
 } from '@/elements/bpmn/data/data-store/bpmn-data-store.factory'
 import { createBpmnDataStorePorts } from '@/elements/bpmn/data/data-store/bpmn-data-store.ports'
-import { BpmnDataVariantProvider } from '@/elements/bpmn/data/bpmn-data.variants'
-import type {
-  BpmnDataStoreElement,
-  BpmnDataStoreElementInput,
-} from '@/elements/bpmn/data/data-store/bpmn-data-store.types'
 
 export const BpmnDataStoreDefinition: ModelerElementDefinition<BpmnDataStoreElement> = {
   type: BPMN_DATA_STORE_TYPE,

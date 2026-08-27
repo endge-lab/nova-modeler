@@ -3,9 +3,9 @@ import type { ModelerRect, ModelerViewport } from '@/domain/types/model/geometry
 import type { ModelerLayout, ModelerModel } from '@/domain/types/model/model.types'
 
 export interface ModelerVisibilityClassifier {
-  isEdge(element: ModelerElement): boolean
-  isRecipeNodeType(type: string): boolean
-  isRecipeRenderable(element: ModelerElement): boolean
+  isEdge: (element: ModelerElement) => boolean
+  isRecipeNodeType: (type: string) => boolean
+  isRecipeRenderable: (element: ModelerElement) => boolean
 }
 
 export interface ModelerVisibilityForcedInput {
@@ -71,7 +71,7 @@ export interface ModelerVisibleElementsSnapshot {
 }
 
 export interface ModelerVisibilityApi {
-  resolve(input: ModelerVisibilityResolveInput): ModelerVisibleElementsSnapshot
-  getSnapshot(): ModelerVisibleElementsSnapshot
-  getDiagnostics(): ModelerVisibilityDiagnostics
+  resolve: (input: ModelerVisibilityResolveInput) => ModelerVisibleElementsSnapshot
+  getSnapshot: () => ModelerVisibleElementsSnapshot
+  getDiagnostics: () => ModelerVisibilityDiagnostics
 }

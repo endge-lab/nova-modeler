@@ -7,23 +7,23 @@ import type {
   ModelerPluginContext,
   ModelerPoint,
 } from '@/domain/types/index'
+import type { ElementsConnection } from '@/plugins/elements/model/ElementsConnection'
+import type { ElementsEdgePreview } from '@/plugins/elements/model/ElementsEdgePreview'
 import { isModelerEdgeElement } from '@/domain/types/index'
 import { BPMN_BOUNDARY_EVENT_TYPE } from '@/elements/bpmn/boundary-event/bpmn-boundary-event.factory'
+import { BPMN_CALL_ACTIVITY_TYPE } from '@/elements/bpmn/call-activity/bpmn-call-activity.factory'
 import { BPMN_EVENT_TYPE } from '@/elements/bpmn/event/bpmn-event.factory'
 import { createBpmnFlowElement } from '@/elements/bpmn/flow/bpmn-flow.factory'
 import { BPMN_GATEWAY_TYPE } from '@/elements/bpmn/gateway/bpmn-gateway.factory'
-import { BPMN_CALL_ACTIVITY_TYPE } from '@/elements/bpmn/call-activity/bpmn-call-activity.factory'
 import { BPMN_SUB_PROCESS_TYPE } from '@/elements/bpmn/sub-process/bpmn-sub-process.factory'
 import { BPMN_TASK_TYPE } from '@/elements/bpmn/task/bpmn-task.factory'
-import type { ElementsConnection } from '@/plugins/elements/model/ElementsConnection'
-import type { ElementsEdgePreview } from '@/plugins/elements/model/ElementsEdgePreview'
 
 export interface ElementsConnectionEdgeFactory {
   idPrefix: string
   previewId: string
-  create(input: ElementsConnectionEdgeInput): ModelerEdgeElement
-  canStart?(context: ModelerPluginContext, element: ModelerElement): boolean
-  canComplete?(context: ModelerPluginContext, sourceElement: ModelerElement, targetElement: ModelerElement): boolean
+  create: (input: ElementsConnectionEdgeInput) => ModelerEdgeElement
+  canStart?: (context: ModelerPluginContext, element: ModelerElement) => boolean
+  canComplete?: (context: ModelerPluginContext, sourceElement: ModelerElement, targetElement: ModelerElement) => boolean
 }
 
 export interface ElementsConnectionEdgeInput extends ModelerElementInput {
@@ -68,7 +68,9 @@ export class ElementsConnectionFlow {
     origin: 'port-drag' | 'tool' | 'context-pad',
   ): boolean {
     const point = this.connection.resolvePortPoint(context, elementId, portId)
-    if (!point || !this.canStart(context, elementId)) return false
+    if (!point || !this.canStart(context, elementId)) {
+      return false
+    }
     this.connection.begin({
       origin,
       source: this.connection.createEndpoint(elementId, portId, point),
@@ -87,9 +89,13 @@ export class ElementsConnectionFlow {
     origin: 'tool' | 'context-pad',
     referencePoint?: ModelerPoint,
   ): boolean {
-    if (!this.canStart(context, elementId)) return false
+    if (!this.canStart(context, elementId)) {
+      return false
+    }
     const source = this.connection.createEndpointFromElement(context, elementId, referencePoint)
-    if (!source) return false
+    if (!source) {
+      return false
+    }
     this.connection.begin({
       origin,
       source: source.endpoint,
@@ -104,7 +110,9 @@ export class ElementsConnectionFlow {
 
   updatePreviewToPoint(context: ModelerPluginContext, point: ModelerPoint, target?: ReturnType<ModelerPluginContext['hitTest']>): void {
     const state = this.connection.get()
-    if (!state) return
+    if (!state) {
+      return
+    }
     const resolvedTarget = target ?? context.hitTest(context.worldToScreen(point))
     const targetResolution = this.resolveTargetEndpoint(context, resolvedTarget, point)
     const sourcePoint = this.connection.resolveElementPoint(context, state.sourceElementId, targetResolution.point) ?? state.sourcePoint
@@ -131,9 +139,13 @@ export class ElementsConnectionFlow {
 
   completeAtTarget(context: ModelerPluginContext, target: ReturnType<ModelerPluginContext['hitTest']>, fallbackPoint: ModelerPoint): ModelerElement | null {
     const state = this.connection.get()
-    if (!state) return null
+    if (!state) {
+      return null
+    }
     const targetResolution = this.resolveTargetEndpoint(context, target, fallbackPoint)
-    if (!targetResolution.elementId) return null
+    if (!targetResolution.elementId) {
+      return null
+    }
     const sourcePoint = this.connection.resolveElementPoint(context, state.sourceElementId, targetResolution.point) ?? state.sourcePoint
     const edgeInput: ElementsConnectionEdgeInput = {
       id: `${this.edgeFactory.idPrefix}-${Date.now().toString(36)}-${this.createCounter += 1}`,
@@ -165,16 +177,22 @@ export class ElementsConnectionFlow {
 
   canStart(context: ModelerPluginContext, elementId: string): boolean {
     const element = context.getModel().elements.find(item => item.id === elementId)
-    if (!element || !this.connection.canStart(context, elementId)) return false
+    if (!element || !this.connection.canStart(context, elementId)) {
+      return false
+    }
     return this.edgeFactory.canStart?.(context, element) ?? true
   }
 
   canCompleteElement(context: ModelerPluginContext, elementId: string): boolean {
     const state = this.connection.get()
-    if (!state || !this.connection.canCompleteElement(context, elementId)) return false
+    if (!state || !this.connection.canCompleteElement(context, elementId)) {
+      return false
+    }
     const source = context.getModel().elements.find(item => item.id === state.sourceElementId)
     const target = context.getModel().elements.find(item => item.id === elementId)
-    if (!source || !target) return false
+    if (!source || !target) {
+      return false
+    }
     return this.edgeFactory.canComplete?.(context, source, target) ?? true
   }
 
@@ -184,14 +202,18 @@ export class ElementsConnectionFlow {
     fallbackPoint: ModelerPoint,
   ): ReturnType<ElementsConnection['resolveTargetEndpoint']> {
     const resolution = this.connection.resolveTargetEndpoint(context, target, fallbackPoint)
-    if (!resolution.elementId || this.canCompleteElement(context, resolution.elementId)) return resolution
+    if (!resolution.elementId || this.canCompleteElement(context, resolution.elementId)) {
+      return resolution
+    }
     return { endpoint: { point: fallbackPoint }, point: fallbackPoint }
   }
 
   private findDuplicateEdge(context: ModelerPluginContext, edge: ModelerEdgeElement): ModelerEdgeElement | null {
     const sourceId = edge.source.elementId
     const targetId = edge.target.elementId
-    if (!sourceId || !targetId) return null
+    if (!sourceId || !targetId) {
+      return null
+    }
     return context.getModel().elements.find((element): element is ModelerEdgeElement => {
       return isModelerEdgeElement(element)
         && element.type === edge.type

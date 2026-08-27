@@ -8,10 +8,10 @@ import type {
   ModelerPluginContext,
   ModelerPoint,
 } from '@/domain/types/index'
-import { isModelerEdgeElement } from '@/domain/types/index'
 import type { ConnectionAnchorResolver } from '@/plugins/elements/model/ConnectionAnchorResolver'
 import type { ElementsGeometry } from '@/plugins/elements/model/ElementsGeometry'
 import type { ElementsPorts } from '@/plugins/elements/model/ElementsPorts'
+import { isModelerEdgeElement } from '@/domain/types/index'
 
 const EDGE_WAYPOINT_HANDLE_SIZE = 14
 const EDGE_SEGMENT_HANDLE_SIZE = 14
@@ -59,7 +59,9 @@ export class ElementsEdges {
     for (let segmentIndex = 0; segmentIndex < path.length - 1; segmentIndex += 1) {
       const start = path[segmentIndex]!
       const end = path[segmentIndex + 1]!
-      if (this.geometry.distance(start, end) <= 0) continue
+      if (this.geometry.distance(start, end) <= 0) {
+        continue
+      }
       result.push({
         elementId: element.id,
         segmentIndex,
@@ -79,16 +81,20 @@ export class ElementsEdges {
     point: ModelerPoint,
   ): ModelerEdgeSegmentHandleDescriptor | null {
     const path = this.createPath(context, element)
-    let best: { point: ModelerPoint; distance: number; segmentIndex: number } | null = null
+    let best: { point: ModelerPoint, distance: number, segmentIndex: number } | null = null
     for (let segmentIndex = 0; segmentIndex < path.length - 1; segmentIndex += 1) {
       const start = path[segmentIndex]!
       const end = path[segmentIndex + 1]!
       const projected = this.projectPointToSegment(point, start, end)
       const distance = this.geometry.distance(point, projected)
-      if (!best || distance < best.distance) best = { point: projected, distance, segmentIndex }
+      if (!best || distance < best.distance) {
+        best = { point: projected, distance, segmentIndex }
+      }
     }
     const tolerance = EDGE_SEGMENT_HIT_TOLERANCE / Math.max(context.getViewport().scale, 0.0001)
-    if (!best || best.distance > tolerance) return null
+    if (!best || best.distance > tolerance) {
+      return null
+    }
     return {
       elementId: element.id,
       segmentIndex: best.segmentIndex,
@@ -113,18 +119,24 @@ export class ElementsEdges {
           definition.getPorts?.(context, element) ?? [],
         )
         const port = ports.find(item => item.id === endpoint.portId)
-        if (port) return { x: port.x, y: port.y }
+        if (port) {
+          return { x: port.x, y: port.y }
+        }
       }
     }
     if (endpoint.elementId) {
       const element = this.findElement(context, endpoint.elementId)
-      if (element) return this.anchors.resolveEndpoint(element, endpoint, reference)
+      if (element) {
+        return this.anchors.resolveEndpoint(element, endpoint, reference)
+      }
     }
     return endpoint.point ? { ...endpoint.point } : { x: 0, y: 0 }
   }
 
   distanceToPath(point: ModelerPoint, path: Array<ModelerPoint>): number {
-    if (path.length < 2) return Number.POSITIVE_INFINITY
+    if (path.length < 2) {
+      return Number.POSITIVE_INFINITY
+    }
     let distance = Number.POSITIVE_INFINITY
     for (let index = 0; index < path.length - 1; index += 1) {
       distance = Math.min(distance, this.distanceToSegment(point, path[index]!, path[index + 1]!))
@@ -151,11 +163,15 @@ export class ElementsEdges {
   }
 
   private resolveSourceReference(context: ModelerPluginContext, element: ModelerEdgeElement): ModelerPoint {
-    if (element.waypoints[0]) return element.waypoints[0]
+    if (element.waypoints[0]) {
+      return element.waypoints[0]
+    }
     const targetElement = element.target.elementId
       ? this.findElement(context, element.target.elementId)
       : undefined
-    if (targetElement) return this.geometry.elementCenter(targetElement)
+    if (targetElement) {
+      return this.geometry.elementCenter(targetElement)
+    }
     return element.target.point ? { ...element.target.point } : this.resolveEndpointPoint(context, element.target)
   }
 

@@ -1,30 +1,29 @@
-import {
-  NovaComponent,
-  NovaComponentNode,
-  createNovaDecoratedComponentDescriptor,
-  type NovaApp,
-  type NovaComponentDescriptor,
-  type NovaPatternRect,
-  type NovaSchema,
-  type NovaSurface,
-} from '@endge/nova'
+import type { NovaApp, NovaComponentDescriptor, NovaPatternRect, NovaSchema, NovaSurface } from '@endge/nova'
 import type { EventList } from '@endge/utils'
-import { Modeler } from '@/config/schema.config'
+import type {
+  ModelerGridProps as GridProps,
+  ModelerGridRenderPlan as GridRenderPlan,
+  ModelerGridRenderPlanInput as GridRenderPlanInput,
+  ModelerGridResolvedProps as GridResolvedProps,
+} from '@/domain/types/index'
+import {
+  createNovaDecoratedComponentDescriptor,
+
+  NovaComponent,
+
+  NovaComponentNode,
+
+} from '@endge/nova'
 import {
   MODELER_CONTEXT,
   MODELER_STORE,
 } from '@/config/context.config'
 import { MODELER_GRID_RENDER_CONFIG } from '@/config/grid.config'
+import { Modeler } from '@/config/schema.config'
 import {
   MODELER_THEME_FALLBACKS,
   MODELER_THEME_TOKENS,
 } from '@/config/theme.config'
-import type {
-  ModelerGridRenderPlan as GridRenderPlan,
-  ModelerGridRenderPlanInput as GridRenderPlanInput,
-  ModelerGridProps as GridProps,
-  ModelerGridResolvedProps as GridResolvedProps,
-} from '@/domain/types/index'
 import { clamp } from '@/tools/number'
 
 export type GridDescriptor = NovaComponentDescriptor<
@@ -101,7 +100,9 @@ export class Grid<E extends EventList = Record<string, any>>
     const minScreenSpacing = input.minScreenSpacing ?? Grid.resolveMinScreenSpacing(input.scale)
     const maxDots = input.maxDots ?? MODELER_GRID_RENDER_CONFIG.maxDots
     let spacing = Math.max(1, input.gridSize * input.scale)
-    while (spacing < minScreenSpacing) spacing *= 2
+    while (spacing < minScreenSpacing) {
+      spacing *= 2
+    }
     let columns = Grid.countAxis(input.width, spacing)
     let rows = Grid.countAxis(input.height, spacing)
     while (columns * rows > maxDots) {
@@ -129,10 +130,14 @@ export class Grid<E extends EventList = Record<string, any>>
   static appendSchema(schema: NovaSchema, plan: GridRenderPlan, color: string): void {
     for (let column = 0; column < plan.columns; column += 1) {
       const x = plan.offsetX + column * plan.spacing
-      if (x > plan.width) continue
+      if (x > plan.width) {
+        continue
+      }
       for (let row = 0; row < plan.rows; row += 1) {
         const y = plan.offsetY + row * plan.spacing
-        if (y > plan.height) continue
+        if (y > plan.height) {
+          continue
+        }
         schema.push({ type: 'circle', x, y, radius: plan.radius, styles: { background: color } })
       }
     }

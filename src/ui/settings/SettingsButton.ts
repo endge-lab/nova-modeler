@@ -1,31 +1,6 @@
-import {
-  Nova,
-  NovaComponent,
-  NovaComponentNode,
-  NovaTemplateRuntime,
-  Prop,
-  createNovaDecoratedComponentDescriptor,
-  type NovaApp,
-  type NovaElementSlots,
-  type NovaSchema,
-  type NovaSurface,
-  type NovaTemplateChildSchema,
-} from '@endge/nova'
+import type { NovaApp, NovaElementSlots, NovaSchema, NovaSurface, NovaTemplateChildSchema } from '@endge/nova'
+import type { NovaUiLayoutConstraints, NovaUiLayoutMeasure, NovaUiLayoutRect, RootApi } from '@endge/nova-ui-kit'
 import type { EventList } from '@endge/utils'
-import {
-  NOVA_UI_LAYOUT_TARGET,
-  NovaUIKit,
-  findNovaUiRoot,
-  type NovaUiLayoutConstraints,
-  type NovaUiLayoutMeasure,
-  type NovaUiLayoutRect,
-  type RootApi,
-} from '@endge/nova-ui-kit'
-import { MODELER_ASSETS } from '@/assets/modeler-assets'
-import { Modeler } from '@/config/schema.config'
-import {
-  createModelerSettingsController,
-} from '@/model/settings/ModelerSettingsController'
 import type {
   ModelerSettingsButtonApi,
   ModelerSettingsButtonDescriptor,
@@ -34,6 +9,27 @@ import type {
   ModelerSettingsButtonSlotProps,
   ModelerSettingsDialogPayload,
 } from '@/domain/types'
+import {
+  createNovaDecoratedComponentDescriptor,
+  Nova,
+
+  NovaComponent,
+  NovaComponentNode,
+
+  NovaTemplateRuntime,
+  Prop,
+} from '@endge/nova'
+import {
+  findNovaUiRoot,
+  NOVA_UI_LAYOUT_TARGET,
+  NovaUIKit,
+
+} from '@endge/nova-ui-kit'
+import { MODELER_ASSETS } from '@/assets/modeler-assets'
+import { Modeler } from '@/config/schema.config'
+import {
+  createModelerSettingsController,
+} from '@/model/settings/ModelerSettingsController'
 
 @NovaComponent({
   type: Modeler.SettingsButton,
@@ -61,7 +57,7 @@ export class SettingsButton<E extends EventList = Record<string, any>>
     surface: NovaSurface<E>,
     descriptor: ModelerSettingsButtonDescriptor,
     props: ModelerSettingsButtonResolvedProps,
-    options: { componentId?: string; slots?: NovaElementSlots } = {},
+    options: { componentId?: string, slots?: NovaElementSlots } = {},
   ) {
     super(app, surface, descriptor, props, options)
     this.childRuntime = new NovaTemplateRuntime(this)
@@ -107,7 +103,9 @@ export class SettingsButton<E extends EventList = Record<string, any>>
   override setProps(patch: ModelerSettingsButtonProps): this {
     super.setProps(patch as Partial<ModelerSettingsButtonResolvedProps>)
     this.props = SettingsButton.normalizeProps(this.props)
-    if (!this.externalLayout) this.syncFrame()
+    if (!this.externalLayout) {
+      this.syncFrame()
+    }
     this.syncChild()
     return this
   }
@@ -130,7 +128,9 @@ export class SettingsButton<E extends EventList = Record<string, any>>
       interactive: this.props.visible,
       zIndex: this.props.zIndex,
     })
-    if (changed) this.dirty({ matrix: true, update: sizeChanged, render: true })
+    if (changed) {
+      this.dirty({ matrix: true, update: sizeChanged, render: true })
+    }
     this.syncChild()
     return changed
   }
@@ -141,7 +141,9 @@ export class SettingsButton<E extends EventList = Record<string, any>>
 
   update(): void {
     super.update()
-    if (!this.externalLayout) this.syncFrame()
+    if (!this.externalLayout) {
+      this.syncFrame()
+    }
     this.syncChild()
   }
 
@@ -258,7 +260,7 @@ export class SettingsButton<E extends EventList = Record<string, any>>
   }
 
   private setupEvents(): void {
-    this.on('mousedown', event => {
+    this.on('mousedown', (event) => {
       this.toggle(event)
       return false
     })

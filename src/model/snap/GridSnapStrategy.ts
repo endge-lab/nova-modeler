@@ -41,7 +41,8 @@ export class GridSnapStrategy implements ModelerSnapStrategy {
         this.snapValue(input.bounds.x, step),
       )
       width = fixedRight - x
-    } else if (input.handle.includes('e')) {
+    }
+    else if (input.handle.includes('e')) {
       width = Math.max(
         input.minSize.minWidth,
         this.snapValue(rawRight, step) - input.source.x,
@@ -55,7 +56,8 @@ export class GridSnapStrategy implements ModelerSnapStrategy {
         this.snapValue(input.bounds.y, step),
       )
       height = fixedBottom - y
-    } else if (input.handle.includes('s')) {
+    }
+    else if (input.handle.includes('s')) {
       height = Math.max(
         input.minSize.minHeight,
         this.snapValue(rawBottom, step) - input.source.y,

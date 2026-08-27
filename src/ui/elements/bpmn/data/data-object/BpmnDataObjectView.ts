@@ -1,23 +1,24 @@
-import {
-  NovaComponent,
-  NovaComponentNode,
-  Prop,
-  createNovaDecoratedComponentDescriptor,
-  type NovaApp,
-  type NovaComponentDescriptor,
-  type NovaSchema,
-  type NovaSurface,
-} from '@endge/nova'
+import type { NovaApp, NovaComponentDescriptor, NovaSchema, NovaSurface } from '@endge/nova'
 import type { EventList } from '@endge/utils'
+import type { ModelerThemeTokenKey } from '@/config/theme.config'
+import type { ModelerViewport } from '@/domain/types'
+import type { BpmnDataObjectElement } from '@/elements/bpmn/data/data-object/bpmn-data-object.types'
+import {
+  createNovaDecoratedComponentDescriptor,
+
+  NovaComponent,
+
+  NovaComponentNode,
+
+  Prop,
+} from '@endge/nova'
 import { Modeler } from '@/config/schema.config'
 import {
   MODELER_THEME_FALLBACKS,
   MODELER_THEME_TOKENS,
-  type ModelerThemeTokenKey,
+
 } from '@/config/theme.config'
-import type { ModelerViewport } from '@/domain/types'
 import { normalizeBpmnDataObjectType } from '@/elements/bpmn/data/data-object/bpmn-data-object.factory'
-import type { BpmnDataObjectElement } from '@/elements/bpmn/data/data-object/bpmn-data-object.types'
 import { resolveBpmnTaskNameLayout } from '@/ui/elements/bpmn/task/BpmnTaskView'
 
 export interface BpmnDataObjectViewProps {
@@ -145,7 +146,9 @@ export class BpmnDataObjectView<E extends EventList = Record<string, any>>
 
   private appendDataDirectionMarker(schema: NovaSchema, color: string, width: number, opacity: number): void {
     const type = normalizeBpmnDataObjectType(this.props.element.data?.dataObjectType)
-    if (type === 'object') return
+    if (type === 'object') {
+      return
+    }
     const left = -this.width / 2
     const y = -this.height / 2 + this.height * 0.183
     const start = left + this.width * 0.135
@@ -199,7 +202,9 @@ export class BpmnDataObjectView<E extends EventList = Record<string, any>>
   }
 
   private appendCollectionMarker(schema: NovaSchema, color: string, opacity: number): void {
-    if (!this.props.element.data?.isCollection) return
+    if (!this.props.element.data?.isCollection) {
+      return
+    }
     const markerGap = Math.max(1, this.width * 0.083)
     const markerHeight = Math.max(1, this.height * 0.083)
     const x = -markerGap

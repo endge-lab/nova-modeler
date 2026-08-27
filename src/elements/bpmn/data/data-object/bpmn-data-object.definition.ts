@@ -1,9 +1,14 @@
-import { Modeler } from '@/config/schema.config'
 import type {
   ModelerElementDefinition,
   ModelerElementRenderContext,
   ModelerPoint,
 } from '@/domain/types/index'
+import type {
+  BpmnDataObjectElement,
+  BpmnDataObjectElementInput,
+} from '@/elements/bpmn/data/data-object/bpmn-data-object.types'
+import { Modeler } from '@/config/schema.config'
+import { BpmnDataVariantProvider } from '@/elements/bpmn/data/bpmn-data.variants'
 import {
   BPMN_DATA_OBJECT_DEFAULT_HEIGHT,
   BPMN_DATA_OBJECT_DEFAULT_WIDTH,
@@ -11,11 +16,6 @@ import {
   createBpmnDataObjectElement,
 } from '@/elements/bpmn/data/data-object/bpmn-data-object.factory'
 import { createBpmnDataObjectPorts } from '@/elements/bpmn/data/data-object/bpmn-data-object.ports'
-import { BpmnDataVariantProvider } from '@/elements/bpmn/data/bpmn-data.variants'
-import type {
-  BpmnDataObjectElement,
-  BpmnDataObjectElementInput,
-} from '@/elements/bpmn/data/data-object/bpmn-data-object.types'
 
 export const BpmnDataObjectDefinition: ModelerElementDefinition<BpmnDataObjectElement> = {
   type: BPMN_DATA_OBJECT_TYPE,

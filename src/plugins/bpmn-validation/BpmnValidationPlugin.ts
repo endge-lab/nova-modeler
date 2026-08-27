@@ -45,8 +45,10 @@ export class BpmnValidationPlugin implements ModelerPlugin {
     this.lastModelId = model.id
     this.lastElementsVersion = model.elementsVersion
     this.publish(this.validateModel(model))
-    this.disposeModelSubscription = context.model.subscribe(nextModel => {
-      if (nextModel.id === this.lastModelId && nextModel.elementsVersion === this.lastElementsVersion) return
+    this.disposeModelSubscription = context.model.subscribe((nextModel) => {
+      if (nextModel.id === this.lastModelId && nextModel.elementsVersion === this.lastElementsVersion) {
+        return
+      }
       this.lastModelId = nextModel.id
       this.lastElementsVersion = nextModel.elementsVersion
       this.schedule(nextModel)
@@ -73,14 +75,18 @@ export class BpmnValidationPlugin implements ModelerPlugin {
   }
 
   private publish(result: ModelerValidationResult): void {
-    if (!this.context) return
+    if (!this.context) {
+      return
+    }
     this.disposeResult?.()
     this.disposeResult = this.context.store.provide(BPMN_VALIDATION_RESULT_KEY, result)
     this.context.invalidate('render')
   }
 
   private clearTimer(): void {
-    if (!this.debounceTimer) return
+    if (!this.debounceTimer) {
+      return
+    }
     clearTimeout(this.debounceTimer)
     this.debounceTimer = undefined
   }

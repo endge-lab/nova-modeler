@@ -4,38 +4,38 @@ import type {
   ModelerElement,
   ModelerExportContext,
 } from '@/domain/types/index'
+import type { BpmnBoundaryEventElement } from '@/elements/bpmn/boundary-event/bpmn-boundary-event.types'
+import type { BpmnCallActivityElement } from '@/elements/bpmn/call-activity/bpmn-call-activity.types'
+import type { BpmnDataAssociationElement } from '@/elements/bpmn/data-association/bpmn-data-association.types'
+import type { BpmnDataObjectElement } from '@/elements/bpmn/data/data-object/bpmn-data-object.types'
+import type { BpmnDataStoreElement } from '@/elements/bpmn/data/data-store/bpmn-data-store.types'
+import type { BpmnEventElement } from '@/elements/bpmn/event/bpmn-event.types'
+import type { BpmnFlowElement } from '@/elements/bpmn/flow/bpmn-flow.types'
+import type { BpmnGatewayElement } from '@/elements/bpmn/gateway/bpmn-gateway.types'
+import type { BpmnMessageFlowElement } from '@/elements/bpmn/message-flow/bpmn-message-flow.types'
+import type { BpmnParticipantElement } from '@/elements/bpmn/participant/bpmn-participant.types'
+import type { BpmnSubProcessElement } from '@/elements/bpmn/sub-process/bpmn-sub-process.types'
+import type { BpmnTaskElement } from '@/elements/bpmn/task/bpmn-task.types'
 import { isModelerEdgeElement } from '@/domain/types/index'
 import { BPMN_BOUNDARY_EVENT_TYPE } from '@/elements/bpmn/boundary-event/bpmn-boundary-event.factory'
-import type { BpmnBoundaryEventElement } from '@/elements/bpmn/boundary-event/bpmn-boundary-event.types'
-import { BPMN_DATA_OBJECT_TYPE } from '@/elements/bpmn/data/data-object/bpmn-data-object.factory'
-import type { BpmnDataObjectElement } from '@/elements/bpmn/data/data-object/bpmn-data-object.types'
-import { BPMN_DATA_STORE_TYPE } from '@/elements/bpmn/data/data-store/bpmn-data-store.factory'
-import type { BpmnDataStoreElement } from '@/elements/bpmn/data/data-store/bpmn-data-store.types'
+import { BPMN_CALL_ACTIVITY_TYPE } from '@/elements/bpmn/call-activity/bpmn-call-activity.factory'
 import {
   BPMN_DATA_ASSOCIATION_TYPE,
   normalizeBpmnDataAssociationType,
 } from '@/elements/bpmn/data-association/bpmn-data-association.factory'
-import type { BpmnDataAssociationElement } from '@/elements/bpmn/data-association/bpmn-data-association.types'
+import { BPMN_DATA_OBJECT_TYPE } from '@/elements/bpmn/data/data-object/bpmn-data-object.factory'
+import { BPMN_DATA_STORE_TYPE } from '@/elements/bpmn/data/data-store/bpmn-data-store.factory'
 import { BPMN_EVENT_TYPE, normalizeBpmnEventVariantData } from '@/elements/bpmn/event/bpmn-event.factory'
-import type { BpmnEventElement } from '@/elements/bpmn/event/bpmn-event.types'
 import { BPMN_FLOW_TYPE, normalizeBpmnFlowType } from '@/elements/bpmn/flow/bpmn-flow.factory'
-import type { BpmnFlowElement } from '@/elements/bpmn/flow/bpmn-flow.types'
 import { BPMN_GATEWAY_TYPE, normalizeBpmnGatewayType } from '@/elements/bpmn/gateway/bpmn-gateway.factory'
-import type { BpmnGatewayElement } from '@/elements/bpmn/gateway/bpmn-gateway.types'
-import { BPMN_CALL_ACTIVITY_TYPE } from '@/elements/bpmn/call-activity/bpmn-call-activity.factory'
-import type { BpmnCallActivityElement } from '@/elements/bpmn/call-activity/bpmn-call-activity.types'
 import { BPMN_MESSAGE_FLOW_TYPE } from '@/elements/bpmn/message-flow/bpmn-message-flow.factory'
-import type { BpmnMessageFlowElement } from '@/elements/bpmn/message-flow/bpmn-message-flow.types'
 import { BPMN_PARTICIPANT_TYPE } from '@/elements/bpmn/participant/bpmn-participant.factory'
-import type { BpmnParticipantElement } from '@/elements/bpmn/participant/bpmn-participant.types'
 import { BPMN_SUB_PROCESS_TYPE, normalizeBpmnSubProcessType } from '@/elements/bpmn/sub-process/bpmn-sub-process.factory'
-import type { BpmnSubProcessElement } from '@/elements/bpmn/sub-process/bpmn-sub-process.types'
 import { BPMN_TASK_TYPE, normalizeBpmnTaskLoopType, normalizeBpmnTaskType } from '@/elements/bpmn/task/bpmn-task.factory'
-import type { BpmnTaskElement } from '@/elements/bpmn/task/bpmn-task.types'
-import { ModelerExportGeometry } from '@/model/export/modeler-export-geometry'
 import {
   resolveBpmnGlobalDefinitionRefKey,
 } from '@/model/bpmn-definitions'
+import { ModelerExportGeometry } from '@/model/export/modeler-export-geometry'
 
 const BPMN_MIME_TYPE = 'application/xml;charset=utf-8'
 
@@ -109,27 +109,43 @@ export class BpmnExporter {
     const defaultFlowBySource = new Map<string, string>()
     const dataAssociationsByActivity = new Map<string, Array<BpmnDataAssociationElement>>()
     for (const element of context.model.elements) {
-      if (element.type !== BPMN_FLOW_TYPE || !isModelerEdgeElement(element)) continue
-      if (normalizeBpmnFlowType(element.data?.flowType) !== 'defaultSequence') continue
+      if (element.type !== BPMN_FLOW_TYPE || !isModelerEdgeElement(element)) {
+        continue
+      }
+      if (normalizeBpmnFlowType(element.data?.flowType) !== 'defaultSequence') {
+        continue
+      }
       const sourceId = element.source.elementId
-      if (sourceId) defaultFlowBySource.set(sourceId, idByElement.get(element.id) ?? toBpmnElementId(element))
+      if (sourceId) {
+        defaultFlowBySource.set(sourceId, idByElement.get(element.id) ?? toBpmnElementId(element))
+      }
     }
     for (const element of context.model.elements) {
-      if (element.type !== BPMN_DATA_ASSOCIATION_TYPE || !isModelerEdgeElement(element)) continue
+      if (element.type !== BPMN_DATA_ASSOCIATION_TYPE || !isModelerEdgeElement(element)) {
+        continue
+      }
       const activityId = resolveDataAssociationActivityId(element as BpmnDataAssociationElement)
-      if (!activityId) continue
+      if (!activityId) {
+        continue
+      }
       const associations = dataAssociationsByActivity.get(activityId) ?? []
       associations.push(element as BpmnDataAssociationElement)
       dataAssociationsByActivity.set(activityId, associations)
     }
     const linkCatchDefinitionByRef = new Map<string, string>()
     for (const element of context.model.elements) {
-      if (element.type !== BPMN_EVENT_TYPE) continue
+      if (element.type !== BPMN_EVENT_TYPE) {
+        continue
+      }
       const event = element as BpmnEventElement
       const eventData = normalizeBpmnEventVariantData(event.data?.eventPosition, event.data?.trigger, event.data?.direction)
       const linkRef = resolveLinkRef(event)
-      if (eventData.trigger !== 'link' || eventData.direction !== 'catch' || !linkRef) continue
-      if (!linkCatchDefinitionByRef.has(linkRef)) linkCatchDefinitionByRef.set(linkRef, toBpmnLinkDefinitionId(event, idByElement))
+      if (eventData.trigger !== 'link' || eventData.direction !== 'catch' || !linkRef) {
+        continue
+      }
+      if (!linkCatchDefinitionByRef.has(linkRef)) {
+        linkCatchDefinitionByRef.set(linkRef, toBpmnLinkDefinitionId(event, idByElement))
+      }
     }
     return {
       processId,
@@ -146,14 +162,30 @@ export class BpmnExporter {
   }
 
   private serializeNode(element: ModelerElement, state: BpmnExportState): string {
-    if (element.type === BPMN_DATA_OBJECT_TYPE) return this.serializeDataObject(element as BpmnDataObjectElement, state)
-    if (element.type === BPMN_DATA_STORE_TYPE) return this.serializeDataStore(element as BpmnDataStoreElement, state)
-    if (element.type === BPMN_TASK_TYPE) return this.serializeTask(element as BpmnTaskElement, state)
-    if (element.type === BPMN_SUB_PROCESS_TYPE) return this.serializeSubProcess(element as BpmnSubProcessElement, state)
-    if (element.type === BPMN_CALL_ACTIVITY_TYPE) return this.serializeCallActivity(element as BpmnCallActivityElement, state)
-    if (element.type === BPMN_BOUNDARY_EVENT_TYPE) return this.serializeBoundaryEvent(element as BpmnBoundaryEventElement, state)
-    if (element.type === BPMN_EVENT_TYPE) return this.serializeEvent(element as BpmnEventElement, state)
-    if (element.type === BPMN_GATEWAY_TYPE) return this.serializeGateway(element as BpmnGatewayElement, state)
+    if (element.type === BPMN_DATA_OBJECT_TYPE) {
+      return this.serializeDataObject(element as BpmnDataObjectElement, state)
+    }
+    if (element.type === BPMN_DATA_STORE_TYPE) {
+      return this.serializeDataStore(element as BpmnDataStoreElement, state)
+    }
+    if (element.type === BPMN_TASK_TYPE) {
+      return this.serializeTask(element as BpmnTaskElement, state)
+    }
+    if (element.type === BPMN_SUB_PROCESS_TYPE) {
+      return this.serializeSubProcess(element as BpmnSubProcessElement, state)
+    }
+    if (element.type === BPMN_CALL_ACTIVITY_TYPE) {
+      return this.serializeCallActivity(element as BpmnCallActivityElement, state)
+    }
+    if (element.type === BPMN_BOUNDARY_EVENT_TYPE) {
+      return this.serializeBoundaryEvent(element as BpmnBoundaryEventElement, state)
+    }
+    if (element.type === BPMN_EVENT_TYPE) {
+      return this.serializeEvent(element as BpmnEventElement, state)
+    }
+    if (element.type === BPMN_GATEWAY_TYPE) {
+      return this.serializeGateway(element as BpmnGatewayElement, state)
+    }
     throw new Error(`[BpmnExporter] Unsupported BPMN element type: ${element.type}`)
   }
 
@@ -189,9 +221,15 @@ export class BpmnExporter {
   private serializeTaskChildren(element: BpmnTaskElement, state: BpmnExportState): Array<string> {
     const children: Array<string> = []
     const loopType = normalizeBpmnTaskLoopType(element.data?.loopType)
-    if (loopType === 'standard') children.push('<standardLoopCharacteristics />')
-    if (loopType === 'multiInstanceParallel') children.push('<multiInstanceLoopCharacteristics isSequential="false" />')
-    if (loopType === 'multiInstanceSequential') children.push('<multiInstanceLoopCharacteristics isSequential="true" />')
+    if (loopType === 'standard') {
+      children.push('<standardLoopCharacteristics />')
+    }
+    if (loopType === 'multiInstanceParallel') {
+      children.push('<multiInstanceLoopCharacteristics isSequential="false" />')
+    }
+    if (loopType === 'multiInstanceSequential') {
+      children.push('<multiInstanceLoopCharacteristics isSequential="true" />')
+    }
     children.push(...this.serializeDataAssociationChildren(element, state))
     return children
   }
@@ -228,9 +266,15 @@ export class BpmnExporter {
   private serializeActivityLoopChildren(element: BpmnTaskElement | BpmnSubProcessElement | BpmnCallActivityElement, state: BpmnExportState): Array<string> {
     const children: Array<string> = []
     const loopType = normalizeBpmnTaskLoopType(element.data?.loopType)
-    if (loopType === 'standard') children.push('<standardLoopCharacteristics />')
-    if (loopType === 'multiInstanceParallel') children.push('<multiInstanceLoopCharacteristics isSequential="false" />')
-    if (loopType === 'multiInstanceSequential') children.push('<multiInstanceLoopCharacteristics isSequential="true" />')
+    if (loopType === 'standard') {
+      children.push('<standardLoopCharacteristics />')
+    }
+    if (loopType === 'multiInstanceParallel') {
+      children.push('<multiInstanceLoopCharacteristics isSequential="false" />')
+    }
+    if (loopType === 'multiInstanceSequential') {
+      children.push('<multiInstanceLoopCharacteristics isSequential="true" />')
+    }
     children.push(...this.serializeDataAssociationChildren(element, state))
     return children
   }
@@ -263,18 +307,42 @@ export class BpmnExporter {
 
   private serializeEventDefinition(element: BpmnEventElement, state: BpmnExportState): string {
     const trigger = normalizeBpmnEventVariantData(element.data?.eventPosition, element.data?.trigger, element.data?.direction).trigger
-    if (trigger === 'message') return this.serializeReferencedEventDefinition('message', element, state)
-    if (trigger === 'timer') return '<timerEventDefinition />'
-    if (trigger === 'error') return this.serializeReferencedEventDefinition('error', element, state)
-    if (trigger === 'escalation') return this.serializeReferencedEventDefinition('escalation', element, state)
-    if (trigger === 'cancel') return '<cancelEventDefinition />'
-    if (trigger === 'compensation') return '<compensateEventDefinition />'
-    if (trigger === 'conditional') return '<conditionalEventDefinition />'
-    if (trigger === 'link') return this.serializeLinkEventDefinition(element, state)
-    if (trigger === 'signal') return this.serializeReferencedEventDefinition('signal', element, state)
-    if (trigger === 'terminate') return '<terminateEventDefinition />'
-    if (trigger === 'multiple') return '<multipleEventDefinition />'
-    if (trigger === 'parallelMultiple') return '<parallelMultipleEventDefinition />'
+    if (trigger === 'message') {
+      return this.serializeReferencedEventDefinition('message', element, state)
+    }
+    if (trigger === 'timer') {
+      return '<timerEventDefinition />'
+    }
+    if (trigger === 'error') {
+      return this.serializeReferencedEventDefinition('error', element, state)
+    }
+    if (trigger === 'escalation') {
+      return this.serializeReferencedEventDefinition('escalation', element, state)
+    }
+    if (trigger === 'cancel') {
+      return '<cancelEventDefinition />'
+    }
+    if (trigger === 'compensation') {
+      return '<compensateEventDefinition />'
+    }
+    if (trigger === 'conditional') {
+      return '<conditionalEventDefinition />'
+    }
+    if (trigger === 'link') {
+      return this.serializeLinkEventDefinition(element, state)
+    }
+    if (trigger === 'signal') {
+      return this.serializeReferencedEventDefinition('signal', element, state)
+    }
+    if (trigger === 'terminate') {
+      return '<terminateEventDefinition />'
+    }
+    if (trigger === 'multiple') {
+      return '<multipleEventDefinition />'
+    }
+    if (trigger === 'parallelMultiple') {
+      return '<parallelMultipleEventDefinition />'
+    }
     return ''
   }
 
@@ -306,23 +374,43 @@ export class BpmnExporter {
 
   private serializeBoundaryEventDefinition(element: BpmnBoundaryEventElement, state: BpmnExportState): string {
     const trigger = element.data?.trigger ?? 'timer'
-    if (trigger === 'message') return this.serializeReferencedEventDefinition('message', element, state)
-    if (trigger === 'timer') return '<timerEventDefinition />'
-    if (trigger === 'error') return this.serializeReferencedEventDefinition('error', element, state)
-    if (trigger === 'escalation') return this.serializeReferencedEventDefinition('escalation', element, state)
-    if (trigger === 'cancel') return '<cancelEventDefinition />'
-    if (trigger === 'compensation') return '<compensateEventDefinition />'
-    if (trigger === 'conditional') return '<conditionalEventDefinition />'
-    if (trigger === 'signal') return this.serializeReferencedEventDefinition('signal', element, state)
+    if (trigger === 'message') {
+      return this.serializeReferencedEventDefinition('message', element, state)
+    }
+    if (trigger === 'timer') {
+      return '<timerEventDefinition />'
+    }
+    if (trigger === 'error') {
+      return this.serializeReferencedEventDefinition('error', element, state)
+    }
+    if (trigger === 'escalation') {
+      return this.serializeReferencedEventDefinition('escalation', element, state)
+    }
+    if (trigger === 'cancel') {
+      return '<cancelEventDefinition />'
+    }
+    if (trigger === 'compensation') {
+      return '<compensateEventDefinition />'
+    }
+    if (trigger === 'conditional') {
+      return '<conditionalEventDefinition />'
+    }
+    if (trigger === 'signal') {
+      return this.serializeReferencedEventDefinition('signal', element, state)
+    }
     return '<timerEventDefinition />'
   }
 
   private serializeReferencedEventDefinition(kind: BpmnGlobalDefinitionKind, element: ModelerElement, state: BpmnExportState): string {
     const refKey = resolveBpmnGlobalDefinitionRefKey(kind)
     const ref = element.data?.[refKey]
-    if (typeof ref !== 'string' || !ref.trim()) return `<${kind}EventDefinition />`
+    if (typeof ref !== 'string' || !ref.trim()) {
+      return `<${kind}EventDefinition />`
+    }
     const definitionId = state.idByDefinition.get(ref)
-    if (!definitionId) return `<${kind}EventDefinition />`
+    if (!definitionId) {
+      return `<${kind}EventDefinition />`
+    }
     const attrName = `${kind}Ref`
     return `<${kind}EventDefinition ${attrName}="${escapeXml(definitionId)}" />`
   }
@@ -338,16 +426,24 @@ export class BpmnExporter {
   }
 
   private serializeGlobalDefinitionCodeAttr(definition: BpmnGlobalDefinition): string {
-    if (!definition.code) return ''
-    if (definition.kind === 'error') return `errorCode="${escapeXml(definition.code)}"`
-    if (definition.kind === 'escalation') return `escalationCode="${escapeXml(definition.code)}"`
+    if (!definition.code) {
+      return ''
+    }
+    if (definition.kind === 'error') {
+      return `errorCode="${escapeXml(definition.code)}"`
+    }
+    if (definition.kind === 'escalation') {
+      return `escalationCode="${escapeXml(definition.code)}"`
+    }
     return ''
   }
 
   private serializeCollaborationItems(context: ModelerExportContext, state: BpmnExportState): Array<string> {
     const participants = context.model.elements.filter((element): element is BpmnParticipantElement => element.type === BPMN_PARTICIPANT_TYPE)
     const messageFlows = context.model.elements.filter((element): element is BpmnMessageFlowElement => element.type === BPMN_MESSAGE_FLOW_TYPE && isModelerEdgeElement(element))
-    if (participants.length === 0 && messageFlows.length === 0) return []
+    if (participants.length === 0 && messageFlows.length === 0) {
+      return []
+    }
     return [[
       `<collaboration id="${state.collaborationId}">`,
       ...participants.map(participant => indent(this.serializeParticipant(participant, state), 2)),
@@ -378,13 +474,15 @@ export class BpmnExporter {
 
   private resolveMessageRefAttr(element: BpmnMessageFlowElement, state: BpmnExportState): string {
     const ref = element.data?.messageRef
-    if (typeof ref !== 'string' || !ref.trim()) return ''
+    if (typeof ref !== 'string' || !ref.trim()) {
+      return ''
+    }
     const definitionId = state.idByDefinition.get(ref)
     return definitionId ? `messageRef="${definitionId}"` : ''
   }
 
   private serializeDataAssociationChildren(element: ModelerElement, state: BpmnExportState): Array<string> {
-    return (state.dataAssociationsByActivity.get(element.id) ?? []).map(association => {
+    return (state.dataAssociationsByActivity.get(element.id) ?? []).map((association) => {
       const type = normalizeBpmnDataAssociationType(association.data?.dataAssociationType)
       const tag = type === 'output' ? 'dataOutputAssociation' : 'dataInputAssociation'
       const sourceRef = this.resolveEndpointRef(association.source.elementId, state)
@@ -433,7 +531,9 @@ export class BpmnExporter {
       `sourceRef="${sourceRef}"`,
       `targetRef="${targetRef}"`,
     ].filter(Boolean).join(' ')
-    if (flowType !== 'conditionalSequence') return `<sequenceFlow ${attrs} />`
+    if (flowType !== 'conditionalSequence') {
+      return `<sequenceFlow ${attrs} />`
+    }
     const condition = typeof element.data?.conditionExpression === 'string' && element.data.conditionExpression.trim()
       ? element.data.conditionExpression.trim()
       : 'true'
@@ -466,12 +566,20 @@ export class BpmnExporter {
   }
 
   private serializeDiagramLabel(context: ModelerExportContext, element: ModelerElement): string {
-    if (!context.pluginContext) return ''
-    if (!this.resolveName(element)) return ''
+    if (!context.pluginContext) {
+      return ''
+    }
+    if (!this.resolveName(element)) {
+      return ''
+    }
     const definition = context.pluginContext.getElementRegistry().get(element.type)
-    if (!definition?.externalLabel) return ''
+    if (!definition?.externalLabel) {
+      return ''
+    }
     const layout = context.pluginContext.externalLabels.resolve(context.pluginContext, element)
-    if (!layout) return ''
+    if (!layout) {
+      return ''
+    }
     return [
       '  <bpmndi:BPMNLabel>',
       `    <dc:Bounds x="${round(layout.worldRect.x)}" y="${round(layout.worldRect.y)}" width="${round(layout.worldRect.width)}" height="${round(layout.worldRect.height)}" />`,
@@ -480,26 +588,36 @@ export class BpmnExporter {
   }
 
   private resolveName(element: ModelerElement): string {
-    if (typeof element.data?.name === 'string') return element.data.name
+    if (typeof element.data?.name === 'string') {
+      return element.data.name
+    }
     return ''
   }
 
   private resolveEndpointRef(elementId: string | undefined, state: BpmnExportState): string {
-    if (!elementId) throw new Error('[BpmnExporter] BPMN flow endpoint must reference an element.')
+    if (!elementId) {
+      throw new Error('[BpmnExporter] BPMN flow endpoint must reference an element.')
+    }
     const ref = state.idByElement.get(elementId)
-    if (!ref) throw new Error(`[BpmnExporter] BPMN flow endpoint references missing element: ${elementId}`)
+    if (!ref) {
+      throw new Error(`[BpmnExporter] BPMN flow endpoint references missing element: ${elementId}`)
+    }
     return ref
   }
 
   private requireBpmnId(element: ModelerElement, state: BpmnExportState): string {
     const id = state.idByElement.get(element.id)
-    if (!id) throw new Error(`[BpmnExporter] Missing BPMN id for element: ${element.id}`)
+    if (!id) {
+      throw new Error(`[BpmnExporter] Missing BPMN id for element: ${element.id}`)
+    }
     return id
   }
 
   private requireBpmnDefinitionId(definition: BpmnGlobalDefinition, state: BpmnExportState): string {
     const id = state.idByDefinition.get(definition.id)
-    if (!id) throw new Error(`[BpmnExporter] Missing BPMN definition id for definition: ${definition.id}`)
+    if (!id) {
+      throw new Error(`[BpmnExporter] Missing BPMN definition id for definition: ${definition.id}`)
+    }
     return id
   }
 }
@@ -556,8 +674,8 @@ function resolveDataAssociationActivityId(element: BpmnDataAssociationElement): 
 function toBpmnId(prefix: string, value: string): string {
   const safe = value
     .trim()
-    .replace(/[^A-Za-z0-9_.-]/g, '_')
-    .replace(/^[^A-Za-z_]+/, '')
+    .replace(/[^\w.-]/g, '_')
+    .replace(/^[^A-Z_]+/i, '')
   return `${prefix}_${safe || '1'}`
 }
 

@@ -1,9 +1,14 @@
-import { Modeler } from '@/config/schema.config'
 import type {
   ModelerElementDefinition,
   ModelerElementRenderContext,
   ModelerPoint,
 } from '@/domain/types/index'
+import type {
+  BpmnGatewayElement,
+  BpmnGatewayElementInput,
+} from '@/elements/bpmn/gateway/bpmn-gateway.types'
+import { Modeler } from '@/config/schema.config'
+import { createBpmnNodeExternalLabelAdapter } from '@/elements/bpmn/bpmn-external-label'
 import {
   BPMN_GATEWAY_DEFAULT_SIZE,
   BPMN_GATEWAY_TYPE,
@@ -15,11 +20,6 @@ import {
 } from '@/elements/bpmn/gateway/bpmn-gateway.label'
 import { createBpmnGatewayPorts } from '@/elements/bpmn/gateway/bpmn-gateway.ports'
 import { BpmnGatewayVariantProvider } from '@/elements/bpmn/gateway/bpmn-gateway.variants'
-import { createBpmnNodeExternalLabelAdapter } from '@/elements/bpmn/bpmn-external-label'
-import type {
-  BpmnGatewayElement,
-  BpmnGatewayElementInput,
-} from '@/elements/bpmn/gateway/bpmn-gateway.types'
 
 export const BpmnGatewayDefinition: ModelerElementDefinition<BpmnGatewayElement> = {
   type: BPMN_GATEWAY_TYPE,
@@ -80,25 +80,41 @@ export const BpmnGatewayDefinition: ModelerElementDefinition<BpmnGatewayElement>
 }
 
 function resolveBpmnGatewayTooltip(element: BpmnGatewayElement): string {
-  if (element.data?.name) return element.data.name
+  if (element.data?.name) {
+    return element.data.name
+  }
   const gatewayType = element.data?.gatewayType
-  if (gatewayType === 'parallel') return 'Parallel gateway'
-  if (gatewayType === 'inclusive') return 'Inclusive gateway'
-  if (gatewayType === 'complex') return 'Complex gateway'
-  if (gatewayType === 'eventBased') return 'Event-based gateway'
-  if (gatewayType === 'parallelEventBased') return 'Parallel event-based gateway'
+  if (gatewayType === 'parallel') {
+    return 'Parallel gateway'
+  }
+  if (gatewayType === 'inclusive') {
+    return 'Inclusive gateway'
+  }
+  if (gatewayType === 'complex') {
+    return 'Complex gateway'
+  }
+  if (gatewayType === 'eventBased') {
+    return 'Event-based gateway'
+  }
+  if (gatewayType === 'parallelEventBased') {
+    return 'Parallel event-based gateway'
+  }
   return 'Exclusive gateway'
 }
 
 function containsBpmnGatewayPoint(element: BpmnGatewayElement, point: ModelerPoint): boolean {
   const halfWidth = element.width / 2
   const halfHeight = element.height / 2
-  if (halfWidth <= 0 || halfHeight <= 0) return false
+  if (halfWidth <= 0 || halfHeight <= 0) {
+    return false
+  }
   const centerX = element.x + halfWidth
   const centerY = element.y + halfHeight
   const dx = point.x - centerX
   const dy = point.y - centerY
-  if (Math.abs(dx) / halfWidth + Math.abs(dy) / halfHeight <= 1) return true
+  if (Math.abs(dx) / halfWidth + Math.abs(dy) / halfHeight <= 1) {
+    return true
+  }
   const layout = resolveBpmnGatewayNameLayout({
     name: element.data?.name,
     width: element.width,

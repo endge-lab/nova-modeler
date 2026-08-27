@@ -1,5 +1,5 @@
-import type { ModelerElement } from '@/domain/types/elements/element.types'
 import type { ModelerElementRegistry } from '@/domain/types/elements/element-registry.types'
+import type { ModelerElement } from '@/domain/types/elements/element.types'
 import type { ModelerPoint, ModelerRect, ModelerViewport } from '@/domain/types/model/geometry.types'
 
 export interface ModelerExternalLabelGeometry {
@@ -46,28 +46,28 @@ export interface ModelerExternalLabelSelectedPart {
 }
 
 export interface ModelerExternalLabelResolveContext {
-  getViewport(): ModelerViewport
-  worldToScreen(point: ModelerPoint): ModelerPoint
-  getElementRegistry(): ModelerElementRegistry
+  getViewport: () => ModelerViewport
+  worldToScreen: (point: ModelerPoint) => ModelerPoint
+  getElementRegistry: () => ModelerElementRegistry
 }
 
 export interface ModelerExternalLabelAdapter<TElement extends ModelerElement = ModelerElement> {
-  getText(context: ModelerExternalLabelResolveContext, element: TElement): string
-  setText?(context: ModelerExternalLabelResolveContext, element: TElement, text: string): TElement
-  getDefaultRect(context: ModelerExternalLabelResolveContext, element: TElement): ModelerRect
-  getAnchorPoint(context: ModelerExternalLabelResolveContext, element: TElement): ModelerPoint
+  getText: (context: ModelerExternalLabelResolveContext, element: TElement) => string
+  setText?: (context: ModelerExternalLabelResolveContext, element: TElement, text: string) => TElement
+  getDefaultRect: (context: ModelerExternalLabelResolveContext, element: TElement) => ModelerRect
+  getAnchorPoint: (context: ModelerExternalLabelResolveContext, element: TElement) => ModelerPoint
 }
 
 export interface ModelerExternalLabelApi {
-  resolve(context: ModelerExternalLabelResolveContext, element: ModelerElement): ModelerExternalLabelLayout | null
-  resolveBounds(context: ModelerExternalLabelResolveContext, element: ModelerElement): ModelerRect | null
-  hitTest(context: ModelerExternalLabelResolveContext, element: ModelerElement, worldPoint: ModelerPoint): boolean
-  createGeometry(context: ModelerExternalLabelResolveContext, element: ModelerElement, rect?: ModelerRect): ModelerExternalLabelGeometry | null
-  moveGeometry(geometry: ModelerExternalLabelGeometry, dx: number, dy: number): ModelerExternalLabelGeometry
-  resizeGeometry(geometry: ModelerExternalLabelGeometry, handle: string, dx: number, dy: number): ModelerExternalLabelGeometry
-  getSelected(): ModelerExternalLabelSelectedPart | null
-  select(elementId: string | null): void
-  clearSelection(): void
-  isSelected(elementId: string): boolean
-  subscribe(listener: () => void): () => void
+  resolve: (context: ModelerExternalLabelResolveContext, element: ModelerElement) => ModelerExternalLabelLayout | null
+  resolveBounds: (context: ModelerExternalLabelResolveContext, element: ModelerElement) => ModelerRect | null
+  hitTest: (context: ModelerExternalLabelResolveContext, element: ModelerElement, worldPoint: ModelerPoint) => boolean
+  createGeometry: (context: ModelerExternalLabelResolveContext, element: ModelerElement, rect?: ModelerRect) => ModelerExternalLabelGeometry | null
+  moveGeometry: (geometry: ModelerExternalLabelGeometry, dx: number, dy: number) => ModelerExternalLabelGeometry
+  resizeGeometry: (geometry: ModelerExternalLabelGeometry, handle: string, dx: number, dy: number) => ModelerExternalLabelGeometry
+  getSelected: () => ModelerExternalLabelSelectedPart | null
+  select: (elementId: string | null) => void
+  clearSelection: () => void
+  isSelected: (elementId: string) => boolean
+  subscribe: (listener: () => void) => () => void
 }

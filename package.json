@@ -1,21 +1,21 @@
 {
   "name": "@endge/nova-modeler",
-  "private": false,
-  "version": "0.29.8",
-  "license": "Apache-2.0",
   "type": "module",
-  "module": "./dist/nova-modeler.js",
-  "types": "./dist/index.d.ts",
-  "nova": {
-    "components": "./nova-components.json"
-  },
+  "version": "0.29.9",
+  "private": false,
+  "license": "Apache-2.0",
+  "sideEffects": false,
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/nova-modeler.js"
     }
   },
-  "sideEffects": false,
+  "module": "./dist/nova-modeler.js",
+  "types": "./dist/index.d.ts",
+  "nova": {
+    "components": "./nova-components.json"
+  },
   "files": [
     "dist",
     "nova-components.json"

@@ -73,13 +73,19 @@ function resolveBpmnEdgeLabelAnchor(context: ModelerExternalLabelResolveContext,
 }
 
 function resolvePathMidpoint(path: Array<ModelerPoint>): ModelerPoint | null {
-  if (path.length === 0) return null
-  if (path.length === 1) return path[0]!
+  if (path.length === 0) {
+    return null
+  }
+  if (path.length === 1) {
+    return path[0]!
+  }
   let total = 0
   for (let index = 0; index < path.length - 1; index += 1) {
     total += distance(path[index]!, path[index + 1]!)
   }
-  if (total <= 0.001) return path[0]!
+  if (total <= 0.001) {
+    return path[0]!
+  }
   const target = total / 2
   let walked = 0
   for (let index = 0; index < path.length - 1; index += 1) {

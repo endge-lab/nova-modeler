@@ -1,35 +1,23 @@
-import {
-  NovaComponentNode,
-  type NovaApp,
-  type NovaComponentCreateContext,
-  type NovaComponentDescriptor,
-  type NovaComponentNode as NovaComponentNodeType,
-  type NovaComponentSchema,
-  type NovaElementSchema,
-  type NovaElementSlots,
-  type NovaSurface,
-} from '@endge/nova'
+import type { NovaApp, NovaComponentCreateContext, NovaComponentDescriptor, NovaComponentNode as NovaComponentNodeType, NovaComponentSchema, NovaElementSchema, NovaElementSlots, NovaSurface } from '@endge/nova'
+import type { DialogDefinition, DialogProps, DialogSlotContext, NovaUiLayoutRect, NovaUiLayoutTarget } from '@endge/nova-ui-kit'
 import type { EventList } from '@endge/utils'
+import type { ModelerSettingsCategoryDefinition, ModelerSettingsDialogPayload, ModelerSettingsDialogProps, ModelerSettingsDialogResolvedProps, ModelerSettingsDialogSchema, ModelerSettingsSectionDefinition, ModelerSettingsSectionSlotContext } from '@/domain/types/index'
 import {
-  NovaUIKit,
-  NOVA_UI_LAYOUT_TARGET,
+
+  NovaComponentNode,
+
+} from '@endge/nova'
+import {
+
   findNovaUiRoot,
-  type DialogDefinition,
-  type DialogProps,
-  type DialogSlotContext,
-  type NovaUiLayoutRect,
-  type NovaUiLayoutTarget,
+  NOVA_UI_LAYOUT_TARGET,
+  NovaUIKit,
+
 } from '@endge/nova-ui-kit'
 import { Modeler } from '@/config/schema.config'
 import {
   MODELER_SETTINGS_DIALOG_TYPE,
-  type ModelerSettingsCategoryDefinition,
-  type ModelerSettingsDialogPayload,
-  type ModelerSettingsDialogProps,
-  type ModelerSettingsDialogResolvedProps,
-  type ModelerSettingsDialogSchema,
-  type ModelerSettingsSectionDefinition,
-  type ModelerSettingsSectionSlotContext,
+
 } from '@/domain/types/index'
 import { ModelerSettingsRegistry } from '@/model/settings/ModelerSettingsRegistry'
 
@@ -118,7 +106,9 @@ export class SettingsDialog<E extends EventList = Record<string, any>>
       height: rect.height,
       interactive: false,
     })
-    if (changed) this.dirty({ matrix: true, render: true })
+    if (changed) {
+      this.dirty({ matrix: true, render: true })
+    }
     return changed
   }
 
@@ -206,7 +196,7 @@ export class SettingsDialog<E extends EventList = Record<string, any>>
    * Создает body schema с левой навигацией и секциями выбранной категории.
    */
   private createDialogBody(slot: DialogSlotContext): Array<NovaElementSchema<any>> {
-    const dialogProps = slot.props as DialogProps & { width: number; height: number }
+    const dialogProps = slot.props as DialogProps & { width: number, height: number }
     const categories = this.registry.getCategories()
     const activeCategory = this.resolveActiveCategory(slot, categories)
     const sections = activeCategory ? this.registry.getSections(activeCategory.id) : []
@@ -293,7 +283,9 @@ export class SettingsDialog<E extends EventList = Record<string, any>>
       })
     }
 
-    if (sections.length === 0) children.push(this.createEmptyState(slot))
+    if (sections.length === 0) {
+      children.push(this.createEmptyState(slot))
+    }
     else {
       for (const section of sections) {
         children.push(...this.createSection(slot, category, section))

@@ -1,28 +1,26 @@
+import type { NovaApp, NovaComponentDescriptor, NovaCursorDeclaration, NovaSchema, NovaSurface, NovaTemplateChildSchema } from '@endge/nova'
+import type { EventList } from '@endge/utils'
+import type {
+  ModelerController,
+  ModelerPluginContext,
+} from '@/domain/types'
 import {
-  NovaComponent,
-  NovaComponentNode,
-  NovaTemplateRuntime,
   createNovaDecoratedComponentDescriptor,
-  type NovaApp,
-  type NovaComponentDescriptor,
-  type NovaCursorDeclaration,
-  type NovaSchema,
-  type NovaSurface,
-  type NovaTemplateChildSchema,
+
+  NovaComponent,
+
+  NovaComponentNode,
+
+  NovaTemplateRuntime,
 } from '@endge/nova'
 import { NovaUIKit } from '@endge/nova-ui-kit'
-import type { EventList } from '@endge/utils'
 import { MODELER_ASSETS } from '@/assets/modeler-assets'
+import { MODELER_CONTEXT } from '@/config/context.config'
 import { Modeler } from '@/config/schema.config'
 import {
   MODELER_THEME_FALLBACKS,
   MODELER_THEME_TOKENS,
 } from '@/config/theme.config'
-import type {
-  ModelerController,
-  ModelerPluginContext,
-} from '@/domain/types'
-import { MODELER_CONTEXT } from '@/config/context.config'
 
 export interface DownloadControlsProps {
   controller?: ModelerController | null
@@ -39,11 +37,11 @@ export interface DownloadControlsResolvedProps {
 }
 
 export interface DownloadControlsApi {
-  open(): void
-  close(): void
-  toggle(): void
-  setProps(patch: DownloadControlsProps): void
-  getProps(): Readonly<DownloadControlsResolvedProps>
+  open: () => void
+  close: () => void
+  toggle: () => void
+  setProps: (patch: DownloadControlsProps) => void
+  getProps: () => Readonly<DownloadControlsResolvedProps>
 }
 
 export type DownloadControlsDescriptor = NovaComponentDescriptor<
@@ -181,10 +179,10 @@ export class DownloadControls<E extends EventList = Record<string, any>>
   }
 
   private setupEvents(): void {
-    this.on('mouseenter', event => {
+    this.on('mouseenter', (event) => {
       this.syncHover(event)
     })
-    this.on('mousemove', event => {
+    this.on('mousemove', (event) => {
       this.syncHover(event)
     })
     this.on('mouseleave', () => {
@@ -193,8 +191,10 @@ export class DownloadControls<E extends EventList = Record<string, any>>
       this.setCursor(null)
       this.dirty({ render: true })
     })
-    this.on('mousedown', event => {
-      if (!this.props.visible) return false
+    this.on('mousedown', (event) => {
+      if (!this.props.visible) {
+        return false
+      }
       const point = this.events.getCanvasMousePosition(event)
       const [localX, localY] = this.toLocal(point.x, point.y)
       if (this.containsButton(localX, localY)) {
@@ -213,12 +213,16 @@ export class DownloadControls<E extends EventList = Record<string, any>>
   }
 
   private syncHover(event: MouseEvent): void {
-    if (!this.props.visible) return
+    if (!this.props.visible) {
+      return
+    }
     const point = this.events.getCanvasMousePosition(event)
     const [localX, localY] = this.toLocal(point.x, point.y)
     const nextButton = this.containsButton(localX, localY)
     const nextItemId = this.resolveMenuItem(localX, localY)?.id ?? null
-    if (nextButton === this.hoveredButton && nextItemId === this.hoveredItemId) return
+    if (nextButton === this.hoveredButton && nextItemId === this.hoveredItemId) {
+      return
+    }
     this.hoveredButton = nextButton
     this.hoveredItemId = nextItemId
     this.setCursor(nextButton || !!nextItemId ? 'button' : null)
@@ -226,7 +230,9 @@ export class DownloadControls<E extends EventList = Record<string, any>>
   }
 
   private setOpen(open: boolean): void {
-    if (this.openMenu === open) return
+    if (this.openMenu === open) {
+      return
+    }
     this.openMenu = open
     this.hoveredItemId = null
     this.syncFrame()
@@ -245,7 +251,7 @@ export class DownloadControls<E extends EventList = Record<string, any>>
     })
   }
 
-  private resolveFrameSize(): { width: number; height: number } {
+  private resolveFrameSize(): { width: number, height: number } {
     if (this.openMenu) {
       return {
         width: this.surface.width,
@@ -407,7 +413,9 @@ export class DownloadControls<E extends EventList = Record<string, any>>
   }
 
   private resolveMenuItem(x: number, y: number): DownloadMenuItemLayout | null {
-    if (!this.openMenu) return null
+    if (!this.openMenu) {
+      return null
+    }
     return this.resolveMenuItems().find(item => (
       x >= item.x
       && x <= item.x + item.width

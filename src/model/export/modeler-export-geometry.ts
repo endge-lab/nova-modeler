@@ -17,7 +17,9 @@ export class ModelerExportGeometry {
    * Возвращает полный путь edge с учетом виртуальных якорей элементов.
    */
   resolveEdgePath(model: ModelerModel, edge: ModelerEdgeElement, context?: ModelerPluginContext): Array<ModelerPoint> {
-    if (context) return MODEL_ELEMENTS_RUNTIME.edges.createPath(context, edge)
+    if (context) {
+      return MODEL_ELEMENTS_RUNTIME.edges.createPath(context, edge)
+    }
     const lookup = new Map(model.elements.map(element => [element.id, element]))
     const sourceReference = edge.waypoints[0]
       ?? this.resolveEndpointReference(lookup.get(edge.target.elementId ?? ''), edge.target.point)
@@ -57,7 +59,9 @@ export class ModelerExportGeometry {
   }
 
   private resolvePathBounds(path: Array<ModelerPoint>): ModelerRect {
-    if (path.length === 0) return { x: 0, y: 0, width: 1, height: 1 }
+    if (path.length === 0) {
+      return { x: 0, y: 0, width: 1, height: 1 }
+    }
     let minX = Number.POSITIVE_INFINITY
     let minY = Number.POSITIVE_INFINITY
     let maxX = Number.NEGATIVE_INFINITY
@@ -77,7 +81,9 @@ export class ModelerExportGeometry {
   }
 
   private resolveEndpointReference(element: ModelerElement | undefined, point: ModelerPoint | undefined): ModelerPoint | undefined {
-    if (element) return this.elementCenter(element)
+    if (element) {
+      return this.elementCenter(element)
+    }
     return point ? { ...point } : undefined
   }
 
@@ -86,7 +92,9 @@ export class ModelerExportGeometry {
     point: ModelerPoint | undefined,
     reference: ModelerPoint | undefined,
   ): ModelerPoint {
-    if (!element) return point ? { ...point } : { x: 0, y: 0 }
+    if (!element) {
+      return point ? { ...point } : { x: 0, y: 0 }
+    }
     return MODEL_ELEMENTS_RUNTIME.anchors.resolveElementAnchor(element, reference)
   }
 

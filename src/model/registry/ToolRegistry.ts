@@ -18,8 +18,12 @@ export class ToolRegistry {
   register(definition: ModelerToolDefinition): () => void {
     this.items.set(definition.id, definition)
     return () => {
-      if (this.items.get(definition.id) !== definition) return
-      if (this.activeId === definition.id) this.deactivate(definition.id)
+      if (this.items.get(definition.id) !== definition) {
+        return
+      }
+      if (this.activeId === definition.id) {
+        this.deactivate(definition.id)
+      }
       this.items.delete(definition.id)
     }
   }
@@ -34,10 +38,16 @@ export class ToolRegistry {
 
   activate(id: string): boolean {
     const next = this.items.get(id)
-    if (!next) return false
-    if (this.activeId === id) return true
+    if (!next) {
+      return false
+    }
+    if (this.activeId === id) {
+      return true
+    }
     const current = this.getActive()
-    if (current) current.deactivate?.(this.getContext())
+    if (current) {
+      current.deactivate?.(this.getContext())
+    }
     this.activeId = id
     next.activate?.(this.getContext())
     this.invalidate()
@@ -46,8 +56,12 @@ export class ToolRegistry {
   }
 
   deactivate(id?: string): boolean {
-    if (!this.activeId) return false
-    if (id && this.activeId !== id) return false
+    if (!this.activeId) {
+      return false
+    }
+    if (id && this.activeId !== id) {
+      return false
+    }
     const current = this.getActive()
     this.activeId = null
     current?.deactivate?.(this.getContext())
@@ -66,9 +80,13 @@ export class ToolRegistry {
 
   createAt(id: string, point: ModelerPoint): ModelerElement | undefined {
     const tool = this.items.get(id)
-    if (!tool?.createAt) return undefined
+    if (!tool?.createAt) {
+      return undefined
+    }
     const element = tool.createAt(this.getContext(), point)
-    if (tool.oneShot !== false) this.deactivate(id)
+    if (tool.oneShot !== false) {
+      this.deactivate(id)
+    }
     return element
   }
 

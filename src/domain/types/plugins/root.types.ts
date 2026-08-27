@@ -10,8 +10,8 @@ import type {
   ModelerOptionsRef,
 } from '@/domain/types/model/options.types'
 import type { ModelerController } from '@/domain/types/plugins/controller.types'
-import type { ModelerPlugin } from '@/domain/types/plugins/plugin.types'
 import type { ModelerPluginRuntime } from '@/domain/types/plugins/plugin-runtime.types'
+import type { ModelerPlugin } from '@/domain/types/plugins/plugin.types'
 
 export interface ModelerRootProps {
   model: ModelerModel | ModelerModelInput
@@ -44,9 +44,9 @@ export interface ModelerRootResolvedProps {
 }
 
 export interface ModelerRootApi {
-  getModel(): ModelerModel
-  setModel(model: ModelerModel | ModelerModelInput): void
-  getViewport(): ModelerViewport
-  setViewport(viewport: Partial<ModelerViewport>): ModelerModel
-  fitView(): ModelerViewport
+  getModel: () => ModelerModel
+  setModel: (model: ModelerModel | ModelerModelInput) => void
+  getViewport: () => ModelerViewport
+  setViewport: (viewport: Partial<ModelerViewport>) => ModelerModel
+  fitView: () => ModelerViewport
 }

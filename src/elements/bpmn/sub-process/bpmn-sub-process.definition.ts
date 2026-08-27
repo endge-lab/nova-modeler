@@ -1,9 +1,13 @@
-import { Modeler } from '@/config/schema.config'
 import type {
   ModelerElementDefinition,
   ModelerElementRenderContext,
   ModelerPoint,
 } from '@/domain/types/index'
+import type {
+  BpmnSubProcessElement,
+  BpmnSubProcessElementInput,
+} from '@/elements/bpmn/sub-process/bpmn-sub-process.types'
+import { Modeler } from '@/config/schema.config'
 import { BpmnActivityVariantProvider } from '@/elements/bpmn/activity/bpmn-activity.variants'
 import {
   BPMN_SUB_PROCESS_DEFAULT_HEIGHT,
@@ -15,10 +19,6 @@ import {
   normalizeBpmnSubProcessType,
 } from '@/elements/bpmn/sub-process/bpmn-sub-process.factory'
 import { createBpmnSubProcessPorts } from '@/elements/bpmn/sub-process/bpmn-sub-process.ports'
-import type {
-  BpmnSubProcessElement,
-  BpmnSubProcessElementInput,
-} from '@/elements/bpmn/sub-process/bpmn-sub-process.types'
 
 export const BpmnSubProcessDefinition: ModelerElementDefinition<BpmnSubProcessElement> = {
   type: BPMN_SUB_PROCESS_TYPE,
@@ -65,9 +65,15 @@ export const BpmnSubProcessDefinition: ModelerElementDefinition<BpmnSubProcessEl
 
 function resolveBpmnSubProcessTooltip(element: BpmnSubProcessElement): string {
   const type = normalizeBpmnSubProcessType(element.data?.subProcessType)
-  if (type === 'event') return 'Event sub-process'
-  if (type === 'transaction') return 'Transaction'
-  if (type === 'adHoc') return 'Ad-hoc sub-process'
+  if (type === 'event') {
+    return 'Event sub-process'
+  }
+  if (type === 'transaction') {
+    return 'Transaction'
+  }
+  if (type === 'adHoc') {
+    return 'Ad-hoc sub-process'
+  }
   return 'Sub-process'
 }
 

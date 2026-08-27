@@ -1,7 +1,7 @@
-import { PluginBase } from '@/model/plugin-runtime/PluginBase'
+import type { ModelerPluginContext } from '@/domain/types'
 import { BrowserDownloadAdapter } from '@/model/export/BrowserDownloadAdapter'
 import { ModelerExportService } from '@/model/export/ModelerExportService'
-import type { ModelerPluginContext } from '@/domain/types'
+import { PluginBase } from '@/model/plugin-runtime/PluginBase'
 
 export class CoreActionsPlugin extends PluginBase {
   static readonly ID = 'modeler-core-actions'
@@ -16,16 +16,18 @@ export class CoreActionsPlugin extends PluginBase {
     this.addDisposer(this.context.actions.register({
       id: 'selection.delete',
       title: 'Delete selected elements',
-      run: context => {
+      run: (context) => {
         const ids = context.getModel().selection
-        if (ids.length === 0) return
+        if (ids.length === 0) {
+          return
+        }
         context.applyCommand({ type: 'element.deleteMany', ids })
       },
     }))
     this.addDisposer(this.context.actions.register({
       id: 'modeler.export.bpmn',
       title: 'Export BPMN',
-      run: context => {
+      run: (context) => {
         const file = new ModelerExportService(context).exportBpmn()
         this.downloadAdapter.download(file.blob, file.fileName)
       },
@@ -33,7 +35,7 @@ export class CoreActionsPlugin extends PluginBase {
     this.addDisposer(this.context.actions.register({
       id: 'modeler.export.png',
       title: 'Export PNG',
-      run: context => {
+      run: (context) => {
         void this.downloadPng(context)
       },
     }))

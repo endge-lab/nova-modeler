@@ -1,9 +1,14 @@
-import { Modeler } from '@/config/schema.config'
 import type {
   ModelerElementDefinition,
   ModelerElementRenderContext,
   ModelerPoint,
 } from '@/domain/types/index'
+import type {
+  BpmnEventElement,
+  BpmnEventElementInput,
+} from '@/elements/bpmn/event/bpmn-event.types'
+import { Modeler } from '@/config/schema.config'
+import { createBpmnNodeExternalLabelAdapter } from '@/elements/bpmn/bpmn-external-label'
 import {
   BPMN_EVENT_DEFAULT_SIZE,
   BPMN_EVENT_TYPE,
@@ -15,11 +20,6 @@ import {
 } from '@/elements/bpmn/event/bpmn-event.label'
 import { createBpmnEventPorts } from '@/elements/bpmn/event/bpmn-event.ports'
 import { BpmnEventVariantProvider } from '@/elements/bpmn/event/bpmn-event.variants'
-import { createBpmnNodeExternalLabelAdapter } from '@/elements/bpmn/bpmn-external-label'
-import type {
-  BpmnEventElement,
-  BpmnEventElementInput,
-} from '@/elements/bpmn/event/bpmn-event.types'
 
 export const BpmnEventDefinition: ModelerElementDefinition<BpmnEventElement> = {
   type: BPMN_EVENT_TYPE,
@@ -85,9 +85,15 @@ export const BpmnEventDefinition: ModelerElementDefinition<BpmnEventElement> = {
 }
 
 function resolveBpmnEventTooltip(element: BpmnEventElement): string {
-  if (element.data?.name) return element.data.name
-  if (element.data?.eventPosition === 'end') return 'End event'
-  if (element.data?.eventPosition === 'intermediate') return 'Intermediate event'
+  if (element.data?.name) {
+    return element.data.name
+  }
+  if (element.data?.eventPosition === 'end') {
+    return 'End event'
+  }
+  if (element.data?.eventPosition === 'intermediate') {
+    return 'Intermediate event'
+  }
   return 'Start event'
 }
 
@@ -97,7 +103,9 @@ function containsBpmnEventPoint(element: BpmnEventElement, point: ModelerPoint):
   const centerY = element.y + element.height / 2
   const dx = point.x - centerX
   const dy = point.y - centerY
-  if (dx * dx + dy * dy <= radius * radius) return true
+  if (dx * dx + dy * dy <= radius * radius) {
+    return true
+  }
   const layout = resolveBpmnEventNameLayout({
     name: element.data?.name,
     width: element.width,

@@ -1,30 +1,6 @@
-import {
-  NovaComponent,
-  NovaComponentNode,
-  NovaTemplateRuntime,
-  Prop,
-  createNovaDecoratedComponentDescriptor,
-  type NovaApp,
-  type NovaSchema,
-  type NovaSurface,
-} from '@endge/nova'
+import type { NovaApp, NovaSchema, NovaSurface } from '@endge/nova'
+import type { ColorPickerPreset, ColorPickerValueContext } from '@endge/nova-ui-kit'
 import type { EventList } from '@endge/utils'
-import {
-  NovaUIKit,
-  resolveColorPickerHeight,
-  type ColorPickerPreset,
-  type ColorPickerValueContext,
-} from '@endge/nova-ui-kit'
-import { Modeler } from '@/config/schema.config'
-import { MODELER_CONTEXT } from '@/config/context.config'
-import {
-  BPMN_PARTICIPANT_TYPE,
-  patchBpmnParticipantLaneStyle,
-} from '@/elements/bpmn/participant/bpmn-participant.factory'
-import type {
-  BpmnParticipantElement,
-  BpmnParticipantLane,
-} from '@/elements/bpmn/participant/bpmn-participant.types'
 import type {
   ElementColorMenuApi,
   ElementColorMenuDescriptor,
@@ -35,6 +11,30 @@ import type {
   ModelerElementDefinition,
   ModelerRect,
 } from '@/domain/types'
+import type {
+  BpmnParticipantElement,
+  BpmnParticipantLane,
+} from '@/elements/bpmn/participant/bpmn-participant.types'
+import {
+  createNovaDecoratedComponentDescriptor,
+
+  NovaComponent,
+  NovaComponentNode,
+
+  NovaTemplateRuntime,
+  Prop,
+} from '@endge/nova'
+import {
+
+  NovaUIKit,
+  resolveColorPickerHeight,
+} from '@endge/nova-ui-kit'
+import { MODELER_CONTEXT } from '@/config/context.config'
+import { Modeler } from '@/config/schema.config'
+import {
+  BPMN_PARTICIPANT_TYPE,
+  patchBpmnParticipantLaneStyle,
+} from '@/elements/bpmn/participant/bpmn-participant.factory'
 
 const MENU_WIDTH = 300
 const MENU_PADDING = 16
@@ -118,7 +118,9 @@ export class ElementColorMenu<E extends EventList = Record<string, any>>
   }
 
   override containsPoint(x: number, y: number): boolean {
-    if (!this.props.visible || !this.resolveElement()) return false
+    if (!this.props.visible || !this.resolveElement()) {
+      return false
+    }
     const rect = this.resolveMenuRect()
     return x >= rect.x && x <= rect.x + rect.width && y >= rect.y && y <= rect.y + rect.height
   }
@@ -130,7 +132,9 @@ export class ElementColorMenu<E extends EventList = Record<string, any>>
 
   private createSchema(): NovaSchema {
     const element = this.resolveElement()
-    if (!this.props.visible || !element) return []
+    if (!this.props.visible || !element) {
+      return []
+    }
     const rect = this.resolveMenuRect()
     const schema: NovaSchema = [{
       type: 'rect',
@@ -196,7 +200,9 @@ export class ElementColorMenu<E extends EventList = Record<string, any>>
   private applyColor(value: string, context?: ColorPickerValueContext): void {
     const modeler = this.props.controller ?? this.injectOptional(MODELER_CONTEXT)
     const element = this.resolveElement()
-    if (!modeler || !element) return
+    if (!modeler || !element) {
+      return
+    }
     const lane = this.resolveLane(element)
     if (lane && element.type === BPMN_PARTICIPANT_TYPE) {
       modeler.applyCommand({
@@ -234,40 +240,54 @@ export class ElementColorMenu<E extends EventList = Record<string, any>>
   }
 
   private resolveColorMode(): 'fill' | 'stroke' {
-    if (this.props.part?.partType === 'bpmn.swimlane.lane') return 'fill'
+    if (this.props.part?.partType === 'bpmn.swimlane.lane') {
+      return 'fill'
+    }
     const definition = this.resolveElementDefinition()
     const colorable = definition?.capabilities?.colorable
-    if (colorable && colorable.stroke === true && colorable.fill !== true) return 'stroke'
+    if (colorable && colorable.stroke === true && colorable.fill !== true) {
+      return 'stroke'
+    }
     return 'fill'
   }
 
   private resolveElementDefinition(): ModelerElementDefinition | null {
     const context = this.props.controller ?? this.injectOptional(MODELER_CONTEXT)
     const element = this.resolveElement()
-    if (!context || !element) return null
+    if (!context || !element) {
+      return null
+    }
     return context.getElementRegistry().get(element.type) ?? null
   }
 
   private resolveElement(): ModelerElement | null {
     const context = this.props.controller ?? this.injectOptional(MODELER_CONTEXT)
-    if (!context || !this.props.elementId) return null
+    if (!context || !this.props.elementId) {
+      return null
+    }
     return context.getModel().elements.find(item => item.id === this.props.elementId) ?? null
   }
 
   private resolveLane(element: ModelerElement): BpmnParticipantLane | null {
-    if (element.type !== BPMN_PARTICIPANT_TYPE || this.props.part?.partType !== 'bpmn.swimlane.lane') return null
+    if (element.type !== BPMN_PARTICIPANT_TYPE || this.props.part?.partType !== 'bpmn.swimlane.lane') {
+      return null
+    }
     const participant = element as BpmnParticipantElement
     return participant.data?.lanes.find(lane => lane.id === this.props.part?.partId) ?? null
   }
 
   private resolveTitle(): string {
-    if (this.props.part?.partType === 'bpmn.swimlane.lane') return 'Lane color'
+    if (this.props.part?.partType === 'bpmn.swimlane.lane') {
+      return 'Lane color'
+    }
     return this.resolveColorMode() === 'stroke' ? 'Stroke color' : 'Fill color'
   }
 
   private resolveValue(element: ModelerElement): string {
     const lane = this.resolveLane(element)
-    if (lane) return lane.style?.fill ?? '#ffffff'
+    if (lane) {
+      return lane.style?.fill ?? '#ffffff'
+    }
     return this.resolveColorMode() === 'stroke'
       ? element.style?.stroke ?? '#3f3f46'
       : element.style?.fill ?? '#ffffff'

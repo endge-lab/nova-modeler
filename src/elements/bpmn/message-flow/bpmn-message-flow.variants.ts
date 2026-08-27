@@ -1,18 +1,18 @@
-import { MODELER_ASSETS } from '@/assets/modeler-assets'
 import type {
   BpmnGlobalDefinition,
   ModelerElementVariantProvider,
 } from '@/domain/types/index'
+import type {
+  BpmnMessageFlowElement,
+} from '@/elements/bpmn/message-flow/bpmn-message-flow.types'
+import { MODELER_ASSETS } from '@/assets/modeler-assets'
+import {
+  BPMN_MESSAGE_FLOW_TYPE,
+} from '@/elements/bpmn/message-flow/bpmn-message-flow.factory'
 import {
   createBpmnGlobalDefinition,
   defaultBpmnGlobalDefinitionName,
 } from '@/model/bpmn-definitions'
-import {
-  BPMN_MESSAGE_FLOW_TYPE,
-} from '@/elements/bpmn/message-flow/bpmn-message-flow.factory'
-import type {
-  BpmnMessageFlowElement,
-} from '@/elements/bpmn/message-flow/bpmn-message-flow.types'
 
 const CREATE_MESSAGE_ID = '__create-message-definition__'
 
@@ -71,7 +71,9 @@ export const BpmnMessageFlowVariantProvider: ModelerElementVariantProvider<BpmnM
       const definition = option.data?.createMessageDefinition === true
         ? createAndStoreMessageDefinition(context.getModel().bpmnDefinitions, context.applyCommand, element)
         : context.getModel().bpmnDefinitions.find(item => item.kind === 'message' && item.id === option.data?.messageRef)
-      if (!definition) return
+      if (!definition) {
+        return
+      }
       context.applyCommand({
         type: 'element.patch',
         id: element.id,
@@ -79,7 +81,9 @@ export const BpmnMessageFlowVariantProvider: ModelerElementVariantProvider<BpmnM
       })
       return
     }
-    if (control.id !== 'definitionName') return
+    if (control.id !== 'definitionName') {
+      return
+    }
     const existing = resolveSelectedMessageDefinition(context.getModel().bpmnDefinitions, element.data?.messageRef)
       ?? createAndStoreMessageDefinition(context.getModel().bpmnDefinitions, context.applyCommand, element)
     const name = String(option.data?.definitionName ?? option.title ?? '').trim() || defaultBpmnGlobalDefinitionName('message')

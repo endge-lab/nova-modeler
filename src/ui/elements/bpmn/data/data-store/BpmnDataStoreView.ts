@@ -1,26 +1,28 @@
-import {
-  NovaComponent,
-  NovaComponentNode,
-  Prop,
-  createNovaDecoratedComponentDescriptor,
-  type NovaApp,
-  type NovaComponentDescriptor,
-  type NovaSchema,
-  type NovaSurface,
-} from '@endge/nova'
+import type { NovaApp, NovaComponentDescriptor, NovaSchema, NovaSurface } from '@endge/nova'
 import type { EventList } from '@endge/utils'
+import type { ModelerThemeTokenKey } from '@/config/theme.config'
+import type { ModelerViewport } from '@/domain/types'
+import type { BpmnDataStoreElement } from '@/elements/bpmn/data/data-store/bpmn-data-store.types'
+import type { BpmnTaskNameLayout } from '@/ui/elements/bpmn/task/BpmnTaskView'
+import {
+  createNovaDecoratedComponentDescriptor,
+
+  NovaComponent,
+
+  NovaComponentNode,
+
+  Prop,
+} from '@endge/nova'
 import { MODELER_ASSETS } from '@/assets/modeler-assets'
 import { Modeler } from '@/config/schema.config'
 import {
   MODELER_THEME_FALLBACKS,
   MODELER_THEME_TOKENS,
-  type ModelerThemeTokenKey,
+
 } from '@/config/theme.config'
-import type { ModelerViewport } from '@/domain/types'
-import type { BpmnDataStoreElement } from '@/elements/bpmn/data/data-store/bpmn-data-store.types'
 import {
+
   resolveBpmnTaskNameLayout,
-  type BpmnTaskNameLayout,
 } from '@/ui/elements/bpmn/task/BpmnTaskView'
 
 export interface BpmnDataStoreViewProps {
@@ -136,7 +138,9 @@ export class BpmnDataStoreView<E extends EventList = Record<string, any>>
         },
       })
     }
-    if (!this.props.hideName) this.appendLabel(schema)
+    if (!this.props.hideName) {
+      this.appendLabel(schema)
+    }
     return schema
   }
 

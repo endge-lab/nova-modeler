@@ -1,15 +1,16 @@
-import { NovaHitIndex, type NovaBounds } from '@endge/nova'
+import type { NovaBounds } from '@endge/nova'
 import type {
   ModelerEdgeElement,
   ModelerElement,
   ModelerLayout,
   ModelerRect,
+  ModelerViewport,
   ModelerVisibilityApi,
   ModelerVisibilityDiagnostics,
   ModelerVisibilityResolveInput,
   ModelerVisibleElementsSnapshot,
-  ModelerViewport,
 } from '@/domain/types/index'
+import { NovaHitIndex } from '@endge/nova'
 import { isModelerEdgeElement } from '@/domain/types/index'
 
 const DEFAULT_VIEWPORT_PADDING = 512
@@ -19,11 +20,11 @@ const EDGE_ROUTE_PADDING = 160
 
 export class ModelerVisibilityRuntime implements ModelerVisibilityApi {
   private readonly nodeIndex = new NovaHitIndex<ModelerElement>({
-    getBounds: (element) => this.resolveNodeBounds(element),
+    getBounds: element => this.resolveNodeBounds(element),
   })
 
   private readonly edgeIndex = new NovaHitIndex<ModelerElement>({
-    getBounds: (element) => this.resolveEdgeBounds(element),
+    getBounds: element => this.resolveEdgeBounds(element),
   })
 
   private readonly elementsById = new Map<string, ModelerElement>()
@@ -55,17 +56,24 @@ export class ModelerVisibilityRuntime implements ModelerVisibilityApi {
     const forcedNodeMap = new Map<string, ModelerElement>()
     const forcedEdgeMap = new Map<string, ModelerElement>()
 
-    for (const element of nodeCandidates) nodeMap.set(element.id, element)
-    for (const element of edgeCandidates) edgeMap.set(element.id, element)
+    for (const element of nodeCandidates) {
+      nodeMap.set(element.id, element)
+    }
+    for (const element of edgeCandidates) {
+      edgeMap.set(element.id, element)
+    }
 
     for (const id of forcedIds) {
       const element = this.elementsById.get(id)
-      if (!element) continue
+      if (!element) {
+        continue
+      }
       const isEdge = input.classifier.isEdge(element)
       if (isEdge) {
         edgeMap.set(element.id, element)
         forcedEdgeMap.set(element.id, element)
-      } else {
+      }
+      else {
         nodeMap.set(element.id, element)
         forcedNodeMap.set(element.id, element)
       }
@@ -81,32 +89,42 @@ export class ModelerVisibilityRuntime implements ModelerVisibilityApi {
 
     for (const element of nodes) {
       if (
-        input.useBpmnRecipes &&
-        input.classifier.isRecipeRenderable(element) &&
-        !selectedIds.has(element.id) &&
-        connectionTargetId !== element.id &&
-        !forcedNodeMap.has(element.id)
+        input.useBpmnRecipes
+        && input.classifier.isRecipeRenderable(element)
+        && !selectedIds.has(element.id)
+        && connectionTargetId !== element.id
+        && !forcedNodeMap.has(element.id)
       ) {
         recipeNodes.push(element)
         continue
       }
-      if (input.useBpmnRecipes && input.classifier.isRecipeNodeType(element.type)) schemaFallbacks += 1
+      if (input.useBpmnRecipes && input.classifier.isRecipeNodeType(element.type)) {
+        schemaFallbacks += 1
+      }
       schemaNodes.push(element)
     }
 
     const visibleRecipeIds = new Set(recipeNodes.map(element => element.id))
     let totalRecipeCandidates = 0
     for (const element of this.indexedNodes) {
-      if (!input.classifier.isRecipeRenderable(element)) continue
-      if (selectedIds.has(element.id) || connectionTargetId === element.id) continue
+      if (!input.classifier.isRecipeRenderable(element)) {
+        continue
+      }
+      if (selectedIds.has(element.id) || connectionTargetId === element.id) {
+        continue
+      }
       totalRecipeCandidates += 1
     }
     const culledRecipeElements = input.useBpmnRecipes
       ? Math.max(0, totalRecipeCandidates - visibleRecipeIds.size)
       : 0
     const visibleIds = new Set<string>()
-    for (const element of nodes) visibleIds.add(element.id)
-    for (const element of edges) visibleIds.add(element.id)
+    for (const element of nodes) {
+      visibleIds.add(element.id)
+    }
+    for (const element of edges) {
+      visibleIds.add(element.id)
+    }
     const nextSignature = createVisibilitySignature(nodes, edges, recipeNodes, schemaNodes, forcedIds)
     if (nextSignature !== this.signature) {
       this.signature = nextSignature
@@ -169,8 +187,8 @@ export class ModelerVisibilityRuntime implements ModelerVisibilityApi {
 
   private ensureIndexes(input: ModelerVisibilityResolveInput): void {
     if (
-      this.indexedModelId === input.model.id &&
-      this.indexedElementsVersion === input.model.elementsVersion
+      this.indexedModelId === input.model.id
+      && this.indexedElementsVersion === input.model.elementsVersion
     ) {
       return
     }
@@ -184,8 +202,10 @@ export class ModelerVisibilityRuntime implements ModelerVisibilityApi {
 
     for (const element of input.model.elements) {
       this.elementsById.set(element.id, element)
-      if (input.classifier.isEdge(element)) this.indexedEdges.push(element)
-      else this.indexedNodes.push(element)
+      if (input.classifier.isEdge(element)) {
+        this.indexedEdges.push(element)
+      }
+      else { this.indexedNodes.push(element) }
     }
 
     this.nodeIndex.rebuild(this.indexedNodes)
@@ -195,12 +215,22 @@ export class ModelerVisibilityRuntime implements ModelerVisibilityApi {
 
   private resolveForcedIds(input: ModelerVisibilityResolveInput): Set<string> {
     const forcedIds = new Set<string>()
-    for (const id of input.selectedIds ?? []) forcedIds.add(id)
-    if (input.connectionTargetId) forcedIds.add(input.connectionTargetId)
-    if (input.edgeSegmentHoverElementId) forcedIds.add(input.edgeSegmentHoverElementId)
-    if (input.contextPadTargetId) forcedIds.add(input.contextPadTargetId)
+    for (const id of input.selectedIds ?? []) {
+      forcedIds.add(id)
+    }
+    if (input.connectionTargetId) {
+      forcedIds.add(input.connectionTargetId)
+    }
+    if (input.edgeSegmentHoverElementId) {
+      forcedIds.add(input.edgeSegmentHoverElementId)
+    }
+    if (input.contextPadTargetId) {
+      forcedIds.add(input.contextPadTargetId)
+    }
     for (const id of input.forcedIds ?? []) {
-      if (id) forcedIds.add(id)
+      if (id) {
+        forcedIds.add(id)
+      }
     }
     return forcedIds
   }
@@ -216,9 +246,13 @@ export class ModelerVisibilityRuntime implements ModelerVisibilityApi {
   }
 
   private resolveEdgeBounds(element: ModelerElement): NovaBounds {
-    if (!isModelerEdgeElement(element)) return this.resolveNodeBounds(element)
+    if (!isModelerEdgeElement(element)) {
+      return this.resolveNodeBounds(element)
+    }
     const points = resolveEdgeRoutePoints(element)
-    if (points.length === 0) return this.resolveNodeBounds(element)
+    if (points.length === 0) {
+      return this.resolveNodeBounds(element)
+    }
     let minX = Number.POSITIVE_INFINITY
     let minY = Number.POSITIVE_INFINITY
     let maxX = Number.NEGATIVE_INFINITY
@@ -246,7 +280,9 @@ export class ModelerVisibilityRuntime implements ModelerVisibilityApi {
 }
 
 function unionBounds(a: NovaBounds, b: ModelerRect | null | undefined): NovaBounds {
-  if (!b) return a
+  if (!b) {
+    return a
+  }
   const x = Math.min(a.x, b.x)
   const y = Math.min(a.y, b.y)
   const right = Math.max(a.x + a.width, b.x + b.width)
@@ -275,16 +311,22 @@ export function createModelerVisibleWorldRect(
 }
 
 function resolveViewportPadding(maxWorldPadding: number, scale: number): number {
-  if (maxWorldPadding <= 0) return 0
+  if (maxWorldPadding <= 0) {
+    return 0
+  }
   const screenPadding = DEFAULT_VIEWPORT_SCREEN_PADDING / scale
   return Math.min(maxWorldPadding, Math.max(MIN_VIEWPORT_PADDING, screenPadding))
 }
 
-function resolveEdgeRoutePoints(element: ModelerEdgeElement): Array<{ x: number; y: number }> {
-  const points: Array<{ x: number; y: number }> = []
-  if (element.source.point) points.push(element.source.point)
+function resolveEdgeRoutePoints(element: ModelerEdgeElement): Array<{ x: number, y: number }> {
+  const points: Array<{ x: number, y: number }> = []
+  if (element.source.point) {
+    points.push(element.source.point)
+  }
   points.push(...element.waypoints)
-  if (element.target.point) points.push(element.target.point)
+  if (element.target.point) {
+    points.push(element.target.point)
+  }
   return points
 }
 

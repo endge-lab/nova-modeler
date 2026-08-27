@@ -1,18 +1,18 @@
 import type { NovaTemplateChildSchema } from '@endge/nova'
 import type { TooltipInput } from '@endge/nova-ui-kit'
 import type { ModelerElementCapabilities } from '@/domain/types/elements/element-capability.types'
+import type { ModelerElementVariantProvider } from '@/domain/types/elements/element-variant.types'
 import type {
   ModelerElement,
   ModelerElementInput,
 } from '@/domain/types/elements/element.types'
-import type { ModelerElementVariantProvider } from '@/domain/types/elements/element-variant.types'
 import type { ModelerHitTarget } from '@/domain/types/interaction/hit-target.types'
 import type { ModelerExternalLabelAdapter } from '@/domain/types/model/external-label.types'
-import type { ModelerKeyboardShortcut } from '@/domain/types/shortcut.types'
 import type { ModelerPoint } from '@/domain/types/model/geometry.types'
 import type { ModelerPaletteItemDefinition } from '@/domain/types/palette.types'
 import type { ModelerPluginContext } from '@/domain/types/plugins/plugin.types'
 import type { ModelerPort } from '@/domain/types/port.types'
+import type { ModelerKeyboardShortcut } from '@/domain/types/shortcut.types'
 
 export interface ModelerElementRenderContext extends ModelerPluginContext {
   selected: boolean
@@ -20,7 +20,7 @@ export interface ModelerElementRenderContext extends ModelerPluginContext {
 
 export type ModelerRenderBand = 'containers' | 'links' | 'nodes'
 export type ModelerRenderBandResolver<TElement extends ModelerElement = ModelerElement> = {
-  resolve(context: ModelerPluginContext, element: TElement): ModelerRenderBand
+  resolve: (context: ModelerPluginContext, element: TElement) => ModelerRenderBand
 }['resolve']
 
 export interface ModelerElementPortContext extends ModelerPluginContext {}
@@ -35,7 +35,7 @@ export interface ModelerElementCreateToolDefinition<TElement extends ModelerElem
   tooltip?: TooltipInput
   palette?: Partial<ModelerPaletteItemDefinition>
   shortcuts?: Array<ModelerKeyboardShortcut>
-  create(input: ModelerElementInput): TElement
+  create: (input: ModelerElementInput) => TElement
 }
 
 export interface ModelerElementDefinition<TElement extends ModelerElement = ModelerElement> {
@@ -49,10 +49,10 @@ export interface ModelerElementDefinition<TElement extends ModelerElement = Mode
   createTools?: Array<ModelerElementCreateToolDefinition<TElement>>
   variantProvider?: ModelerElementVariantProvider<TElement>
   externalLabel?: ModelerExternalLabelAdapter<TElement>
-  normalize?(element: TElement): TElement
-  render(context: ModelerElementRenderContext, element: TElement): NovaTemplateChildSchema
-  getPorts?(context: ModelerElementPortContext, element: TElement): Array<ModelerPort>
-  hitTest?(context: ModelerElementHitTestContext, element: TElement, localPoint: ModelerPoint): boolean
-  hitTestPart?(context: ModelerElementHitTestContext, element: TElement, localPoint: ModelerPoint): ModelerHitTarget | null | undefined
-  getTooltip?(context: ModelerElementHitTestContext, element: TElement): TooltipInput | null | undefined
+  normalize?: (element: TElement) => TElement
+  render: (context: ModelerElementRenderContext, element: TElement) => NovaTemplateChildSchema
+  getPorts?: (context: ModelerElementPortContext, element: TElement) => Array<ModelerPort>
+  hitTest?: (context: ModelerElementHitTestContext, element: TElement, localPoint: ModelerPoint) => boolean
+  hitTestPart?: (context: ModelerElementHitTestContext, element: TElement, localPoint: ModelerPoint) => ModelerHitTarget | null | undefined
+  getTooltip?: (context: ModelerElementHitTestContext, element: TElement) => TooltipInput | null | undefined
 }

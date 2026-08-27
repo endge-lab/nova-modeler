@@ -1,24 +1,25 @@
-import {
-  NovaComponent,
-  NovaComponentNode,
-  Prop,
-  createNovaDecoratedComponentDescriptor,
-  type NovaApp,
-  type NovaComponentDescriptor,
-  type NovaSchema,
-  type NovaSurface,
-} from '@endge/nova'
+import type { NovaApp, NovaComponentDescriptor, NovaSchema, NovaSurface } from '@endge/nova'
 import type { EventList } from '@endge/utils'
-import { Modeler } from '@/config/schema.config'
-import {
-  MODELER_THEME_FALLBACKS,
-  MODELER_THEME_TOKENS,
-  type ModelerThemeTokenKey,
-} from '@/config/theme.config'
+import type { ModelerThemeTokenKey } from '@/config/theme.config'
 import type {
   ModelerPort,
   ModelerViewport,
 } from '@/domain/types/index'
+import {
+  createNovaDecoratedComponentDescriptor,
+
+  NovaComponent,
+
+  NovaComponentNode,
+
+  Prop,
+} from '@endge/nova'
+import { Modeler } from '@/config/schema.config'
+import {
+  MODELER_THEME_FALLBACKS,
+  MODELER_THEME_TOKENS,
+
+} from '@/config/theme.config'
 
 export interface PortViewProps {
   port: ModelerPort

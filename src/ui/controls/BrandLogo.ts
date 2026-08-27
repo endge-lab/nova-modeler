@@ -1,19 +1,20 @@
-import {
-  NovaComponent,
-  NovaComponentNode,
-  createNovaDecoratedComponentDescriptor,
-  type NovaApp,
-  type NovaComponentDescriptor,
-  type NovaSchema,
-  type NovaSurface,
-} from '@endge/nova'
+import type { NovaApp, NovaComponentDescriptor, NovaSchema, NovaSurface } from '@endge/nova'
 import type { EventList } from '@endge/utils'
+import type { ModelerThemeTokenKey } from '@/config/theme.config'
+import {
+  createNovaDecoratedComponentDescriptor,
+
+  NovaComponent,
+
+  NovaComponentNode,
+
+} from '@endge/nova'
 import { MODELER_ASSETS } from '@/assets/modeler-assets'
 import { Modeler } from '@/config/schema.config'
 import {
   MODELER_THEME_FALLBACKS,
   MODELER_THEME_TOKENS,
-  type ModelerThemeTokenKey,
+
 } from '@/config/theme.config'
 
 const MODELER_BRAND_FONT_FAMILY = 'ui-rounded, "SF Pro Rounded", ui-sans-serif, system-ui, sans-serif'
@@ -111,7 +112,9 @@ export class BrandLogo<E extends EventList = Record<string, any>>
   }
 
   private createSchema(): NovaSchema {
-    if (!this.props.visible) return []
+    if (!this.props.visible) {
+      return []
+    }
     const markSize = Math.min(38, this.height - 8)
     const markY = (this.height - markSize) / 2
     const textX = markSize + 8

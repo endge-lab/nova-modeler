@@ -1,9 +1,9 @@
-import type { ModelerOptions } from '@/domain/types/model/options.types'
 import type { ModelerViewport } from '@/domain/types/model/geometry.types'
 import type {
   ModelerLayout,
   ModelerModel,
 } from '@/domain/types/model/model.types'
+import type { ModelerOptions } from '@/domain/types/model/options.types'
 
 export type ModelerLayerName = 'background' | 'containers' | 'links' | 'interaction' | 'controls' | 'overlay'
 

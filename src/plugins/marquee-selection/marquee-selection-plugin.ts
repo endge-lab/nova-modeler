@@ -1,12 +1,12 @@
 import type { NovaNode } from '@endge/nova'
-import { Modeler } from '@/config/schema.config'
-import { PluginBase } from '@/model/plugin-runtime/PluginBase'
 import type {
   MarqueeSelectionController,
   MarqueeSelectionControllerAdapter,
   MarqueeSelectionControllerOptions,
   MarqueeSelectionPluginOptions,
 } from '@/plugins/marquee-selection/marquee-selection.types'
+import { Modeler } from '@/config/schema.config'
+import { PluginBase } from '@/model/plugin-runtime/PluginBase'
 
 /**
  * Управляет внешним состоянием marquee selection plugin.
@@ -24,7 +24,9 @@ export class MarqueeSelectionControllerModule implements MarqueeSelectionControl
   }
 
   setEnabled(enabled: boolean): void {
-    if (this.enabledValue === enabled) return
+    if (this.enabledValue === enabled) {
+      return
+    }
     this.enabledValue = enabled
     this.options.onEnabledChange?.(enabled)
     this.adapters.forEach(adapter => adapter.invalidate())
@@ -102,7 +104,9 @@ export class MarqueeSelectionPlugin extends PluginBase {
       invalidate: () => this.syncNodeProps(),
       onSelectionComplete: ids => this.options.onSelectionComplete?.(ids),
     })
-    if (this.disposeController) this.addDisposer(this.disposeController)
+    if (this.disposeController) {
+      this.addDisposer(this.disposeController)
+    }
   }
 
   /**

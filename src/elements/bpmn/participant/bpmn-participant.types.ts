@@ -37,8 +37,8 @@ export interface BpmnParticipantLayout {
 
 export type BpmnParticipantElement = ModelerElement<BpmnParticipantElementData>
 
-export type BpmnParticipantElementInput =
-  ModelerElementInput<Partial<BpmnParticipantElementData>> & {
+export type BpmnParticipantElementInput
+  = ModelerElementInput<Partial<BpmnParticipantElementData>> & {
     name?: string
     orientation?: BpmnParticipantOrientation
     lanes?: Array<Partial<BpmnParticipantLane>>

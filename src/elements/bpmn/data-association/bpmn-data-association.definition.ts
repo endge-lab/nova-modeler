@@ -1,20 +1,20 @@
-import { Modeler } from '@/config/schema.config'
 import type {
   ModelerElementDefinition,
   ModelerElementRenderContext,
 } from '@/domain/types/index'
-import { MODEL_ELEMENTS_RUNTIME } from '@/plugins/elements/model/ElementsRuntime'
+import type {
+  BpmnDataAssociationElement,
+  BpmnDataAssociationElementInput,
+} from '@/elements/bpmn/data-association/bpmn-data-association.types'
+import { Modeler } from '@/config/schema.config'
+import { createBpmnEdgeExternalLabelAdapter } from '@/elements/bpmn/bpmn-external-label'
 import {
   BPMN_DATA_ASSOCIATION_TYPE,
   createBpmnDataAssociationElement,
   normalizeBpmnDataAssociationType,
 } from '@/elements/bpmn/data-association/bpmn-data-association.factory'
 import { BpmnDataAssociationVariantProvider } from '@/elements/bpmn/data-association/bpmn-data-association.variants'
-import { createBpmnEdgeExternalLabelAdapter } from '@/elements/bpmn/bpmn-external-label'
-import type {
-  BpmnDataAssociationElement,
-  BpmnDataAssociationElementInput,
-} from '@/elements/bpmn/data-association/bpmn-data-association.types'
+import { MODEL_ELEMENTS_RUNTIME } from '@/plugins/elements/model/ElementsRuntime'
 
 const BPMN_DATA_ASSOCIATION_HIT_TOLERANCE = 6
 

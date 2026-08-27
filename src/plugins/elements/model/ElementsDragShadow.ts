@@ -14,7 +14,9 @@ export class ElementsDragShadow {
   }
 
   clear(): void {
-    if (this.elements.length === 0) return
+    if (this.elements.length === 0) {
+      return
+    }
     this.elements = []
     this.notify()
   }
@@ -25,7 +27,9 @@ export class ElementsDragShadow {
   }
 
   private notify(): void {
-    for (const listener of this.listeners) listener()
+    for (const listener of this.listeners) {
+      listener()
+    }
   }
 }
 

@@ -16,8 +16,10 @@ export const BPMN_GLOBAL_DEFINITION_KINDS: Array<BpmnGlobalDefinitionKind> = [
 export function normalizeBpmnGlobalDefinitions(input: Array<BpmnGlobalDefinitionInput> = []): Array<BpmnGlobalDefinition> {
   const ids = new Set<string>()
   return input.map((definition, index) => normalizeBpmnGlobalDefinition(definition, index))
-    .filter(definition => {
-      if (ids.has(definition.id)) return false
+    .filter((definition) => {
+      if (ids.has(definition.id)) {
+        return false
+      }
       ids.add(definition.id)
       return true
     })
@@ -39,21 +41,35 @@ export function createBpmnGlobalDefinition(
 }
 
 export function resolveBpmnGlobalDefinitionKindForTrigger(trigger: unknown): BpmnGlobalDefinitionKind | undefined {
-  if (trigger === 'message' || trigger === 'signal' || trigger === 'error' || trigger === 'escalation') return trigger
+  if (trigger === 'message' || trigger === 'signal' || trigger === 'error' || trigger === 'escalation') {
+    return trigger
+  }
   return undefined
 }
 
 export function resolveBpmnGlobalDefinitionRefKey(kind: BpmnGlobalDefinitionKind): BpmnGlobalDefinitionRefKey {
-  if (kind === 'message') return 'messageRef'
-  if (kind === 'signal') return 'signalRef'
-  if (kind === 'error') return 'errorRef'
+  if (kind === 'message') {
+    return 'messageRef'
+  }
+  if (kind === 'signal') {
+    return 'signalRef'
+  }
+  if (kind === 'error') {
+    return 'errorRef'
+  }
   return 'escalationRef'
 }
 
 export function defaultBpmnGlobalDefinitionName(kind: BpmnGlobalDefinitionKind): string {
-  if (kind === 'message') return 'Message'
-  if (kind === 'signal') return 'Signal'
-  if (kind === 'error') return 'Error'
+  if (kind === 'message') {
+    return 'Message'
+  }
+  if (kind === 'signal') {
+    return 'Signal'
+  }
+  if (kind === 'error') {
+    return 'Error'
+  }
   return 'Escalation'
 }
 
@@ -87,7 +103,7 @@ function normalizeDefinitionId(value: unknown, kind: BpmnGlobalDefinitionKind, i
     ? value.trim()
     : `${kind}-${index + 1}`
   const safe = raw
-    .replace(/[^A-Za-z0-9_.-]/g, '-')
+    .replace(/[^\w.-]/g, '-')
     .replace(/^-+/, '')
     .replace(/-+$/, '')
   return safe || `${kind}-${index + 1}`

@@ -1,9 +1,13 @@
-import { Modeler } from '@/config/schema.config'
 import type {
   ModelerElementDefinition,
   ModelerElementRenderContext,
   ModelerPoint,
 } from '@/domain/types/index'
+import type {
+  BpmnCallActivityElement,
+  BpmnCallActivityElementInput,
+} from '@/elements/bpmn/call-activity/bpmn-call-activity.types'
+import { Modeler } from '@/config/schema.config'
 import { BpmnActivityVariantProvider } from '@/elements/bpmn/activity/bpmn-activity.variants'
 import {
   BPMN_CALL_ACTIVITY_DEFAULT_HEIGHT,
@@ -14,10 +18,6 @@ import {
   createBpmnCallActivityElement,
 } from '@/elements/bpmn/call-activity/bpmn-call-activity.factory'
 import { createBpmnCallActivityPorts } from '@/elements/bpmn/call-activity/bpmn-call-activity.ports'
-import type {
-  BpmnCallActivityElement,
-  BpmnCallActivityElementInput,
-} from '@/elements/bpmn/call-activity/bpmn-call-activity.types'
 
 export const BpmnCallActivityDefinition: ModelerElementDefinition<BpmnCallActivityElement> = {
   type: BPMN_CALL_ACTIVITY_TYPE,

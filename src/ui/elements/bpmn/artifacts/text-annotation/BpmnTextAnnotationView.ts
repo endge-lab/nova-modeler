@@ -1,23 +1,24 @@
-import {
-  NovaComponent,
-  NovaComponentNode,
-  Prop,
-  createNovaDecoratedComponentDescriptor,
-  type NovaApp,
-  type NovaComponentDescriptor,
-  type NovaSchema,
-  type NovaSurface,
-} from '@endge/nova'
+import type { NovaApp, NovaComponentDescriptor, NovaSchema, NovaSurface } from '@endge/nova'
 import type { EventList } from '@endge/utils'
+import type { ModelerThemeTokenKey } from '@/config/theme.config'
+import type { ModelerViewport } from '@/domain/types'
+import type { BpmnTextAnnotationElement } from '@/elements/bpmn/artifacts/text-annotation/bpmn-text-annotation.types'
+import {
+  createNovaDecoratedComponentDescriptor,
+
+  NovaComponent,
+
+  NovaComponentNode,
+
+  Prop,
+} from '@endge/nova'
 import { Modeler } from '@/config/schema.config'
 import {
   MODELER_THEME_FALLBACKS,
   MODELER_THEME_TOKENS,
-  type ModelerThemeTokenKey,
+
 } from '@/config/theme.config'
-import type { ModelerViewport } from '@/domain/types'
 import { normalizeBpmnTextAnnotationBracketSide } from '@/elements/bpmn/artifacts/text-annotation/bpmn-text-annotation.factory'
-import type { BpmnTextAnnotationElement } from '@/elements/bpmn/artifacts/text-annotation/bpmn-text-annotation.types'
 import { resolveBpmnTaskNameLayout } from '@/ui/elements/bpmn/task/BpmnTaskView'
 
 export interface BpmnTextAnnotationViewProps {

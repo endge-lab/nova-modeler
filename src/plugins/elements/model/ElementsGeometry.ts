@@ -22,7 +22,9 @@ export class ElementsGeometry {
    */
   rotatePoint(element: ModelerElement, point: ModelerPoint): ModelerPoint {
     const rotation = element.rotation ?? 0
-    if (rotation === 0) return { x: point.x, y: point.y }
+    if (rotation === 0) {
+      return { x: point.x, y: point.y }
+    }
     const center = this.elementCenter(element)
     const dx = point.x - center.x
     const dy = point.y - center.y
@@ -39,7 +41,9 @@ export class ElementsGeometry {
    */
   unrotatePoint(element: ModelerElement, point: ModelerPoint): ModelerPoint {
     const rotation = element.rotation ?? 0
-    if (rotation === 0) return { x: point.x, y: point.y }
+    if (rotation === 0) {
+      return { x: point.x, y: point.y }
+    }
     const center = this.elementCenter(element)
     const dx = point.x - center.x
     const dy = point.y - center.y
@@ -81,7 +85,9 @@ export class ElementsGeometry {
    * Округляет угол до шага в градусах.
    */
   snapRadians(rotation: number, snapDegrees?: number): number {
-    if (!snapDegrees || snapDegrees <= 0) return rotation
+    if (!snapDegrees || snapDegrees <= 0) {
+      return rotation
+    }
     const step = snapDegrees * Math.PI / 180
     return Math.round(rotation / step) * step
   }

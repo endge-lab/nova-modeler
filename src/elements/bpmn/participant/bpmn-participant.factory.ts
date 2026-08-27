@@ -79,7 +79,7 @@ export function createBpmnParticipantLayout(element: BpmnParticipantElement): Bp
       participantHeaderRect,
       laneHeaderAreaRect,
       contentRect,
-      lanes: lanes.map(lane => {
+      lanes: lanes.map((lane) => {
         const width = lane.size
         const rect = { x, y: laneHeaderAreaRect.y, width, height: element.height - BPMN_PARTICIPANT_HEADER_SIZE }
         const headerRect = { x, y: laneHeaderAreaRect.y, width, height: laneHeaderAreaRect.height }
@@ -109,7 +109,7 @@ export function createBpmnParticipantLayout(element: BpmnParticipantElement): Bp
     participantHeaderRect,
     laneHeaderAreaRect,
     contentRect,
-    lanes: lanes.map(lane => {
+    lanes: lanes.map((lane) => {
       const height = lane.size
       const rect = { x: laneHeaderAreaRect.x, y, width: element.width - BPMN_PARTICIPANT_HEADER_SIZE, height }
       const headerRect = { x: laneHeaderAreaRect.x, y, width: laneHeaderAreaRect.width, height }
@@ -122,13 +122,15 @@ export function createBpmnParticipantLayout(element: BpmnParticipantElement): Bp
 
 export function resolveBpmnParticipantPartAt(
   element: BpmnParticipantElement,
-  point: { x: number; y: number },
-): { partType: 'bpmn.swimlane.participant' | 'bpmn.swimlane.lane'; partId: string } | null {
+  point: { x: number, y: number },
+): { partType: 'bpmn.swimlane.participant' | 'bpmn.swimlane.lane', partId: string } | null {
   const layout = createBpmnParticipantLayout(element)
   if (containsRect(layout.participantHeaderRect, point)) {
     return { partType: 'bpmn.swimlane.participant', partId: 'participant' }
   }
-  if (!areBpmnParticipantLaneHeadersVisible(element)) return null
+  if (!areBpmnParticipantLaneHeadersVisible(element)) {
+    return null
+  }
   const lane = layout.lanes.find(item => containsRect(item.headerRect, point))
   return lane ? { partType: 'bpmn.swimlane.lane', partId: lane.id } : null
 }
@@ -139,12 +141,16 @@ export function canToggleBpmnParticipantSingleLane(element: BpmnParticipantEleme
 }
 
 export function areBpmnParticipantLaneHeadersVisible(element: BpmnParticipantElement): boolean {
-  if (!canToggleBpmnParticipantSingleLane(element)) return true
+  if (!canToggleBpmnParticipantSingleLane(element)) {
+    return true
+  }
   return element.data?.singleLaneVisible !== false
 }
 
 export function toggleBpmnParticipantSingleLane(element: BpmnParticipantElement): BpmnParticipantElement {
-  if (!canToggleBpmnParticipantSingleLane(element)) return element
+  if (!canToggleBpmnParticipantSingleLane(element)) {
+    return element
+  }
   return createBpmnParticipantElement({
     ...element,
     singleLaneVisible: !areBpmnParticipantLaneHeadersVisible(element),
@@ -185,7 +191,9 @@ export function addBpmnParticipantLane(element: BpmnParticipantElement, afterLan
 export function removeBpmnParticipantLane(element: BpmnParticipantElement, laneId: string): BpmnParticipantElement {
   const orientation = normalizeBpmnParticipantOrientation(element.data?.orientation)
   const lanes = normalizeBpmnParticipantLanes(element.data?.lanes, orientation, orientation === 'horizontal' ? element.height : element.width)
-  if (lanes.length <= 1) return element
+  if (lanes.length <= 1) {
+    return element
+  }
   return createBpmnParticipantElement({
     ...element,
     lanes: lanes.filter(lane => lane.id !== laneId),
@@ -202,7 +210,9 @@ export function resizeBpmnParticipantLaneBoundary(
   const index = lanes.findIndex(lane => lane.id === laneId)
   const next = index >= 0 ? lanes[index + 1] : undefined
   const current = lanes[index]
-  if (!current || !next) return element
+  if (!current || !next) {
+    return element
+  }
   const clampedDelta = Math.max(
     BPMN_PARTICIPANT_MIN_LANE_SIZE - current.size,
     Math.min(next.size - BPMN_PARTICIPANT_MIN_LANE_SIZE, delta),
@@ -210,8 +220,12 @@ export function resizeBpmnParticipantLaneBoundary(
   return createBpmnParticipantElement({
     ...element,
     lanes: lanes.map((lane, laneIndex) => {
-      if (laneIndex === index) return { ...lane, size: lane.size + clampedDelta }
-      if (laneIndex === index + 1) return { ...lane, size: lane.size - clampedDelta }
+      if (laneIndex === index) {
+        return { ...lane, size: lane.size + clampedDelta }
+      }
+      if (laneIndex === index + 1) {
+        return { ...lane, size: lane.size - clampedDelta }
+      }
       return lane
     }),
   })
@@ -287,7 +301,7 @@ function clampBpmnParticipantSize(
   orientation: BpmnParticipantOrientation,
   laneCount: number,
   laneHeadersVisible: boolean,
-): { width: number; height: number } {
+): { width: number, height: number } {
   const laneHeaderSize = laneHeadersVisible ? BPMN_PARTICIPANT_LANE_HEADER_SIZE : 0
   if (orientation === 'vertical') {
     return {
@@ -302,7 +316,9 @@ function clampBpmnParticipantSize(
 }
 
 function normalizeSingleLaneVisible(value: unknown, laneCount: number): boolean {
-  if (laneCount !== 1) return true
+  if (laneCount !== 1) {
+    return true
+  }
   return value !== false
 }
 
@@ -317,7 +333,7 @@ function containsElementRect(rect: ModelerRect, element: ModelerElement): boolea
     && element.y + element.height <= rect.y + rect.height
 }
 
-function containsRect(rect: ModelerRect, point: { x: number; y: number }): boolean {
+function containsRect(rect: ModelerRect, point: { x: number, y: number }): boolean {
   return point.x >= rect.x
     && point.x <= rect.x + rect.width
     && point.y >= rect.y

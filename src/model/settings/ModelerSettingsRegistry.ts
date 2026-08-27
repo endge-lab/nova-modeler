@@ -1,7 +1,6 @@
 import type {
   NovaElementSchema,
 } from '@endge/nova'
-import { Modeler } from '@/config/schema.config'
 import type {
   ModelerSettingsCategoryDefinition,
   ModelerSettingsCategoryProps,
@@ -10,6 +9,7 @@ import type {
   ModelerSettingsSectionProps,
   ModelerSettingsSectionSchema,
 } from '@/domain/types/index'
+import { Modeler } from '@/config/schema.config'
 
 const BUILT_IN_CATEGORIES: Array<ModelerSettingsCategoryDefinition> = [
   { id: 'canvas', title: 'Холст', order: 10, hidden: false },
@@ -29,7 +29,9 @@ export class ModelerSettingsRegistry {
    * Создает registry с базовыми категориями Modeler.
    */
   constructor() {
-    for (const category of BUILT_IN_CATEGORIES) this.registerCategory(category)
+    for (const category of BUILT_IN_CATEGORIES) {
+      this.registerCategory(category)
+    }
   }
 
   /**

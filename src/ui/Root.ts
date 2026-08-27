@@ -1,48 +1,11 @@
-import {
-  Api,
-  Command,
-  Event,
-  Nova,
-  NovaComponent,
-  NovaComponentNode,
-  NovaPhase,
-  NovaTemplateRuntime,
-  Prop,
-  Watch,
-  createNovaDecoratedComponentDescriptor,
-  type NovaApp,
-  type NovaComponentDescriptor,
-  type NovaCursorDeclaration,
-  type NovaElementSlots,
-  type NovaNode,
-  type NovaSurface,
-  type NovaTemplateChildSchema,
-} from '@endge/nova'
-import {
-  NovaUIKit,
-  type InputApi,
-  type NovaTooltipTargetResolver,
-  type TooltipInput,
-  type TooltipTargetResolution,
-} from '@endge/nova-ui-kit'
+import type { NovaApp, NovaComponentDescriptor, NovaCursorDeclaration, NovaElementSlots, NovaNode, NovaSurface, NovaTemplateChildSchema } from '@endge/nova'
+import type { InputApi, NovaTooltipTargetResolver, TooltipInput, TooltipTargetResolution } from '@endge/nova-ui-kit'
 import type { EventList } from '@endge/utils'
-import { Modeler } from '@/config/schema.config'
-import {
-  createModelerModel,
-  normalizeModelerModel,
-} from '@/model/Store'
-import {
-  Controller,
-  createModelerController,
-} from '@/model/Controller'
-import { SelectionRuntime } from '@/model/selection/SelectionRuntime'
-import { eventPoint } from '@/tools/event-point'
-import { MODELER_INPUT_CONFIG } from '@/config/input.config'
-import { normalizeModelerOptions } from '@/config/options.config'
+import type { ContextPadApi } from '@/domain/types/controls/context-pad.types'
 import type {
   ControllerHost,
-  ModelerController,
   ModelerCommand,
+  ModelerController,
   ModelerGesture,
   ModelerHitTarget,
   ModelerLayerName,
@@ -56,83 +19,118 @@ import type {
   ModelerPluginRuntime,
   ModelerPoint,
   ModelerRect,
+  ModelerViewport,
   ModelerRootApi as RootApi,
   ModelerRootProps as RootProps,
   ModelerRootResolvedProps as RootResolvedProps,
-  ModelerViewport,
 } from '@/domain/types/index'
-import { isModelerEdgeElement } from '@/domain/types/index'
-import type { ContextPadApi } from '@/domain/types/controls/context-pad.types'
+import type { BpmnGroupElement } from '@/elements/bpmn/artifacts/group/bpmn-group.types'
+import type { BpmnAssociationElement } from '@/elements/bpmn/association/bpmn-association.types'
+import type { BpmnCallActivityElement } from '@/elements/bpmn/call-activity/bpmn-call-activity.types'
+import type { BpmnDataAssociationElement } from '@/elements/bpmn/data-association/bpmn-data-association.types'
+import type { BpmnDataStoreElement } from '@/elements/bpmn/data/data-store/bpmn-data-store.types'
+import type { BpmnEventElement } from '@/elements/bpmn/event/bpmn-event.types'
+import type { BpmnFlowElement } from '@/elements/bpmn/flow/bpmn-flow.types'
+import type { BpmnGatewayElement } from '@/elements/bpmn/gateway/bpmn-gateway.types'
+import type { BpmnMessageFlowElement } from '@/elements/bpmn/message-flow/bpmn-message-flow.types'
+import type { BpmnParticipantElement } from '@/elements/bpmn/participant/bpmn-participant.types'
+import type { BpmnSubProcessElement } from '@/elements/bpmn/sub-process/bpmn-sub-process.types'
+import type { BpmnTaskElement } from '@/elements/bpmn/task/bpmn-task.types'
+import type { BpmnTaskNameLayout } from '@/ui/elements/bpmn/task/BpmnTaskView'
+import {
+  Api,
+  Command,
+  createNovaDecoratedComponentDescriptor,
+  Event,
+  Nova,
+
+  NovaComponent,
+
+  NovaComponentNode,
+
+  NovaPhase,
+
+  NovaTemplateRuntime,
+  Prop,
+  Watch,
+} from '@endge/nova'
+import {
+
+  NovaUIKit,
+
+} from '@endge/nova-ui-kit'
 import {
   MODELER_CONTEXT,
   MODELER_CONTROLLER,
   MODELER_STORE,
 } from '@/config/context.config'
+import { MODELER_INPUT_CONFIG } from '@/config/input.config'
+import { normalizeModelerOptions } from '@/config/options.config'
+import { Modeler } from '@/config/schema.config'
 import {
   MODELER_LAYER_NAMES,
   MODELER_SURFACE_CONFIG,
 } from '@/config/surface.config'
-import {
-  BPMN_DATA_STORE_TYPE,
-} from '@/elements/bpmn/data/data-store/bpmn-data-store.factory'
-import type { BpmnDataStoreElement } from '@/elements/bpmn/data/data-store/bpmn-data-store.types'
+import { isModelerEdgeElement } from '@/domain/types/index'
 import {
   BPMN_GROUP_TYPE,
 } from '@/elements/bpmn/artifacts/group/bpmn-group.factory'
-import type { BpmnGroupElement } from '@/elements/bpmn/artifacts/group/bpmn-group.types'
+import { BPMN_ASSOCIATION_TYPE } from '@/elements/bpmn/association/bpmn-association.factory'
 import {
   BPMN_CALL_ACTIVITY_TYPE,
 } from '@/elements/bpmn/call-activity/bpmn-call-activity.factory'
-import type { BpmnCallActivityElement } from '@/elements/bpmn/call-activity/bpmn-call-activity.types'
+import { BPMN_DATA_ASSOCIATION_TYPE } from '@/elements/bpmn/data-association/bpmn-data-association.factory'
 import {
-  BPMN_SUB_PROCESS_TYPE,
-} from '@/elements/bpmn/sub-process/bpmn-sub-process.factory'
-import type { BpmnSubProcessElement } from '@/elements/bpmn/sub-process/bpmn-sub-process.types'
-import {
-  BPMN_TASK_TYPE,
-} from '@/elements/bpmn/task/bpmn-task.factory'
-import type { BpmnTaskElement } from '@/elements/bpmn/task/bpmn-task.types'
+  BPMN_DATA_STORE_TYPE,
+} from '@/elements/bpmn/data/data-store/bpmn-data-store.factory'
 import {
   BPMN_EVENT_TYPE,
 } from '@/elements/bpmn/event/bpmn-event.factory'
-import type { BpmnEventElement } from '@/elements/bpmn/event/bpmn-event.types'
 import { resolveBpmnEventNameLayout } from '@/elements/bpmn/event/bpmn-event.label'
-import {
-  BPMN_GATEWAY_TYPE,
-} from '@/elements/bpmn/gateway/bpmn-gateway.factory'
-import type { BpmnGatewayElement } from '@/elements/bpmn/gateway/bpmn-gateway.types'
-import { resolveBpmnGatewayNameLayout } from '@/elements/bpmn/gateway/bpmn-gateway.label'
 import {
   BPMN_FLOW_TYPE,
 } from '@/elements/bpmn/flow/bpmn-flow.factory'
-import type { BpmnFlowElement } from '@/elements/bpmn/flow/bpmn-flow.types'
-import { BPMN_ASSOCIATION_TYPE } from '@/elements/bpmn/association/bpmn-association.factory'
-import type { BpmnAssociationElement } from '@/elements/bpmn/association/bpmn-association.types'
-import { BPMN_DATA_ASSOCIATION_TYPE } from '@/elements/bpmn/data-association/bpmn-data-association.factory'
-import type { BpmnDataAssociationElement } from '@/elements/bpmn/data-association/bpmn-data-association.types'
+import {
+  BPMN_GATEWAY_TYPE,
+} from '@/elements/bpmn/gateway/bpmn-gateway.factory'
+import { resolveBpmnGatewayNameLayout } from '@/elements/bpmn/gateway/bpmn-gateway.label'
 import { BPMN_MESSAGE_FLOW_TYPE } from '@/elements/bpmn/message-flow/bpmn-message-flow.factory'
-import type { BpmnMessageFlowElement } from '@/elements/bpmn/message-flow/bpmn-message-flow.types'
 import {
   BPMN_PARTICIPANT_TYPE,
   renameBpmnParticipantLane,
 } from '@/elements/bpmn/participant/bpmn-participant.factory'
-import type { BpmnParticipantElement } from '@/elements/bpmn/participant/bpmn-participant.types'
-import { resolveBpmnActivityNameLayout } from '@/ui/elements/bpmn/activity/BpmnActivityView'
 import {
-  resolveBpmnTaskNameLayout,
-  type BpmnTaskNameLayout,
-} from '@/ui/elements/bpmn/task/BpmnTaskView'
-import { resolveBpmnDataStoreNameLayout } from '@/ui/elements/bpmn/data/data-store/BpmnDataStoreView'
+  BPMN_SUB_PROCESS_TYPE,
+} from '@/elements/bpmn/sub-process/bpmn-sub-process.factory'
+import {
+  BPMN_TASK_TYPE,
+} from '@/elements/bpmn/task/bpmn-task.factory'
+import {
+  Controller,
+  createModelerController,
+} from '@/model/Controller'
+import { SelectionRuntime } from '@/model/selection/SelectionRuntime'
+import {
+  createModelerModel,
+  normalizeModelerModel,
+} from '@/model/Store'
+import { MODEL_ELEMENTS_RUNTIME } from '@/plugins/elements/model/ElementsRuntime'
+import { eventPoint } from '@/tools/event-point'
+import { resolveBpmnActivityNameLayout } from '@/ui/elements/bpmn/activity/BpmnActivityView'
 import { resolveBpmnGroupNameLayout } from '@/ui/elements/bpmn/artifacts/group/BpmnGroupView'
-import { resolveBpmnParticipantNameLayout } from '@/ui/elements/bpmn/participant/BpmnParticipantView'
+import { resolveBpmnDataStoreNameLayout } from '@/ui/elements/bpmn/data/data-store/BpmnDataStoreView'
 import {
   resolveBpmnFlowLabelLayout,
 } from '@/ui/elements/bpmn/flow/BpmnFlowView'
-import { MODEL_ELEMENTS_RUNTIME } from '@/plugins/elements/model/ElementsRuntime'
+import { resolveBpmnParticipantNameLayout } from '@/ui/elements/bpmn/participant/BpmnParticipantView'
+import {
+
+  resolveBpmnTaskNameLayout,
+} from '@/ui/elements/bpmn/task/BpmnTaskView'
 
 type EditableNameElement = BpmnTaskElement | BpmnSubProcessElement | BpmnCallActivityElement | BpmnEventElement | BpmnGatewayElement | BpmnDataStoreElement | BpmnGroupElement | BpmnParticipantElement | BpmnFlowElement | BpmnAssociationElement | BpmnDataAssociationElement | BpmnMessageFlowElement
 type EditableNameKind = 'task' | 'activity' | 'event' | 'gateway' | 'dataStore' | 'group' | 'participant' | 'lane' | 'flow'
-type EditableNamePart = { partType?: string; partId?: string }
+interface EditableNamePart { partType?: string, partId?: string }
 
 type RootDescriptor = NovaComponentDescriptor<
   RootResolvedProps,
@@ -224,19 +222,23 @@ export class Root<E extends EventList = Record<string, any>>
   private readonly layerOwnerRuntimes = new Map<string, NovaTemplateRuntime<E>>()
   private layerTemplatesReady = false
   private layerSlotsDirty = true
-  private dragState: { type: 'pan'; x: number; y: number } | null = null
+  private dragState: { type: 'pan', x: number, y: number } | null = null
   private activePluginGesture: ModelerGesture | null = null
   private activeModelerCursor: string | null = null
   private currentModelerCursor = 'default'
   private spacePressed = false
   private temporaryToolId: string | null = null
-  private taskNameEditor: { elementId: string; kind: EditableNameKind; part?: EditableNamePart } | null = null
+  private taskNameEditor: { elementId: string, kind: EditableNameKind, part?: EditableNamePart } | null = null
   private hiddenTaskNameElementId: string | null = null
   private disposeTaskNameEditorLayer?: () => void
-  private lastTaskNamePointerDown: { elementId: string; partKey: string; x: number; y: number; time: number } | null = null
+  private lastTaskNamePointerDown: { elementId: string, partKey: string, x: number, y: number, time: number } | null = null
   private readonly handleWindowKeyDown = (event: KeyboardEvent): void => {
-    if (event.key !== 'Escape') return
-    if (this.handleEscapeKey(event)) event.preventDefault()
+    if (event.key !== 'Escape') {
+      return
+    }
+    if (this.handleEscapeKey(event)) {
+      event.preventDefault()
+    }
   }
 
   constructor(
@@ -331,11 +333,13 @@ export class Root<E extends EventList = Record<string, any>>
 
   override dirty(
     opts:
-      | { matrix?: boolean; update?: boolean; render?: boolean }
+      | { matrix?: boolean, update?: boolean, render?: boolean }
       | string
       | Array<string>,
   ): void {
-    if (this.shouldSyncLayerSlotsForDirty(opts)) this.layerSlotsDirty = true
+    if (this.shouldSyncLayerSlotsForDirty(opts)) {
+      this.layerSlotsDirty = true
+    }
     super.dirty(opts)
   }
 
@@ -350,7 +354,9 @@ export class Root<E extends EventList = Record<string, any>>
   update(): void {
     super.update()
     this.controllerInstance.resize(this.props.width, this.props.height)
-    if (!this.layerTemplatesReady || this.layerSlotsDirty) this.syncLayerTemplates()
+    if (!this.layerTemplatesReady || this.layerSlotsDirty) {
+      this.syncLayerTemplates()
+    }
   }
 
   render(): void {
@@ -420,17 +426,27 @@ export class Root<E extends EventList = Record<string, any>>
     this.dirtyLayerSurfaces(phase)
   }
 
-  resolveNovaTooltipTarget(input: { x: number; y: number; event?: MouseEvent }): TooltipTargetResolution | null {
+  resolveNovaTooltipTarget(input: { x: number, y: number, event?: MouseEvent }): TooltipTargetResolution | null {
     const target = this.controllerInstance.hitTest({ x: input.x, y: input.y })
     const elementId = this.resolveHitTargetElementId(target)
-    if (!elementId) return null
+    if (!elementId) {
+      return null
+    }
     const element = this.controllerInstance.getModel().elements.find(item => item.id === elementId)
-    if (!element || !this.isEditableNameElement(element)) return null
-    if (this.taskNameEditor?.elementId === element.id) return null
+    if (!element || !this.isEditableNameElement(element)) {
+      return null
+    }
+    if (this.taskNameEditor?.elementId === element.id) {
+      return null
+    }
     const part = target.type === 'element-part' ? { partType: target.partType, partId: target.partId } : undefined
-    if (!this.containsTaskNamePoint(element, input, part)) return null
+    if (!this.containsTaskNamePoint(element, input, part)) {
+      return null
+    }
     const layout = this.resolveTaskNameScreenLayout(element, part)
-    if (!layout.clipped) return null
+    if (!layout.clipped) {
+      return null
+    }
     const targetType = this.resolveNameEditorTargetType(element)
     return {
       tooltip: {
@@ -491,44 +507,50 @@ export class Root<E extends EventList = Record<string, any>>
         partId: part?.partId,
         scale: viewport.scale,
       })
-    } else if (element.type === BPMN_EVENT_TYPE) {
+    }
+    else if (element.type === BPMN_EVENT_TYPE) {
       layout = resolveBpmnEventNameLayout({
         name: element.data?.name,
         width,
         height,
       })
-    } else if (element.type === BPMN_GATEWAY_TYPE) {
+    }
+    else if (element.type === BPMN_GATEWAY_TYPE) {
       layout = resolveBpmnGatewayNameLayout({
         name: element.data?.name,
         width,
         height,
       })
-    } else if (element.type === BPMN_DATA_STORE_TYPE) {
+    }
+    else if (element.type === BPMN_DATA_STORE_TYPE) {
       layout = resolveBpmnDataStoreNameLayout({
-          name: element.data?.name,
-          width,
-          height,
-        })
-    } else if (element.type === BPMN_GROUP_TYPE) {
+        name: element.data?.name,
+        width,
+        height,
+      })
+    }
+    else if (element.type === BPMN_GROUP_TYPE) {
       layout = resolveBpmnGroupNameLayout({
-            name: element.data?.name,
-            width,
-            height,
-          })
-    } else if (element.type === BPMN_SUB_PROCESS_TYPE || element.type === BPMN_CALL_ACTIVITY_TYPE) {
+        name: element.data?.name,
+        width,
+        height,
+      })
+    }
+    else if (element.type === BPMN_SUB_PROCESS_TYPE || element.type === BPMN_CALL_ACTIVITY_TYPE) {
       layout = resolveBpmnActivityNameLayout({
-              name: element.data?.name,
-              width,
-              height,
-              data: element.data,
-            })
-    } else {
+        name: element.data?.name,
+        width,
+        height,
+        data: element.data,
+      })
+    }
+    else {
       layout = resolveBpmnTaskNameLayout({
-              name: element.data?.name,
-              width,
-              height,
-              data: element.data,
-            })
+        name: element.data?.name,
+        width,
+        height,
+        data: element.data,
+      })
     }
     const center = this.controllerInstance.worldToScreen({
       x: element.x + element.width / 2,
@@ -602,7 +624,9 @@ export class Root<E extends EventList = Record<string, any>>
       const layout = this.resolveTaskNameScreenLayout(element)
       return Math.max(1, Math.floor(layout.rect.height / layout.lineHeight))
     }
-    if (element.type === BPMN_EVENT_TYPE || element.type === BPMN_GATEWAY_TYPE) return 2
+    if (element.type === BPMN_EVENT_TYPE || element.type === BPMN_GATEWAY_TYPE) {
+      return 2
+    }
     const layout = this.resolveTaskNameScreenLayout(element)
     return Math.max(1, Math.floor(layout.rect.height / layout.lineHeight))
   }
@@ -628,7 +652,9 @@ export class Root<E extends EventList = Record<string, any>>
   private syncLayerSurfaces(): void {
     for (const name of MODELER_LAYER_NAMES) {
       const surface = this.layerSurfaces.get(name)
-      if (!surface) continue
+      if (!surface) {
+        continue
+      }
       const config = MODELER_SURFACE_CONFIG[name]
       surface.options({
         width: this.props.width,
@@ -659,7 +685,9 @@ export class Root<E extends EventList = Record<string, any>>
     const slotProps = this.createLayerSlotProps()
     for (const name of MODELER_LAYER_NAMES) {
       const runtime = this.layerRuntimes.get(name)
-      if (!runtime) continue
+      if (!runtime) {
+        continue
+      }
       runtime.reconcile(this.resolveLayerSchema(name, slotProps))
     }
     this.layerTemplatesReady = true
@@ -789,7 +817,9 @@ export class Root<E extends EventList = Record<string, any>>
 
   private getLayerSurface(name: ModelerLayerName): NovaSurface<E> {
     const surface = this.layerSurfaces.get(name)
-    if (!surface) throw new Error(`[Root] Layer surface "${name}" is not available.`)
+    if (!surface) {
+      throw new Error(`[Root] Layer surface "${name}" is not available.`)
+    }
     return surface
   }
 
@@ -852,7 +882,9 @@ export class Root<E extends EventList = Record<string, any>>
   }
 
   private syncInitialExternalController(): void {
-    if (!this.props.controller) return
+    if (!this.props.controller) {
+      return
+    }
     this.props.controller.configure({
       model: this.props.model,
       options: this.props.options,
@@ -873,11 +905,11 @@ export class Root<E extends EventList = Record<string, any>>
       this.syncLayerSurfaces()
       return
     }
-    const hasPluginPatch = Object.prototype.hasOwnProperty.call(patch, 'pluginRuntime')
-      || Object.prototype.hasOwnProperty.call(patch, 'plugins')
-      || Object.prototype.hasOwnProperty.call(patch, 'pluginsVersion')
+    const hasPluginPatch = Object.hasOwn(patch, 'pluginRuntime')
+      || Object.hasOwn(patch, 'plugins')
+      || Object.hasOwn(patch, 'pluginsVersion')
     this.controllerInstance.configure({
-      model: Object.prototype.hasOwnProperty.call(patch, 'model') ? this.props.model : undefined,
+      model: Object.hasOwn(patch, 'model') ? this.props.model : undefined,
       options: this.props.options,
       elementRegistry: this.props.elementRegistry,
       pluginRuntime: hasPluginPatch ? this.props.pluginRuntime : undefined,
@@ -889,23 +921,31 @@ export class Root<E extends EventList = Record<string, any>>
   }
 
   private setupEvents(): void {
-    this.on('mousedown', event => {
+    this.on('mousedown', (event) => {
       const point = eventPoint(event)
       if (this.taskNameEditor && !this.isTaskNameEditorPointer(point)) {
         this.closeTaskNameEditor({ commit: true })
       }
       const target = this.hitTest(point)
-      if (event.button === 0 && this.openTaskNameEditorOnDoublePointerDown(target, point)) return false
+      if (event.button === 0 && this.openTaskNameEditorOnDoublePointerDown(target, point)) {
+        return false
+      }
       this.setModelerCursorFromTarget(target)
       const context = this.controllerInstance.getPluginContext()
       for (const gesture of this.controllerInstance.getGestures()) {
-        if (!gesture.hitTest?.(context, event, target)) continue
+        if (!gesture.hitTest?.(context, event, target)) {
+          continue
+        }
         const hasPointerContinuation = Boolean(gesture.onPointerMove || gesture.onPointerUp || gesture.onCancel)
         this.activePluginGesture = hasPointerContinuation ? gesture : null
         this.activeModelerCursor = hasPointerContinuation ? this.resolveModelerCursor(target) : null
-        if (this.activeModelerCursor) this.setModelerCursor(this.activeModelerCursor)
+        if (this.activeModelerCursor) {
+          this.setModelerCursor(this.activeModelerCursor)
+        }
         const result = gesture.onPointerDown?.(context, event)
-        if (result === false) return false
+        if (result === false) {
+          return false
+        }
       }
       if (event.button === 0 && target.type === 'canvas' && this.applyActiveCreateTool(point)) {
         return false
@@ -927,25 +967,32 @@ export class Root<E extends EventList = Record<string, any>>
       }
       return false
     })
-    this.on('mousemove', event => {
+    this.on('mousemove', (event) => {
       const point = eventPoint(event)
       const target = this.hitTest(point)
       if (this.activeModelerCursor) {
         this.setModelerCursor(this.activeModelerCursor)
-      } else {
+      }
+      else {
         this.setModelerCursorFromTarget(target)
       }
       this.syncEdgeSegmentHover(target, point)
       if (this.activePluginGesture) {
         const result = this.activePluginGesture.onPointerMove?.(this.controllerInstance.getPluginContext(), event)
-        if (result === false) return false
+        if (result === false) {
+          return false
+        }
       }
       if (!this.activePluginGesture) {
         const activeTool = this.controllerInstance.getPluginContext().tools.getActive()
         const result = activeTool?.onPointerMove?.(this.controllerInstance.getPluginContext(), event)
-        if (result === false) return false
+        if (result === false) {
+          return false
+        }
       }
-      if (!this.dragState) return false
+      if (!this.dragState) {
+        return false
+      }
       if (event.buttons === 0) {
         this.dragState = null
         this.activeModelerCursor = null
@@ -959,14 +1006,16 @@ export class Root<E extends EventList = Record<string, any>>
       this.setViewport({ x: viewport.x + dx, y: viewport.y + dy })
       return false
     })
-    this.on('mouseup', event => {
+    this.on('mouseup', (event) => {
       if (this.activePluginGesture) {
         const gesture = this.activePluginGesture
         this.activePluginGesture = null
         this.activeModelerCursor = null
         const result = gesture.onPointerUp?.(this.controllerInstance.getPluginContext(), event)
         this.setModelerCursorFromTarget(this.hitTest(eventPoint(event)))
-        if (result === false) return false
+        if (result === false) {
+          return false
+        }
       }
       this.dragState = null
       this.activeModelerCursor = null
@@ -974,7 +1023,7 @@ export class Root<E extends EventList = Record<string, any>>
       this.setModelerCursorFromTarget(this.hitTest(eventPoint(event)))
       return false
     })
-    this.on('wheel', event => {
+    this.on('wheel', (event) => {
       if (event.ctrlKey || event.metaKey) {
         this.closeContextPadMenus()
         this.closeTaskNameEditor({ commit: true })
@@ -990,24 +1039,28 @@ export class Root<E extends EventList = Record<string, any>>
       })
       return false
     })
-    this.on('zoom', event => {
+    this.on('zoom', (event) => {
       this.closeContextPadMenus()
       this.closeTaskNameEditor({ commit: true })
       this.zoomViewport(eventPoint(event), event.deltaY)
       return false
     })
-    this.on('dblclick', event => {
+    this.on('dblclick', (event) => {
       this.openTaskNameEditorFromPoint(eventPoint(event))
       return false
     })
-    this.on('keydown', event => {
+    this.on('keydown', (event) => {
       if (event.key === 'Shift' && !event.repeat && this.activateTemporaryMarqueeTool()) {
         return false
       }
-      if (event.key === 'Escape' && this.handleEscapeKey(event)) return false
+      if (event.key === 'Escape' && this.handleEscapeKey(event)) {
+        return false
+      }
       const shortcut = this.controllerInstance.getPluginContext().shortcuts.resolve(event)
       if (shortcut) {
-        if (shortcut.shortcut.preventDefault !== false) event.preventDefault()
+        if (shortcut.shortcut.preventDefault !== false) {
+          event.preventDefault()
+        }
         if (shortcut.definition.actionId) {
           this.controllerInstance.getPluginContext().actions.run(shortcut.definition.actionId)
         }
@@ -1018,35 +1071,45 @@ export class Root<E extends EventList = Record<string, any>>
       }
       if (event.key === ' ') {
         this.spacePressed = true
-        if (!this.activeModelerCursor) this.setModelerCursor('pan')
+        if (!this.activeModelerCursor) {
+          this.setModelerCursor('pan')
+        }
         return false
       }
     })
-    this.on('keyup', event => {
+    this.on('keyup', (event) => {
       if (event.key === 'Shift') {
         this.deactivateTemporaryTool('marqueeSelection')
         return false
       }
       if (event.key === ' ') {
         this.spacePressed = false
-        if (!this.activeModelerCursor) this.setModelerCursor('default')
+        if (!this.activeModelerCursor) {
+          this.setModelerCursor('default')
+        }
       }
     })
   }
 
   private clearSelection(): void {
     this.controllerInstance.getPluginContext().externalLabels.clearSelection()
-    if (this.controllerInstance.getModel().selection.length === 0) return
+    if (this.controllerInstance.getModel().selection.length === 0) {
+      return
+    }
     this.controllerInstance.applyCommand({ type: 'select', ids: [] })
   }
 
   private setupWindowEvents(): void {
-    if (typeof window === 'undefined') return
+    if (typeof window === 'undefined') {
+      return
+    }
     window.addEventListener('keydown', this.handleWindowKeyDown, true)
   }
 
   private teardownWindowEvents(): void {
-    if (typeof window === 'undefined') return
+    if (typeof window === 'undefined') {
+      return
+    }
     window.removeEventListener('keydown', this.handleWindowKeyDown, true)
   }
 
@@ -1074,21 +1137,29 @@ export class Root<E extends EventList = Record<string, any>>
   private applyActiveCreateTool(point: ModelerPoint): boolean {
     const context = this.controllerInstance.getPluginContext()
     const activeTool = context.tools.getActive()
-    if (!activeTool || activeTool.kind !== 'create-element') return false
+    if (!activeTool || activeTool.kind !== 'create-element') {
+      return false
+    }
     const world = context.screenToWorld(point)
     return !!context.tools.createAt(activeTool.id, world)
   }
 
   private activateTemporaryMarqueeTool(): boolean {
     const tools = this.controllerInstance.getPluginContext().tools
-    if (tools.getActiveId()) return false
-    if (!tools.activate('marqueeSelection')) return false
+    if (tools.getActiveId()) {
+      return false
+    }
+    if (!tools.activate('marqueeSelection')) {
+      return false
+    }
     this.temporaryToolId = 'marqueeSelection'
     return true
   }
 
   private deactivateTemporaryTool(toolId: string): void {
-    if (this.temporaryToolId !== toolId) return
+    if (this.temporaryToolId !== toolId) {
+      return
+    }
     this.temporaryToolId = null
     this.controllerInstance.getPluginContext().tools.deactivate(toolId)
   }
@@ -1096,11 +1167,17 @@ export class Root<E extends EventList = Record<string, any>>
   private openTaskNameEditorFromPoint(point: ModelerPoint): boolean {
     const target = this.hitTest(point)
     const elementId = this.resolveHitTargetElementId(target)
-    if (!elementId) return false
+    if (!elementId) {
+      return false
+    }
     const element = this.controllerInstance.getModel().elements.find(item => item.id === elementId)
-    if (!element || !this.isEditableNameElement(element)) return false
+    if (!element || !this.isEditableNameElement(element)) {
+      return false
+    }
     const part = target.type === 'element-part' ? { partType: target.partType, partId: target.partId } : undefined
-    if (!this.containsTaskNamePoint(element, point, part)) return false
+    if (!this.containsTaskNamePoint(element, point, part)) {
+      return false
+    }
     this.ensureExternalLabelGeometry(element)
     this.taskNameEditor = { elementId: element.id, kind: this.resolveNameEditorKind(element, part), part }
     this.syncTaskNameEditor()
@@ -1128,7 +1205,9 @@ export class Root<E extends EventList = Record<string, any>>
       && Math.abs(previous.x - point.x) <= 4
       && Math.abs(previous.y - point.y) <= 4
     this.lastTaskNamePointerDown = { elementId: element.id, partKey, x: point.x, y: point.y, time: now }
-    if (!isDouble) return false
+    if (!isDouble) {
+      return false
+    }
     this.lastTaskNamePointerDown = null
     this.ensureExternalLabelGeometry(element)
     this.taskNameEditor = { elementId: element.id, kind: this.resolveNameEditorKind(element, part), part }
@@ -1138,11 +1217,17 @@ export class Root<E extends EventList = Record<string, any>>
 
   private ensureExternalLabelGeometry(element: EditableNameElement): void {
     const context = this.controllerInstance.getPluginContext()
-    if (!this.controllerInstance.getElementRegistry().get(element.type)?.externalLabel) return
+    if (!this.controllerInstance.getElementRegistry().get(element.type)?.externalLabel) {
+      return
+    }
     const geometry = context.externalLabels.createGeometry(context, element)
-    if (!geometry) return
+    if (!geometry) {
+      return
+    }
     context.externalLabels.select(element.id)
-    if (element.data?.label) return
+    if (element.data?.label) {
+      return
+    }
     this.controllerInstance.applyCommand({
       type: 'element.patch',
       id: element.id,
@@ -1211,10 +1296,14 @@ export class Root<E extends EventList = Record<string, any>>
   }
 
   private closeTaskNameEditor(options: { commit: boolean }): void {
-    if (!this.taskNameEditor) return
+    if (!this.taskNameEditor) {
+      return
+    }
     if (options.commit) {
       const draft = this.nova.components.api<InputApi>(this.taskNameEditorInputId())?.getState().draft
-      if (draft !== undefined) this.applyTaskNameEditorValue(draft)
+      if (draft !== undefined) {
+        this.applyTaskNameEditorValue(draft)
+      }
     }
     this.taskNameEditor = null
     this.clearTaskNameEditorLayer()
@@ -1231,7 +1320,9 @@ export class Root<E extends EventList = Record<string, any>>
       this.patchTaskNameViewLabel(this.hiddenTaskNameElementId, false)
     }
     this.hiddenTaskNameElementId = elementId
-    if (elementId) this.patchTaskNameViewLabel(elementId, true)
+    if (elementId) {
+      this.patchTaskNameViewLabel(elementId, true)
+    }
   }
 
   private patchTaskNameViewLabel(elementId: string, hideName: boolean): void {
@@ -1243,13 +1334,19 @@ export class Root<E extends EventList = Record<string, any>>
 
   private applyTaskNameEditorValue(value: string): void {
     const elementId = this.taskNameEditor?.elementId
-    if (!elementId) return
+    if (!elementId) {
+      return
+    }
     const element = this.controllerInstance.getModel().elements.find(item => item.id === elementId)
-    if (!element || !this.isEditableNameElement(element)) return
+    if (!element || !this.isEditableNameElement(element)) {
+      return
+    }
     if (this.controllerInstance.getElementRegistry().get(element.type)?.externalLabel) {
       const nextName = value.trim()
       const geometry = this.controllerInstance.getPluginContext().externalLabels.createGeometry(this.controllerInstance.getPluginContext(), element)
-      if ((element.data?.name ?? '') === nextName && (!geometry || element.data?.label)) return
+      if ((element.data?.name ?? '') === nextName && (!geometry || element.data?.label)) {
+        return
+      }
       this.controllerInstance.applyCommand({
         type: 'element.patch',
         id: element.id,
@@ -1264,7 +1361,9 @@ export class Root<E extends EventList = Record<string, any>>
       return
     }
     const nextName = normalizeEditableName(value, this.resolveNameEditorFallback(element))
-    if (this.resolveEditableNameValue(element) === nextName) return
+    if (this.resolveEditableNameValue(element) === nextName) {
+      return
+    }
     if (element.type === BPMN_PARTICIPANT_TYPE && this.taskNameEditor?.part?.partType === 'bpmn.swimlane.lane') {
       const participant = element as BpmnParticipantElement
       this.controllerInstance.applyCommand({
@@ -1293,12 +1392,18 @@ export class Root<E extends EventList = Record<string, any>>
   }
 
   private containsTaskNamePoint(element: EditableNameElement, point: ModelerPoint, part?: EditableNamePart): boolean {
-    if (element.type === BPMN_PARTICIPANT_TYPE && !part?.partType) return false
+    if (element.type === BPMN_PARTICIPANT_TYPE && !part?.partType) {
+      return false
+    }
     const definition = this.controllerInstance.getElementRegistry().get(element.type)
     if (definition?.externalLabel) {
       const context = this.controllerInstance.getPluginContext()
-      if (context.externalLabels.hitTest(context, element, context.screenToWorld(point))) return true
-      if (isModelerEdgeElement(element)) return true
+      if (context.externalLabels.hitTest(context, element, context.screenToWorld(point))) {
+        return true
+      }
+      if (isModelerEdgeElement(element)) {
+        return true
+      }
     }
     const rect = this.resolveTaskNameContentRect(element, part)
     if (
@@ -1306,8 +1411,12 @@ export class Root<E extends EventList = Record<string, any>>
       && point.x <= rect.x + rect.width
       && point.y >= rect.y
       && point.y <= rect.y + rect.height
-    ) return true
-    if (element.type !== BPMN_EVENT_TYPE && element.type !== BPMN_GATEWAY_TYPE) return false
+    ) {
+      return true
+    }
+    if (element.type !== BPMN_EVENT_TYPE && element.type !== BPMN_GATEWAY_TYPE) {
+      return false
+    }
     const viewport = this.controllerInstance.getViewport()
     const center = this.controllerInstance.worldToScreen({
       x: element.x + element.width / 2,
@@ -1316,7 +1425,9 @@ export class Root<E extends EventList = Record<string, any>>
     const radius = Math.min(element.width, element.height) * viewport.scale / 2
     const dx = point.x - center.x
     const dy = point.y - center.y
-    if (element.type === BPMN_EVENT_TYPE) return dx * dx + dy * dy <= radius * radius
+    if (element.type === BPMN_EVENT_TYPE) {
+      return dx * dx + dy * dy <= radius * radius
+    }
     return Math.abs(dx) / Math.max(1, element.width * viewport.scale / 2)
       + Math.abs(dy) / Math.max(1, element.height * viewport.scale / 2) <= 1
   }
@@ -1341,28 +1452,64 @@ export class Root<E extends EventList = Record<string, any>>
   }
 
   private resolveNameEditorKind(element: EditableNameElement, part?: EditableNamePart): EditableNameKind {
-    if (this.controllerInstance.getElementRegistry().get(element.type)?.externalLabel && isModelerEdgeElement(element)) return 'flow'
-    if (element.type === BPMN_PARTICIPANT_TYPE && part?.partType === 'bpmn.swimlane.lane') return 'lane'
-    if (element.type === BPMN_PARTICIPANT_TYPE) return 'participant'
-    if (element.type === BPMN_EVENT_TYPE) return 'event'
-    if (element.type === BPMN_GATEWAY_TYPE) return 'gateway'
-    if (element.type === BPMN_DATA_STORE_TYPE) return 'dataStore'
-    if (element.type === BPMN_GROUP_TYPE) return 'group'
-    if (element.type === BPMN_SUB_PROCESS_TYPE || element.type === BPMN_CALL_ACTIVITY_TYPE) return 'activity'
+    if (this.controllerInstance.getElementRegistry().get(element.type)?.externalLabel && isModelerEdgeElement(element)) {
+      return 'flow'
+    }
+    if (element.type === BPMN_PARTICIPANT_TYPE && part?.partType === 'bpmn.swimlane.lane') {
+      return 'lane'
+    }
+    if (element.type === BPMN_PARTICIPANT_TYPE) {
+      return 'participant'
+    }
+    if (element.type === BPMN_EVENT_TYPE) {
+      return 'event'
+    }
+    if (element.type === BPMN_GATEWAY_TYPE) {
+      return 'gateway'
+    }
+    if (element.type === BPMN_DATA_STORE_TYPE) {
+      return 'dataStore'
+    }
+    if (element.type === BPMN_GROUP_TYPE) {
+      return 'group'
+    }
+    if (element.type === BPMN_SUB_PROCESS_TYPE || element.type === BPMN_CALL_ACTIVITY_TYPE) {
+      return 'activity'
+    }
     return 'task'
   }
 
   private resolveNameEditorFallback(element: EditableNameElement): string {
-    if (element.type === BPMN_PARTICIPANT_TYPE && this.taskNameEditor?.part?.partType === 'bpmn.swimlane.lane') return 'Lane'
-    if (element.type === BPMN_PARTICIPANT_TYPE) return 'Participant'
-    if (element.type === BPMN_DATA_STORE_TYPE) return 'Data store'
-    if (element.type === BPMN_GROUP_TYPE) return 'Group'
-    if (element.type === BPMN_SUB_PROCESS_TYPE) return 'Sub-process'
-    if (element.type === BPMN_CALL_ACTIVITY_TYPE) return 'Call activity'
-    if (element.type === BPMN_EVENT_TYPE) return ''
-    if (element.type === BPMN_GATEWAY_TYPE) return ''
-    if (element.type === BPMN_FLOW_TYPE) return ''
-    if (element.type === BPMN_ASSOCIATION_TYPE || element.type === BPMN_DATA_ASSOCIATION_TYPE || element.type === BPMN_MESSAGE_FLOW_TYPE) return ''
+    if (element.type === BPMN_PARTICIPANT_TYPE && this.taskNameEditor?.part?.partType === 'bpmn.swimlane.lane') {
+      return 'Lane'
+    }
+    if (element.type === BPMN_PARTICIPANT_TYPE) {
+      return 'Participant'
+    }
+    if (element.type === BPMN_DATA_STORE_TYPE) {
+      return 'Data store'
+    }
+    if (element.type === BPMN_GROUP_TYPE) {
+      return 'Group'
+    }
+    if (element.type === BPMN_SUB_PROCESS_TYPE) {
+      return 'Sub-process'
+    }
+    if (element.type === BPMN_CALL_ACTIVITY_TYPE) {
+      return 'Call activity'
+    }
+    if (element.type === BPMN_EVENT_TYPE) {
+      return ''
+    }
+    if (element.type === BPMN_GATEWAY_TYPE) {
+      return ''
+    }
+    if (element.type === BPMN_FLOW_TYPE) {
+      return ''
+    }
+    if (element.type === BPMN_ASSOCIATION_TYPE || element.type === BPMN_DATA_ASSOCIATION_TYPE || element.type === BPMN_MESSAGE_FLOW_TYPE) {
+      return ''
+    }
     return 'Task'
   }
 
@@ -1371,18 +1518,42 @@ export class Root<E extends EventList = Record<string, any>>
   }
 
   private resolveNameEditorTargetType(element: EditableNameElement): string {
-    if (element.type === BPMN_PARTICIPANT_TYPE && this.taskNameEditor?.part?.partType === 'bpmn.swimlane.lane') return 'modeler.bpmn.participant.lane.name'
-    if (element.type === BPMN_PARTICIPANT_TYPE) return 'modeler.bpmn.participant.name'
-    if (element.type === BPMN_DATA_STORE_TYPE) return 'modeler.bpmn.data-store.name'
-    if (element.type === BPMN_GROUP_TYPE) return 'modeler.bpmn.group.name'
-    if (element.type === BPMN_SUB_PROCESS_TYPE) return 'modeler.bpmn.sub-process.name'
-    if (element.type === BPMN_CALL_ACTIVITY_TYPE) return 'modeler.bpmn.call-activity.name'
-    if (element.type === BPMN_EVENT_TYPE) return 'modeler.bpmn.event.name'
-    if (element.type === BPMN_GATEWAY_TYPE) return 'modeler.bpmn.gateway.name'
-    if (element.type === BPMN_FLOW_TYPE) return 'modeler.bpmn.flow.name'
-    if (element.type === BPMN_ASSOCIATION_TYPE) return 'modeler.bpmn.association.name'
-    if (element.type === BPMN_DATA_ASSOCIATION_TYPE) return 'modeler.bpmn.data-association.name'
-    if (element.type === BPMN_MESSAGE_FLOW_TYPE) return 'modeler.bpmn.message-flow.name'
+    if (element.type === BPMN_PARTICIPANT_TYPE && this.taskNameEditor?.part?.partType === 'bpmn.swimlane.lane') {
+      return 'modeler.bpmn.participant.lane.name'
+    }
+    if (element.type === BPMN_PARTICIPANT_TYPE) {
+      return 'modeler.bpmn.participant.name'
+    }
+    if (element.type === BPMN_DATA_STORE_TYPE) {
+      return 'modeler.bpmn.data-store.name'
+    }
+    if (element.type === BPMN_GROUP_TYPE) {
+      return 'modeler.bpmn.group.name'
+    }
+    if (element.type === BPMN_SUB_PROCESS_TYPE) {
+      return 'modeler.bpmn.sub-process.name'
+    }
+    if (element.type === BPMN_CALL_ACTIVITY_TYPE) {
+      return 'modeler.bpmn.call-activity.name'
+    }
+    if (element.type === BPMN_EVENT_TYPE) {
+      return 'modeler.bpmn.event.name'
+    }
+    if (element.type === BPMN_GATEWAY_TYPE) {
+      return 'modeler.bpmn.gateway.name'
+    }
+    if (element.type === BPMN_FLOW_TYPE) {
+      return 'modeler.bpmn.flow.name'
+    }
+    if (element.type === BPMN_ASSOCIATION_TYPE) {
+      return 'modeler.bpmn.association.name'
+    }
+    if (element.type === BPMN_DATA_ASSOCIATION_TYPE) {
+      return 'modeler.bpmn.data-association.name'
+    }
+    if (element.type === BPMN_MESSAGE_FLOW_TYPE) {
+      return 'modeler.bpmn.message-flow.name'
+    }
     return 'modeler.bpmn.task.name'
   }
 
@@ -1392,30 +1563,48 @@ export class Root<E extends EventList = Record<string, any>>
       const lane = participant.data?.lanes.find(item => item.id === this.taskNameEditor?.part?.partId)
       return lane?.name ?? this.resolveNameEditorFallback(element)
     }
-    if (this.controllerInstance.getElementRegistry().get(element.type)?.externalLabel) return element.data?.name ?? ''
+    if (this.controllerInstance.getElementRegistry().get(element.type)?.externalLabel) {
+      return element.data?.name ?? ''
+    }
     return element.data?.name ?? this.resolveNameEditorFallback(element)
   }
 
   private resolveHitTargetElementId(target: ModelerHitTarget): string | null {
-    if (target.type === 'element') return target.id
-    if (target.type === 'element-part') return target.id
-    if (target.type === 'external-label') return target.elementId
-    if (target.type === 'external-label-resize-handle') return target.elementId
-    if (target.type === 'edge-waypoint-handle' || target.type === 'edge-segment-handle') return target.elementId
+    if (target.type === 'element') {
+      return target.id
+    }
+    if (target.type === 'element-part') {
+      return target.id
+    }
+    if (target.type === 'external-label') {
+      return target.elementId
+    }
+    if (target.type === 'external-label-resize-handle') {
+      return target.elementId
+    }
+    if (target.type === 'edge-waypoint-handle' || target.type === 'edge-segment-handle') {
+      return target.elementId
+    }
     return null
   }
 
   private closeContextPadMenus(): void {
     const controls = this.layerSurfaces.get('controls')
-    if (!controls) return
+    if (!controls) {
+      return
+    }
     const stack: Array<unknown> = [...controls.children]
     while (stack.length > 0) {
       const node = stack.shift()
       const descriptorType = (node as { descriptor?: { type?: string } }).descriptor?.type
       const componentId = (node as { componentId?: string }).componentId
       const children = (node as { children?: Array<unknown> }).children
-      if (children?.length) stack.push(...children)
-      if (descriptorType !== Modeler.ContextPad || !componentId) continue
+      if (children?.length) {
+        stack.push(...children)
+      }
+      if (descriptorType !== Modeler.ContextPad || !componentId) {
+        continue
+      }
       this.nova.components.api<ContextPadApi>(componentId)?.closeMenus()
     }
   }
@@ -1425,22 +1614,44 @@ export class Root<E extends EventList = Record<string, any>>
   }
 
   private setModelerCursor(cursor: string): void {
-    if (this.currentModelerCursor === cursor) return
+    if (this.currentModelerCursor === cursor) {
+      return
+    }
     this.currentModelerCursor = cursor
     this.options({ cursorContext: { modelerCursor: cursor } })
   }
 
   private resolveModelerCursor(target: ModelerHitTarget): string {
-    if (this.spacePressed || this.dragState) return 'pan'
-    if (target.type === 'rotate-handle') return 'rotate'
-    if (target.type === 'resize-handle') return this.resolveResizeCursor(target.handle)
-    if (target.type === 'external-label-resize-handle') return this.resolveResizeCursor(target.handle)
-    if (target.type === 'external-label') return 'element'
-    if (target.type === 'bpmn-lane-resize-handle') return target.orientation === 'vertical' ? 'ew-resize' : 'ns-resize'
-    if (target.type === 'edge-waypoint-handle' || target.type === 'edge-segment-handle') return 'edge-handle'
-    if (target.type === 'port') return 'port'
-    if (target.type === 'element') return this.resolveElementCursor(target.id)
-    if (target.type === 'element-part') return this.resolveElementCursor(target.id)
+    if (this.spacePressed || this.dragState) {
+      return 'pan'
+    }
+    if (target.type === 'rotate-handle') {
+      return 'rotate'
+    }
+    if (target.type === 'resize-handle') {
+      return this.resolveResizeCursor(target.handle)
+    }
+    if (target.type === 'external-label-resize-handle') {
+      return this.resolveResizeCursor(target.handle)
+    }
+    if (target.type === 'external-label') {
+      return 'element'
+    }
+    if (target.type === 'bpmn-lane-resize-handle') {
+      return target.orientation === 'vertical' ? 'ew-resize' : 'ns-resize'
+    }
+    if (target.type === 'edge-waypoint-handle' || target.type === 'edge-segment-handle') {
+      return 'edge-handle'
+    }
+    if (target.type === 'port') {
+      return 'port'
+    }
+    if (target.type === 'element') {
+      return this.resolveElementCursor(target.id)
+    }
+    if (target.type === 'element-part') {
+      return this.resolveElementCursor(target.id)
+    }
     return 'default'
   }
 
@@ -1476,24 +1687,42 @@ export class Root<E extends EventList = Record<string, any>>
     const model = this.controllerInstance.getModel()
     const element = model.elements.find(item => item.id === elementId)
     const definition = element ? this.controllerInstance.getElementRegistry().get(element.type) : undefined
-    if (element && isModelerEdgeElement(element)) return 'pointer'
-    if (definition?.capabilities?.cursor?.hover === 'pointer') return 'pointer'
-    if (definition?.capabilities?.cursor?.hover) return 'element'
-    if (definition?.capabilities?.draggable === false) return 'default'
+    if (element && isModelerEdgeElement(element)) {
+      return 'pointer'
+    }
+    if (definition?.capabilities?.cursor?.hover === 'pointer') {
+      return 'pointer'
+    }
+    if (definition?.capabilities?.cursor?.hover) {
+      return 'element'
+    }
+    if (definition?.capabilities?.draggable === false) {
+      return 'default'
+    }
     return 'element'
   }
 
   private resolveResizeCursor(handle: string): string {
-    if (handle === 'n' || handle === 's') return 'ns-resize'
-    if (handle === 'e' || handle === 'w') return 'ew-resize'
-    if (handle === 'ne' || handle === 'sw') return 'nesw-resize'
+    if (handle === 'n' || handle === 's') {
+      return 'ns-resize'
+    }
+    if (handle === 'e' || handle === 'w') {
+      return 'ew-resize'
+    }
+    if (handle === 'ne' || handle === 'sw') {
+      return 'nesw-resize'
+    }
     return 'nwse-resize'
   }
 
   private shouldStartPan(event: MouseEvent): boolean {
     const panMode = this.controllerInstance.getOptions().viewport?.panMode ?? 'both'
-    if (event.button === 1) return true
-    if (event.button !== 0 || event.shiftKey || event.metaKey || event.ctrlKey) return false
+    if (event.button === 1) {
+      return true
+    }
+    if (event.button !== 0 || event.shiftKey || event.metaKey || event.ctrlKey) {
+      return false
+    }
     return panMode === 'both' || panMode === 'drag-empty' || (panMode === 'space-drag' && this.spacePressed)
   }
 
@@ -1517,13 +1746,19 @@ export class Root<E extends EventList = Record<string, any>>
 
   private shouldSyncLayerSlotsForDirty(
     opts:
-      | { matrix?: boolean; update?: boolean; render?: boolean }
+      | { matrix?: boolean, update?: boolean, render?: boolean }
       | string
       | Array<string>,
   ): boolean {
-    if (Object.keys(this.layerSlots).length === 0) return false
-    if (typeof opts === 'string') return opts === 'update'
-    if (Array.isArray(opts)) return opts.includes('update')
+    if (Object.keys(this.layerSlots).length === 0) {
+      return false
+    }
+    if (typeof opts === 'string') {
+      return opts === 'update'
+    }
+    if (Array.isArray(opts)) {
+      return opts.includes('update')
+    }
     return !!opts.update
   }
 }

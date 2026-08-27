@@ -21,8 +21,10 @@ export class SnapRuntime {
   /**
    * Привязывает абсолютную позицию элемента.
    */
-  moveElement(input: ModelerSnapMoveInput): { x: number; y: number } {
-    if (!this.isEnabled(input.event)) return input.raw
+  moveElement(input: ModelerSnapMoveInput): { x: number, y: number } {
+    if (!this.isEnabled(input.event)) {
+      return input.raw
+    }
     return this.resolveStrategy().snapPoint({
       point: input.raw,
       gridSize: this.resolveGridSize(),
@@ -33,8 +35,10 @@ export class SnapRuntime {
   /**
    * Привязывает bounds resize-операции.
    */
-  resizeElement(input: ModelerSnapRuntimeResizeInput): { x: number; y: number; width: number; height: number } {
-    if (!this.isEnabled(input.event)) return input.rawBounds
+  resizeElement(input: ModelerSnapRuntimeResizeInput): { x: number, y: number, width: number, height: number } {
+    if (!this.isEnabled(input.event)) {
+      return input.rawBounds
+    }
     return this.resolveStrategy().snapResize({
       bounds: input.rawBounds,
       source: input.element,
@@ -50,8 +54,12 @@ export class SnapRuntime {
    */
   private isEnabled(event?: MouseEvent): boolean {
     const options = this.resolveOptions()
-    if (options === false) return false
-    if (options.enabled === false) return false
+    if (options === false) {
+      return false
+    }
+    if (options.enabled === false) {
+      return false
+    }
     return !this.isDisabledByModifier(event, options.disableModifier ?? 'alt')
   }
 
@@ -60,7 +68,9 @@ export class SnapRuntime {
    */
   private resolveStrategy(): ModelerSnapStrategy {
     const options = this.resolveOptions()
-    if (options === false) return this.noopStrategy
+    if (options === false) {
+      return this.noopStrategy
+    }
     return options.strategy ?? this.gridStrategy
   }
 
@@ -83,10 +93,18 @@ export class SnapRuntime {
    * Проверяет временное отключение snap через modifier key.
    */
   private isDisabledByModifier(event: MouseEvent | undefined, modifier: ModelerSnapDisableModifier): boolean {
-    if (!event || modifier === 'none') return false
-    if (modifier === 'alt') return event.altKey
-    if (modifier === 'meta') return event.metaKey
-    if (modifier === 'shift') return event.shiftKey
+    if (!event || modifier === 'none') {
+      return false
+    }
+    if (modifier === 'alt') {
+      return event.altKey
+    }
+    if (modifier === 'meta') {
+      return event.metaKey
+    }
+    if (modifier === 'shift') {
+      return event.shiftKey
+    }
     return event.ctrlKey
   }
 }

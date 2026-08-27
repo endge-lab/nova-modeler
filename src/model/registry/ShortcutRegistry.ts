@@ -1,9 +1,9 @@
 import type {
   ModelerKeyboardShortcut,
   ModelerResolvedShortcut,
+  ModelerSelectionOptions,
   ModelerShortcutDefinition,
   ModelerShortcutOptions,
-  ModelerSelectionOptions,
 } from '@/domain/types/index'
 import { SelectionRuntime } from '@/model/selection/SelectionRuntime'
 
@@ -18,7 +18,9 @@ export class ShortcutRegistry {
   register(definition: ModelerShortcutDefinition): () => void {
     this.items.set(definition.id, definition)
     return () => {
-      if (this.items.get(definition.id) === definition) this.items.delete(definition.id)
+      if (this.items.get(definition.id) === definition) {
+        this.items.delete(definition.id)
+      }
     }
   }
 
@@ -33,14 +35,16 @@ export class ShortcutRegistry {
   resolve(event: KeyboardEvent): ModelerResolvedShortcut | undefined {
     for (const definition of this.items.values()) {
       const shortcut = SelectionRuntime.matchShortcut(event, this.resolveBindings(definition))
-      if (shortcut) return { definition, shortcut }
+      if (shortcut) {
+        return { definition, shortcut }
+      }
     }
     return undefined
   }
 
   private resolveBindings(definition: ModelerShortcutDefinition): Array<ModelerKeyboardShortcut> {
     const bindings = this.getOptions()?.bindings
-    if (bindings && Object.prototype.hasOwnProperty.call(bindings, definition.id)) {
+    if (bindings && Object.hasOwn(bindings, definition.id)) {
       return bindings[definition.id] ?? []
     }
     if (definition.id === 'selection.delete') {

@@ -3,21 +3,21 @@ import type {
   ModelerElementInput,
 } from '@/domain/types/index'
 
-export type BpmnTaskType =
-  | 'none'
-  | 'user'
-  | 'manual'
-  | 'service'
-  | 'script'
-  | 'businessRule'
-  | 'send'
-  | 'receive'
+export type BpmnTaskType
+  = | 'none'
+    | 'user'
+    | 'manual'
+    | 'service'
+    | 'script'
+    | 'businessRule'
+    | 'send'
+    | 'receive'
 
-export type BpmnTaskLoopType =
-  | 'none'
-  | 'standard'
-  | 'multiInstanceParallel'
-  | 'multiInstanceSequential'
+export type BpmnTaskLoopType
+  = | 'none'
+    | 'standard'
+    | 'multiInstanceParallel'
+    | 'multiInstanceSequential'
 
 export interface BpmnTaskElementData extends Record<string, unknown> {
   name: string
@@ -35,8 +35,8 @@ export interface BpmnTaskElementData extends Record<string, unknown> {
 
 export type BpmnTaskElement = ModelerElement<BpmnTaskElementData>
 
-export type BpmnTaskElementInput =
-  ModelerElementInput<Partial<BpmnTaskElementData>> & {
+export type BpmnTaskElementInput
+  = ModelerElementInput<Partial<BpmnTaskElementData>> & {
     name?: string
     taskType?: BpmnTaskType
     loopType?: BpmnTaskLoopType

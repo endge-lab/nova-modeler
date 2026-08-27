@@ -1,9 +1,12 @@
-import { Modeler } from '@/config/schema.config'
 import type {
   ModelerElementDefinition,
   ModelerElementRenderContext,
 } from '@/domain/types/index'
-import { MODEL_ELEMENTS_RUNTIME } from '@/plugins/elements/model/ElementsRuntime'
+import type {
+  BpmnAssociationElement,
+  BpmnAssociationElementInput,
+} from '@/elements/bpmn/association/bpmn-association.types'
+import { Modeler } from '@/config/schema.config'
 import {
   BPMN_ASSOCIATION_TYPE,
   createBpmnAssociationElement,
@@ -11,10 +14,7 @@ import {
 } from '@/elements/bpmn/association/bpmn-association.factory'
 import { BpmnAssociationVariantProvider } from '@/elements/bpmn/association/bpmn-association.variants'
 import { createBpmnEdgeExternalLabelAdapter } from '@/elements/bpmn/bpmn-external-label'
-import type {
-  BpmnAssociationElement,
-  BpmnAssociationElementInput,
-} from '@/elements/bpmn/association/bpmn-association.types'
+import { MODEL_ELEMENTS_RUNTIME } from '@/plugins/elements/model/ElementsRuntime'
 
 const BPMN_ASSOCIATION_HIT_TOLERANCE = 6
 
@@ -75,8 +75,14 @@ export const BpmnAssociationDefinition: ModelerElementDefinition<BpmnAssociation
 
 function resolveBpmnAssociationTooltip(element: BpmnAssociationElement): string {
   const associationType = normalizeBpmnAssociationType(element.data?.associationType)
-  if (associationType === 'directed') return 'Directed association'
-  if (associationType === 'bidirectional') return 'Bidirectional association'
-  if (associationType === 'data') return 'Data association'
+  if (associationType === 'directed') {
+    return 'Directed association'
+  }
+  if (associationType === 'bidirectional') {
+    return 'Bidirectional association'
+  }
+  if (associationType === 'data') {
+    return 'Data association'
+  }
   return 'Association'
 }

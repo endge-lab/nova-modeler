@@ -1,6 +1,6 @@
-import path from 'path'
-import { defineConfig } from 'vitest/config'
+import path from 'node:path'
 import dts from 'unplugin-dts/vite'
+import { defineConfig } from 'vitest/config'
 
 const externalPackages = [
   '@endge/nova',

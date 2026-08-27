@@ -24,8 +24,12 @@ export interface RangeSelectionInput {
 export class SelectionRuntime {
   static resolvePointerSelection(input: PointerSelectionInput): Array<string> {
     const options = input.options ?? {}
-    if (options.selectOnPointerDown === false) return input.current
-    if (options.multiple === false) return [input.elementId]
+    if (options.selectOnPointerDown === false) {
+      return input.current
+    }
+    if (options.multiple === false) {
+      return [input.elementId]
+    }
     if (isModifierActive(input.event, options.toggleModifier)) {
       return toggleIds(input.current, [input.elementId])
     }
@@ -37,7 +41,9 @@ export class SelectionRuntime {
 
   static resolveRangeSelection(input: RangeSelectionInput): Array<string> {
     const options = input.options ?? {}
-    if (options.multiple === false) return input.ids.slice(0, 1)
+    if (options.multiple === false) {
+      return input.ids.slice(0, 1)
+    }
     if (isModifierActive(input.event, options.toggleModifier)) {
       return toggleIds(input.current, input.ids)
     }
@@ -48,7 +54,9 @@ export class SelectionRuntime {
   }
 
   static shouldStartMarquee(event: MouseEvent, options?: ModelerSelectionOptions): boolean {
-    if (options?.multiple === false) return false
+    if (options?.multiple === false) {
+      return false
+    }
     return isModifierActive(event, options?.marqueeModifier ?? 'shift')
   }
 
@@ -57,10 +65,16 @@ export class SelectionRuntime {
   }
 
   static matchShortcut(event: KeyboardEvent, shortcuts: Array<ModelerKeyboardShortcut> = []): ModelerKeyboardShortcut | undefined {
-    return shortcuts.find(shortcut => {
-      if (!shortcut.key && !shortcut.code) return false
-      if (shortcut.key && shortcut.key !== event.key) return false
-      if (shortcut.code && shortcut.code !== event.code) return false
+    return shortcuts.find((shortcut) => {
+      if (!shortcut.key && !shortcut.code) {
+        return false
+      }
+      if (shortcut.key && shortcut.key !== event.key) {
+        return false
+      }
+      if (shortcut.code && shortcut.code !== event.code) {
+        return false
+      }
       return (shortcut.shift ?? false) === event.shiftKey
         && (shortcut.ctrl ?? false) === event.ctrlKey
         && (shortcut.meta ?? false) === event.metaKey
@@ -70,19 +84,31 @@ export class SelectionRuntime {
 }
 
 function isModifierActive(event: MouseEvent, modifier: ModelerSelectionModifier | undefined): boolean {
-  if (!modifier) return false
-  if (modifier === 'shift') return event.shiftKey
-  if (modifier === 'ctrl') return event.ctrlKey
-  if (modifier === 'meta') return event.metaKey
-  if (modifier === 'alt') return event.altKey
+  if (!modifier) {
+    return false
+  }
+  if (modifier === 'shift') {
+    return event.shiftKey
+  }
+  if (modifier === 'ctrl') {
+    return event.ctrlKey
+  }
+  if (modifier === 'meta') {
+    return event.metaKey
+  }
+  if (modifier === 'alt') {
+    return event.altKey
+  }
   return !event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey
 }
 
 function toggleIds(current: Array<string>, ids: Array<string>): Array<string> {
   const next = new Set(current)
-  ids.forEach(id => {
-    if (next.has(id)) next.delete(id)
-    else next.add(id)
+  ids.forEach((id) => {
+    if (next.has(id)) {
+      next.delete(id)
+    }
+    else { next.add(id) }
   })
   return [...next]
 }

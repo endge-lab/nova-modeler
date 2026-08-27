@@ -12,8 +12,8 @@ export interface BpmnTextAnnotationElementData extends Record<string, unknown> {
 
 export type BpmnTextAnnotationElement = ModelerElement<BpmnTextAnnotationElementData>
 
-export type BpmnTextAnnotationElementInput =
-  ModelerElementInput<Partial<BpmnTextAnnotationElementData>> & {
+export type BpmnTextAnnotationElementInput
+  = ModelerElementInput<Partial<BpmnTextAnnotationElementData>> & {
     text?: string
     bracketSide?: BpmnTextAnnotationBracketSide
   }

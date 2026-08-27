@@ -1,32 +1,34 @@
-import {
-  NovaComponent,
-  NovaComponentNode,
-  Prop,
-  createNovaDecoratedComponentDescriptor,
-  type NovaApp,
-  type NovaComponentDescriptor,
-  type NovaSchema,
-  type NovaSurface,
-} from '@endge/nova'
+import type { NovaApp, NovaComponentDescriptor, NovaSchema, NovaSurface } from '@endge/nova'
 import type { EventList } from '@endge/utils'
+import type { ModelerThemeTokenKey } from '@/config/theme.config'
+import type { ModelerViewport } from '@/domain/types'
+import type { BpmnCallActivityElement } from '@/elements/bpmn/call-activity/bpmn-call-activity.types'
+import type { BpmnSubProcessElement } from '@/elements/bpmn/sub-process/bpmn-sub-process.types'
+import type { BpmnTaskElementData } from '@/elements/bpmn/task/bpmn-task.types'
+import type { BpmnTaskNameLayout } from '@/ui/elements/bpmn/task/BpmnTaskView'
+import {
+  createNovaDecoratedComponentDescriptor,
+
+  NovaComponent,
+
+  NovaComponentNode,
+
+  Prop,
+} from '@endge/nova'
 import { Modeler } from '@/config/schema.config'
 import {
   MODELER_THEME_FALLBACKS,
   MODELER_THEME_TOKENS,
-  type ModelerThemeTokenKey,
+
 } from '@/config/theme.config'
-import type { ModelerViewport } from '@/domain/types'
 import { BPMN_CALL_ACTIVITY_TYPE } from '@/elements/bpmn/call-activity/bpmn-call-activity.factory'
-import type { BpmnCallActivityElement } from '@/elements/bpmn/call-activity/bpmn-call-activity.types'
 import {
   BPMN_SUB_PROCESS_TYPE,
   normalizeBpmnSubProcessType,
 } from '@/elements/bpmn/sub-process/bpmn-sub-process.factory'
-import type { BpmnSubProcessElement } from '@/elements/bpmn/sub-process/bpmn-sub-process.types'
-import type { BpmnTaskElementData } from '@/elements/bpmn/task/bpmn-task.types'
 import {
+
   resolveBpmnTaskNameLayout,
-  type BpmnTaskNameLayout,
 } from '@/ui/elements/bpmn/task/BpmnTaskView'
 
 export type BpmnActivityViewElement = BpmnSubProcessElement | BpmnCallActivityElement
@@ -159,9 +161,15 @@ export class BpmnActivityView<E extends EventList = Record<string, any>>
       },
     }]
 
-    if (subProcessType === 'transaction') this.appendInnerBorder(schema, borderColor, radius)
-    if (!this.props.hideName) this.appendActivityName(schema)
-    if (element.type === BPMN_SUB_PROCESS_TYPE) this.appendSubProcessMarkers(schema, subProcessType)
+    if (subProcessType === 'transaction') {
+      this.appendInnerBorder(schema, borderColor, radius)
+    }
+    if (!this.props.hideName) {
+      this.appendActivityName(schema)
+    }
+    if (element.type === BPMN_SUB_PROCESS_TYPE) {
+      this.appendSubProcessMarkers(schema, subProcessType)
+    }
     return schema
   }
 

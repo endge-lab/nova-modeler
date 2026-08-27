@@ -1,24 +1,24 @@
 import type {
   BpmnValidationRuleId,
   ModelerElement,
+  ModelerModel,
   ModelerValidationIssue,
   ModelerValidationResult,
   ModelerValidationSeverity,
-  ModelerModel,
 } from '@/domain/types/index'
-import { BPMN_EVENT_TYPE } from '@/elements/bpmn/event/bpmn-event.factory'
+import type { BpmnEventElement } from '@/elements/bpmn/event/bpmn-event.types'
+import type { BpmnFlowElement } from '@/elements/bpmn/flow/bpmn-flow.types'
+import type { BpmnTaskElement } from '@/elements/bpmn/task/bpmn-task.types'
 import { BPMN_BOUNDARY_EVENT_TYPE } from '@/elements/bpmn/boundary-event/bpmn-boundary-event.factory'
+import { BPMN_CALL_ACTIVITY_TYPE } from '@/elements/bpmn/call-activity/bpmn-call-activity.factory'
+import { BPMN_EVENT_TYPE } from '@/elements/bpmn/event/bpmn-event.factory'
 import {
   BPMN_FLOW_TYPE,
   normalizeBpmnFlowType,
 } from '@/elements/bpmn/flow/bpmn-flow.factory'
 import { BPMN_GATEWAY_TYPE } from '@/elements/bpmn/gateway/bpmn-gateway.factory'
-import { BPMN_CALL_ACTIVITY_TYPE } from '@/elements/bpmn/call-activity/bpmn-call-activity.factory'
 import { BPMN_SUB_PROCESS_TYPE } from '@/elements/bpmn/sub-process/bpmn-sub-process.factory'
 import { BPMN_TASK_TYPE } from '@/elements/bpmn/task/bpmn-task.factory'
-import type { BpmnEventElement } from '@/elements/bpmn/event/bpmn-event.types'
-import type { BpmnFlowElement } from '@/elements/bpmn/flow/bpmn-flow.types'
-import type { BpmnTaskElement } from '@/elements/bpmn/task/bpmn-task.types'
 
 export class BpmnValidationRuntime {
   static validate(model: ModelerModel): ModelerValidationResult {
@@ -94,7 +94,9 @@ export class BpmnValidationRuntime {
     }
 
     for (const [sourceId, flows] of defaultFlowsBySource) {
-      if (flows.length <= 1) continue
+      if (flows.length <= 1) {
+        continue
+      }
       issues.push(createIssue(
         sourceId,
         'bpmn.multipleDefaultFlows',
@@ -118,7 +120,9 @@ export class BpmnValidationRuntime {
     }
 
     for (const event of bpmnNodes.filter((node): node is BpmnEventElement => node.type === BPMN_EVENT_TYPE)) {
-      if (event.data?.trigger !== 'link') continue
+      if (event.data?.trigger !== 'link') {
+        continue
+      }
       const linkRef = resolveLinkRef(event)
       if (event.data?.eventPosition !== 'intermediate') {
         issues.push(createIssue(event.id, 'bpmn.invalidLinkEvent', 'error', 'Link Event must be an Intermediate Event.', [event.id]))
@@ -137,7 +141,9 @@ export class BpmnValidationRuntime {
     }
 
     for (const [linkRef, catches] of linkCatchEventsByRef) {
-      if (catches.length <= 1) continue
+      if (catches.length <= 1) {
+        continue
+      }
       issues.push(createIssue(
         linkRef,
         'bpmn.linkDuplicateCatch',
@@ -149,7 +155,9 @@ export class BpmnValidationRuntime {
 
     for (const event of linkThrowEvents) {
       const linkRef = resolveLinkRef(event)
-      if (!linkRef || linkCatchEventsByRef.has(linkRef)) continue
+      if (!linkRef || linkCatchEventsByRef.has(linkRef)) {
+        continue
+      }
       issues.push(createIssue(
         event.id,
         'bpmn.linkThrowNoTarget',

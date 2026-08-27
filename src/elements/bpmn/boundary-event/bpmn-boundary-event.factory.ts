@@ -1,4 +1,9 @@
 import type { ModelerElement } from '@/domain/types/index'
+import type {
+  BpmnBoundaryEventElement,
+  BpmnBoundaryEventElementInput,
+  BpmnBoundaryEventTrigger,
+} from '@/elements/bpmn/boundary-event/bpmn-boundary-event.types'
 import {
   BPMN_CALL_ACTIVITY_TYPE,
 } from '@/elements/bpmn/call-activity/bpmn-call-activity.factory'
@@ -8,17 +13,12 @@ import {
 import {
   BPMN_TASK_TYPE,
 } from '@/elements/bpmn/task/bpmn-task.factory'
-import type {
-  BpmnBoundaryEventElement,
-  BpmnBoundaryEventElementInput,
-  BpmnBoundaryEventTrigger,
-} from '@/elements/bpmn/boundary-event/bpmn-boundary-event.types'
 
 export const BPMN_BOUNDARY_EVENT_TYPE = 'bpmn.boundaryEvent'
 
 export const BPMN_BOUNDARY_EVENT_DEFAULT_SIZE = 36
 
-export const BPMN_BOUNDARY_EVENT_TRIGGERS: Array<{ id: BpmnBoundaryEventTrigger; title: string }> = [
+export const BPMN_BOUNDARY_EVENT_TRIGGERS: Array<{ id: BpmnBoundaryEventTrigger, title: string }> = [
   { id: 'message', title: 'Message boundary event' },
   { id: 'timer', title: 'Timer boundary event' },
   { id: 'error', title: 'Error boundary event' },

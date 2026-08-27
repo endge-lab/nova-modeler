@@ -42,6 +42,6 @@ export class ModelerExportService {
 }
 
 function toFileStem(value: string): string {
-  const stem = value.trim().replace(/[^A-Za-z0-9_.-]+/g, '-').replace(/^-+|-+$/g, '')
+  const stem = value.trim().replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '')
   return stem || 'nova-modeler'
 }

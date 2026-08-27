@@ -1,50 +1,49 @@
-import {
-  Nova,
-  NovaComponent,
-  NovaComponentNode,
-  NovaTemplateRuntime,
-  Prop,
-  createNovaDecoratedComponentDescriptor,
-  type NovaApp,
-  type NovaElementSlots,
-  type NovaSchema,
-  type NovaSurface,
-  type NovaTemplateChildSchema,
-} from '@endge/nova'
+import type { NovaApp, NovaElementSlots, NovaSchema, NovaSurface, NovaTemplateChildSchema } from '@endge/nova'
+import type { NovaTooltipTargetResolver, TooltipInput, TooltipTargetResolution } from '@endge/nova-ui-kit'
 import type { EventList } from '@endge/utils'
-import {
-  NovaUIKit,
-  type NovaTooltipTargetResolver,
-  type TooltipInput,
-  type TooltipTargetResolution,
-} from '@endge/nova-ui-kit'
-import { MODELER_ASSETS } from '@/assets/modeler-assets'
-import { Modeler } from '@/config/schema.config'
-import { MODELER_CONTEXT } from '@/config/context.config'
-import {
-  MODELER_THEME_FALLBACKS,
-  MODELER_THEME_TOKENS,
-} from '@/config/theme.config'
+import type {
+  ContextPadApi,
+  ContextPadDescriptor,
+  ContextPadEntry,
+  ContextPadLayoutSlotProps,
+  ContextPadPosition,
+  ContextPadProps,
+  ContextPadResolvedProps,
+  ContextPadSlotProps,
+  ContextPadTarget,
+} from '@/domain/types/controls/context-pad.types'
 import type {
   ModelerController,
   ModelerEdgeElement,
   ModelerElement,
-  ModelerPoint,
   ModelerPluginContext,
+  ModelerPoint,
   ModelerRect,
 } from '@/domain/types/index'
-import { isModelerEdgeElement } from '@/domain/types/index'
-import { MODEL_ELEMENTS_RUNTIME } from '@/plugins/elements/model/ElementsRuntime'
-import {
-  addBpmnParticipantLane,
-  areBpmnParticipantLaneHeadersVisible,
-  BPMN_PARTICIPANT_TYPE,
-  canToggleBpmnParticipantSingleLane,
-  isElementInsideBpmnParticipantLane,
-  removeBpmnParticipantLane,
-  toggleBpmnParticipantSingleLane,
-} from '@/elements/bpmn/participant/bpmn-participant.factory'
 import type { BpmnParticipantElement } from '@/elements/bpmn/participant/bpmn-participant.types'
+import {
+  createNovaDecoratedComponentDescriptor,
+  Nova,
+
+  NovaComponent,
+  NovaComponentNode,
+
+  NovaTemplateRuntime,
+  Prop,
+} from '@endge/nova'
+import {
+
+  NovaUIKit,
+
+} from '@endge/nova-ui-kit'
+import { MODELER_ASSETS } from '@/assets/modeler-assets'
+import { MODELER_CONTEXT } from '@/config/context.config'
+import { Modeler } from '@/config/schema.config'
+import {
+  MODELER_THEME_FALLBACKS,
+  MODELER_THEME_TOKENS,
+} from '@/config/theme.config'
+import { isModelerEdgeElement } from '@/domain/types/index'
 import {
   createBpmnBoundaryEventForActivity,
   isBpmnBoundaryAttachableActivity,
@@ -57,17 +56,16 @@ import {
   isBpmnMessageFlowNode,
   resolveBpmnMessageFlowParticipantId,
 } from '@/elements/bpmn/message-flow/bpmn-message-flow.factory'
-import type {
-  ContextPadApi,
-  ContextPadDescriptor,
-  ContextPadEntry,
-  ContextPadLayoutSlotProps,
-  ContextPadPosition,
-  ContextPadProps,
-  ContextPadResolvedProps,
-  ContextPadSlotProps,
-  ContextPadTarget,
-} from '@/domain/types/controls/context-pad.types'
+import {
+  addBpmnParticipantLane,
+  areBpmnParticipantLaneHeadersVisible,
+  BPMN_PARTICIPANT_TYPE,
+  canToggleBpmnParticipantSingleLane,
+  isElementInsideBpmnParticipantLane,
+  removeBpmnParticipantLane,
+  toggleBpmnParticipantSingleLane,
+} from '@/elements/bpmn/participant/bpmn-participant.factory'
+import { MODEL_ELEMENTS_RUNTIME } from '@/plugins/elements/model/ElementsRuntime'
 
 @NovaComponent({
   type: Modeler.ContextPad,
@@ -97,7 +95,9 @@ export class ContextPad<E extends EventList = Record<string, any>>
   }
 
   private readonly handleWindowKeyDown = (event: KeyboardEvent): void => {
-    if ((!this.variantMenuOpen && !this.colorMenuOpen) || event.key !== 'Escape') return
+    if ((!this.variantMenuOpen && !this.colorMenuOpen) || event.key !== 'Escape') {
+      return
+    }
     event.preventDefault()
     this.closeOpenMenus()
   }
@@ -110,7 +110,7 @@ export class ContextPad<E extends EventList = Record<string, any>>
     surface: NovaSurface<E>,
     descriptor: ContextPadDescriptor,
     props: ContextPadResolvedProps,
-    options: { componentId?: string; slots?: NovaElementSlots } = {},
+    options: { componentId?: string, slots?: NovaElementSlots } = {},
   ) {
     super(app, surface, descriptor, props, options)
     this.childRuntime = new NovaTemplateRuntime(this)
@@ -187,22 +187,34 @@ export class ContextPad<E extends EventList = Record<string, any>>
   }
 
   override containsPoint(x: number, y: number): boolean {
-    if (this.hasCustomSlots()) return false
+    if (this.hasCustomSlots()) {
+      return false
+    }
     const context = this.props.controller ?? this.injectOptional(MODELER_CONTEXT)
     const target = context ? this.resolveTarget(context) : null
-    if (!this.props.visible || !target) return false
-    if (!context) return false
+    if (!this.props.visible || !target) {
+      return false
+    }
+    if (!context) {
+      return false
+    }
     const rect = this.resolvePadRect(context, target)
     return x >= rect.x && x <= rect.x + rect.width && y >= rect.y && y <= rect.y + rect.height
   }
 
-  resolveNovaTooltipTarget(input: { x: number; y: number; event?: MouseEvent }): TooltipTargetResolution | null {
-    if (this.hasCustomSlots()) return null
+  resolveNovaTooltipTarget(input: { x: number, y: number, event?: MouseEvent }): TooltipTargetResolution | null {
+    if (this.hasCustomSlots()) {
+      return null
+    }
     const context = this.props.controller ?? this.injectOptional(MODELER_CONTEXT)
     const target = context ? this.resolveTarget(context) : null
-    if (!this.props.visible || !context || !target) return null
+    if (!this.props.visible || !context || !target) {
+      return null
+    }
     const hit = this.resolveEntryAtPoint(context, target, input.x, input.y)
-    if (!hit) return null
+    if (!hit) {
+      return null
+    }
     return {
       tooltip: {
         value: hit.entry.title,
@@ -258,21 +270,33 @@ export class ContextPad<E extends EventList = Record<string, any>>
 
   private resolveTarget(context: ModelerController | ModelerPluginContext): ContextPadTarget | null {
     const model = context.getModel()
-    if (model.selection.length !== 1) return null
+    if (model.selection.length !== 1) {
+      return null
+    }
     const element = model.elements.find(item => item.id === model.selection[0])
-    if (!element) return null
+    if (!element) {
+      return null
+    }
     const definition = context.getElementRegistry().get(element.type)
-    if (!definition) return null
-    if (this.closedForSelectionKey === `${model.id}:${model.selectionVersion}:${element.id}`) return null
+    if (!definition) {
+      return null
+    }
+    if (this.closedForSelectionKey === `${model.id}:${model.selectionVersion}:${element.id}`) {
+      return null
+    }
     const screenBounds = definition.kind === 'edge' && isModelerEdgeElement(element)
       ? this.resolveEdgeScreenBounds(context, element)
       : this.resolveNodeScreenBounds(context, element)
-    if (!screenBounds) return null
+    if (!screenBounds) {
+      return null
+    }
     const part = MODEL_ELEMENTS_RUNTIME.contextPadAnchors.getPart(element.id)
     const anchor = definition.kind === 'edge' || part
       ? MODEL_ELEMENTS_RUNTIME.contextPadAnchors.get(element.id)
       : undefined
-    if (definition.kind === 'edge' && !anchor && !definition.capabilities?.colorable) return null
+    if (definition.kind === 'edge' && !anchor && !definition.capabilities?.colorable) {
+      return null
+    }
     return {
       type: 'element',
       element,
@@ -299,12 +323,16 @@ export class ContextPad<E extends EventList = Record<string, any>>
   private resolveEdgeScreenBounds(context: ModelerController | ModelerPluginContext, element: ModelerEdgeElement): ModelerRect | null {
     const pluginContext = resolvePluginContext(context)
     const path = MODEL_ELEMENTS_RUNTIME.edges.createPath(pluginContext, element)
-    const points = path.length > 0 ? path : [
-      element.source.point,
-      ...element.waypoints,
-      element.target.point,
-    ].filter((point): point is ModelerPoint => Boolean(point))
-    if (points.length === 0) return null
+    const points = path.length > 0
+      ? path
+      : [
+          element.source.point,
+          ...element.waypoints,
+          element.target.point,
+        ].filter((point): point is ModelerPoint => Boolean(point))
+    if (points.length === 0) {
+      return null
+    }
     const screenPoints = points.map(point => context.worldToScreen(point))
     const xs = screenPoints.map(point => point.x)
     const ys = screenPoints.map(point => point.y)
@@ -492,7 +520,9 @@ export class ContextPad<E extends EventList = Record<string, any>>
   private createDefaultSchema(): NovaSchema {
     const context = this.props.controller ?? this.injectOptional(MODELER_CONTEXT)
     const target = context ? this.resolveTarget(context) : null
-    if (!this.props.visible || !context || !target) return []
+    if (!this.props.visible || !context || !target) {
+      return []
+    }
 
     const entries = this.createEntries(context, target)
     const layout = this.resolvePadRect(context, target)
@@ -573,15 +603,33 @@ export class ContextPad<E extends EventList = Record<string, any>>
   }
 
   private resolveEntryIcon(entry: ContextPadEntry) {
-    if (entry.id === 'swimlane.add-lane' || entry.id === 'swimlane.add-lane-below') return MODELER_ASSETS.icons.rowInsertBottom
-    if (entry.id === 'swimlane.hide-single-lane' || entry.id === 'swimlane.show-single-lane') return MODELER_ASSETS.icons.swimlane
-    if (entry.id === 'swimlane.delete-lane') return MODELER_ASSETS.icons.trashX
-    if (entry.id === 'boundary-event.add') return MODELER_ASSETS.icons.activityEventSubProcess
-    if (entry.id === 'data-association.connect') return MODELER_ASSETS.icons.link
-    if (entry.id === 'message-flow.connect') return MODELER_ASSETS.icons.message
-    if (entry.id === 'variants') return MODELER_ASSETS.icons.tool
-    if (entry.id === 'connect') return MODELER_ASSETS.icons.connectArrow
-    if (entry.id === 'color') return MODELER_ASSETS.icons.brush
+    if (entry.id === 'swimlane.add-lane' || entry.id === 'swimlane.add-lane-below') {
+      return MODELER_ASSETS.icons.rowInsertBottom
+    }
+    if (entry.id === 'swimlane.hide-single-lane' || entry.id === 'swimlane.show-single-lane') {
+      return MODELER_ASSETS.icons.swimlane
+    }
+    if (entry.id === 'swimlane.delete-lane') {
+      return MODELER_ASSETS.icons.trashX
+    }
+    if (entry.id === 'boundary-event.add') {
+      return MODELER_ASSETS.icons.activityEventSubProcess
+    }
+    if (entry.id === 'data-association.connect') {
+      return MODELER_ASSETS.icons.link
+    }
+    if (entry.id === 'message-flow.connect') {
+      return MODELER_ASSETS.icons.message
+    }
+    if (entry.id === 'variants') {
+      return MODELER_ASSETS.icons.tool
+    }
+    if (entry.id === 'connect') {
+      return MODELER_ASSETS.icons.connectArrow
+    }
+    if (entry.id === 'color') {
+      return MODELER_ASSETS.icons.brush
+    }
     return MODELER_ASSETS.icons.trash
   }
 
@@ -667,7 +715,9 @@ export class ContextPad<E extends EventList = Record<string, any>>
         this.closeColorMenu()
         this.syncDefaultVariantMenu()
       }
-      else this.clearDefaultVariantMenu()
+      else {
+        this.clearDefaultVariantMenu()
+      }
       this.syncChild()
       this.dirty({ render: true })
       return
@@ -678,7 +728,9 @@ export class ContextPad<E extends EventList = Record<string, any>>
         this.closeVariantMenu()
         this.syncDefaultColorMenu()
       }
-      else this.clearDefaultColorMenu()
+      else {
+        this.clearDefaultColorMenu()
+      }
       this.syncChild()
       this.dirty({ render: true })
       return
@@ -689,7 +741,9 @@ export class ContextPad<E extends EventList = Record<string, any>>
       this.close()
       return
     }
-    if (entry.id !== 'delete') return
+    if (entry.id !== 'delete') {
+      return
+    }
     context.applyCommand({ type: 'element.delete', id: target.element.id })
     this.close()
   }
@@ -709,7 +763,9 @@ export class ContextPad<E extends EventList = Record<string, any>>
   }
 
   private syncDefaultVariantMenu(): void {
-    if (this.hasCustomSlots()) return
+    if (this.hasCustomSlots()) {
+      return
+    }
     const context = this.props.controller ?? this.injectOptional(MODELER_CONTEXT)
     const target = context ? this.resolveTarget(context) : null
     if (!this.variantMenuOpen || !context || !target) {
@@ -736,7 +792,9 @@ export class ContextPad<E extends EventList = Record<string, any>>
   }
 
   private syncDefaultColorMenu(): void {
-    if (this.hasCustomSlots()) return
+    if (this.hasCustomSlots()) {
+      return
+    }
     const context = this.props.controller ?? this.injectOptional(MODELER_CONTEXT)
     const target = context ? this.resolveTarget(context) : null
     if (!this.colorMenuOpen || !context || !target) {
@@ -763,7 +821,9 @@ export class ContextPad<E extends EventList = Record<string, any>>
   }
 
   private closeVariantMenu(): void {
-    if (!this.variantMenuOpen && !this.disposeVariantMenuLayer) return
+    if (!this.variantMenuOpen && !this.disposeVariantMenuLayer) {
+      return
+    }
     this.variantMenuOpen = false
     this.clearDefaultVariantMenu()
     this.syncChild()
@@ -771,7 +831,9 @@ export class ContextPad<E extends EventList = Record<string, any>>
   }
 
   private closeColorMenu(): void {
-    if (!this.colorMenuOpen && !this.disposeColorMenuLayer) return
+    if (!this.colorMenuOpen && !this.disposeColorMenuLayer) {
+      return
+    }
     this.colorMenuOpen = false
     this.clearDefaultColorMenu()
     this.syncChild()
@@ -794,23 +856,31 @@ export class ContextPad<E extends EventList = Record<string, any>>
   }
 
   private setupWindowEvents(): void {
-    if (typeof window === 'undefined') return
+    if (typeof window === 'undefined') {
+      return
+    }
     window.addEventListener('mousedown', this.handleWindowMouseDown, true)
     window.addEventListener('keydown', this.handleWindowKeyDown, true)
   }
 
   private teardownWindowEvents(): void {
-    if (typeof window === 'undefined') return
+    if (typeof window === 'undefined') {
+      return
+    }
     window.removeEventListener('mousedown', this.handleWindowMouseDown, true)
     window.removeEventListener('keydown', this.handleWindowKeyDown, true)
   }
 
   private closeVariantMenuFromWindowPointer(event: MouseEvent): void {
-    if (!this.variantMenuOpen && !this.colorMenuOpen) return
+    if (!this.variantMenuOpen && !this.colorMenuOpen) {
+      return
+    }
     const { x, y } = this.nova.events.getCanvasMousePosition(event)
     const target = this.nova.events.hitTest(x, y)
     const targetId = target ? String((target as { componentId?: string }).componentId ?? target.id) : ''
-    if (targetId === this.componentId || targetId.startsWith(`${this.componentId}:`)) return
+    if (targetId === this.componentId || targetId.startsWith(`${this.componentId}:`)) {
+      return
+    }
     this.closeOpenMenus()
   }
 
@@ -819,12 +889,16 @@ export class ContextPad<E extends EventList = Record<string, any>>
       this.hovered = true
       this.dirty({ render: true })
     })
-    this.on('mousemove', event => {
+    this.on('mousemove', (event) => {
       const context = this.props.controller ?? this.injectOptional(MODELER_CONTEXT)
       const target = context ? this.resolveTarget(context) : null
-      if (!context || !target) return
+      if (!context || !target) {
+        return
+      }
       const hit = this.resolveEntryFromEvent(context, target, event)
-      if (hit?.id === this.hoveredEntryId) return
+      if (hit?.id === this.hoveredEntryId) {
+        return
+      }
       this.hoveredEntryId = hit?.id ?? null
       this.dirty({ render: true })
     })
@@ -834,24 +908,30 @@ export class ContextPad<E extends EventList = Record<string, any>>
       this.pressedEntryId = null
       this.dirty({ render: true })
     })
-    this.on('mousedown', event => {
+    this.on('mousedown', (event) => {
       const context = this.props.controller ?? this.injectOptional(MODELER_CONTEXT)
       const target = context ? this.resolveTarget(context) : null
       const entry = context && target ? this.resolveEntryFromEvent(context, target, event) : null
-      if (!context || !target || !entry || this.hasCustomSlots()) return
+      if (!context || !target || !entry || this.hasCustomSlots()) {
+        return
+      }
       this.pressedEntryId = entry.id
       this.dirty({ render: true })
       this.runEntry(context, target, entry)
       return false
     })
     this.on('mouseup', () => {
-      if (!this.pressedEntryId) return false
+      if (!this.pressedEntryId) {
+        return false
+      }
       this.pressedEntryId = null
       this.dirty({ render: true })
       return false
     })
-    this.on('keydown', event => {
-      if ((!this.variantMenuOpen && !this.colorMenuOpen) || event.key !== 'Escape') return
+    this.on('keydown', (event) => {
+      if ((!this.variantMenuOpen && !this.colorMenuOpen) || event.key !== 'Escape') {
+        return
+      }
       event.preventDefault()
       this.closeOpenMenus()
       return false
@@ -872,14 +952,18 @@ export class ContextPad<E extends EventList = Record<string, any>>
     target: ContextPadTarget,
     x: number,
     y: number,
-  ): { entry: ContextPadEntry; rect: ModelerRect } | null {
+  ): { entry: ContextPadEntry, rect: ModelerRect } | null {
     const layout = this.resolvePadRect(context, target)
     const entries = this.createEntries(context, target)
     for (let index = 0; index < entries.length; index += 1) {
       const entry = entries[index]
-      if (!entry) continue
+      if (!entry) {
+        continue
+      }
       const rect = this.resolveEntryRect(layout, index)
-      if (x >= rect.x && x <= rect.x + rect.width && y >= rect.y && y <= rect.y + rect.height) return { entry, rect }
+      if (x >= rect.x && x <= rect.x + rect.width && y >= rect.y && y <= rect.y + rect.height) {
+        return { entry, rect }
+      }
     }
     return null
   }
@@ -901,7 +985,9 @@ export class ContextPad<E extends EventList = Record<string, any>>
     participant: BpmnParticipantElement,
     laneId: string,
   ): boolean {
-    if ((participant.data?.lanes?.length ?? 0) <= 1) return false
+    if ((participant.data?.lanes?.length ?? 0) <= 1) {
+      return false
+    }
     return !context.getModel().elements.some(element =>
       element.id !== participant.id
       && !isModelerEdgeElement(element)
@@ -930,7 +1016,7 @@ export const MODELER_CONTEXT_PAD_DESCRIPTOR = createNovaDecoratedComponentDescri
 >(ContextPad as never) as ContextPadDescriptor
 
 function safeSlotName(value: string): string {
-  return value.replace(/[^a-zA-Z0-9_-]+/g, '-')
+  return value.replace(/[^\w-]+/g, '-')
 }
 
 function finiteNumber(value: unknown, fallback: number): number {

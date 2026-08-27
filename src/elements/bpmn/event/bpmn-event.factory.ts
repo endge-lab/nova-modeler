@@ -17,7 +17,7 @@ export interface BpmnEventVariantData extends Record<string, unknown> {
   direction: BpmnEventDirection
 }
 
-export const BPMN_EVENT_POSITIONS: Array<{ id: BpmnEventPosition; title: string }> = [
+export const BPMN_EVENT_POSITIONS: Array<{ id: BpmnEventPosition, title: string }> = [
   { id: 'start', title: 'Start' },
   { id: 'intermediate', title: 'Intermediate' },
   { id: 'end', title: 'End' },
@@ -64,7 +64,7 @@ function normalizeOptionalRef(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined
 }
 
-export function resolveBpmnEventVariants(eventPosition: BpmnEventPosition): Array<BpmnEventVariantData & { id: string; title: string }> {
+export function resolveBpmnEventVariants(eventPosition: BpmnEventPosition): Array<BpmnEventVariantData & { id: string, title: string }> {
   if (eventPosition === 'start') {
     return [
       variant('start', 'none', 'Start event'),
@@ -118,8 +118,8 @@ export function normalizeBpmnEventVariantData(
   const normalizedDirection = normalizeBpmnEventDirection(direction, defaultBpmnEventDirection(position))
   const variants = resolveBpmnEventVariants(position)
   const exact = variants.find(option =>
-    option.trigger === normalizedTrigger &&
-    option.direction === normalizedDirection,
+    option.trigger === normalizedTrigger
+    && option.direction === normalizedDirection,
   )
   const compatible = exact ?? variants.find(option => option.trigger === normalizedTrigger)
   return {
@@ -130,7 +130,9 @@ export function normalizeBpmnEventVariantData(
 }
 
 export function normalizeBpmnEventPosition(value: unknown, fallback: BpmnEventPosition = 'start'): BpmnEventPosition {
-  if (value === 'start' || value === 'intermediate' || value === 'end') return value
+  if (value === 'start' || value === 'intermediate' || value === 'end') {
+    return value
+  }
   return fallback
 }
 
@@ -156,7 +158,9 @@ export function normalizeBpmnEventTrigger(value: unknown, fallback: BpmnEventTri
 }
 
 export function normalizeBpmnEventDirection(value: unknown, fallback: BpmnEventDirection = 'catch'): BpmnEventDirection {
-  if (value === 'catch' || value === 'throw') return value
+  if (value === 'catch' || value === 'throw') {
+    return value
+  }
   return fallback
 }
 
@@ -169,7 +173,7 @@ function variant(
   trigger: BpmnEventTrigger,
   title: string,
   direction: BpmnEventDirection = defaultBpmnEventDirection(eventPosition),
-): BpmnEventVariantData & { id: string; title: string } {
+): BpmnEventVariantData & { id: string, title: string } {
   return {
     id: `${eventPosition}:${trigger}:${direction}`,
     eventPosition,

@@ -1,21 +1,21 @@
-import { Modeler } from '@/config/schema.config'
 import type {
   ModelerElementDefinition,
   ModelerElementRenderContext,
   ModelerPoint,
 } from '@/domain/types/index'
-import { MODEL_ELEMENTS_RUNTIME } from '@/plugins/elements/model/ElementsRuntime'
+import type {
+  BpmnFlowElement,
+  BpmnFlowElementInput,
+} from '@/elements/bpmn/flow/bpmn-flow.types'
+import { Modeler } from '@/config/schema.config'
+import { createBpmnEdgeExternalLabelAdapter } from '@/elements/bpmn/bpmn-external-label'
 import {
   BPMN_FLOW_TYPE,
   createBpmnFlowElement,
   normalizeBpmnFlowType,
 } from '@/elements/bpmn/flow/bpmn-flow.factory'
 import { BpmnFlowVariantProvider } from '@/elements/bpmn/flow/bpmn-flow.variants'
-import { createBpmnEdgeExternalLabelAdapter } from '@/elements/bpmn/bpmn-external-label'
-import type {
-  BpmnFlowElement,
-  BpmnFlowElementInput,
-} from '@/elements/bpmn/flow/bpmn-flow.types'
+import { MODEL_ELEMENTS_RUNTIME } from '@/plugins/elements/model/ElementsRuntime'
 
 const BPMN_FLOW_HIT_TOLERANCE = 6
 
@@ -67,7 +67,11 @@ export function createBpmnFlowEndpoint(elementId: string, portId: string, point:
 
 function resolveBpmnFlowTooltip(element: BpmnFlowElement): string {
   const flowType = normalizeBpmnFlowType(element.data?.flowType)
-  if (flowType === 'conditionalSequence') return 'Conditional sequence flow'
-  if (flowType === 'defaultSequence') return 'Default sequence flow'
+  if (flowType === 'conditionalSequence') {
+    return 'Conditional sequence flow'
+  }
+  if (flowType === 'defaultSequence') {
+    return 'Default sequence flow'
+  }
   return 'Sequence flow'
 }

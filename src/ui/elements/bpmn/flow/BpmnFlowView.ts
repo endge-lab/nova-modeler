@@ -1,26 +1,27 @@
-import {
-  NovaComponent,
-  NovaComponentNode,
-  Prop,
-  createNovaDecoratedComponentDescriptor,
-  type NovaApp,
-  type NovaComponentDescriptor,
-  type NovaSchema,
-  type NovaSurface,
-} from '@endge/nova'
+import type { NovaApp, NovaComponentDescriptor, NovaSchema, NovaSurface } from '@endge/nova'
 import type { EventList } from '@endge/utils'
-import { Modeler } from '@/config/schema.config'
-import {
-  MODELER_THEME_FALLBACKS,
-  MODELER_THEME_TOKENS,
-  type ModelerThemeTokenKey,
-} from '@/config/theme.config'
+import type { ModelerThemeTokenKey } from '@/config/theme.config'
 import type {
   ModelerPoint,
   ModelerViewport,
 } from '@/domain/types/index'
-import { normalizeBpmnFlowType } from '@/elements/bpmn/flow/bpmn-flow.factory'
 import type { BpmnFlowElement } from '@/elements/bpmn/flow/bpmn-flow.types'
+import {
+  createNovaDecoratedComponentDescriptor,
+
+  NovaComponent,
+
+  NovaComponentNode,
+
+  Prop,
+} from '@endge/nova'
+import { Modeler } from '@/config/schema.config'
+import {
+  MODELER_THEME_FALLBACKS,
+  MODELER_THEME_TOKENS,
+
+} from '@/config/theme.config'
+import { normalizeBpmnFlowType } from '@/elements/bpmn/flow/bpmn-flow.factory'
 
 export interface BpmnFlowViewProps {
   element: BpmnFlowElement
@@ -98,7 +99,9 @@ export class BpmnFlowView<E extends EventList = Record<string, any>>
   override setProps(patch: Partial<BpmnFlowViewResolvedProps>): this {
     const changedKeys = (Object.keys(patch) as Array<keyof BpmnFlowViewResolvedProps>)
       .filter(key => patch[key] !== undefined && this.props[key] !== patch[key])
-    if (changedKeys.length === 0) return this
+    if (changedKeys.length === 0) {
+      return this
+    }
     if (changedKeys.every(key => key === 'viewport')) {
       this.props.viewport = patch.viewport ?? this.props.viewport
       this.syncViewportTransform()
@@ -118,7 +121,9 @@ export class BpmnFlowView<E extends EventList = Record<string, any>>
     const color = this.resolveStroke()
     const width = this.resolveStrokeWidth()
     const path = this.props.path
-    if (path.length < 2) return []
+    if (path.length < 2) {
+      return []
+    }
     const opacity = Number(this.props.element.style?.opacity ?? this.resolveThemeNumber('elementOpacity'))
     const schema: NovaSchema = []
     for (let index = 0; index < path.length - 1; index += 1) {
@@ -139,7 +144,9 @@ export class BpmnFlowView<E extends EventList = Record<string, any>>
     this.appendSegmentJoins(schema, path, color, width, opacity)
     this.appendTargetArrow(schema, path, color, opacity)
     this.appendSourceMarker(schema, path, color, width, opacity)
-    if (!this.props.hideName) this.appendLabel(schema, path, opacity)
+    if (!this.props.hideName) {
+      this.appendLabel(schema, path, opacity)
+    }
     return schema
   }
 
@@ -149,7 +156,9 @@ export class BpmnFlowView<E extends EventList = Record<string, any>>
       path,
       scale: 1,
     })
-    if (!layout.text) return
+    if (!layout.text) {
+      return
+    }
     schema.push({
       type: 'text',
       text: layout.text,
@@ -192,7 +201,9 @@ export class BpmnFlowView<E extends EventList = Record<string, any>>
   private appendTargetArrow(schema: NovaSchema, path: Array<ModelerPoint>, color: string, opacity: number): void {
     const end = path[path.length - 1]!
     const previous = this.findPreviousDistinctPoint(path, path.length - 2, end)
-    if (!previous) return
+    if (!previous) {
+      return
+    }
     const angle = Math.atan2(end.y - previous.y, end.x - previous.x)
     const length = this.resolveTargetArrowLength()
     const spread = Math.PI / 7
@@ -222,9 +233,13 @@ export class BpmnFlowView<E extends EventList = Record<string, any>>
     const dx = end.x - start.x
     const dy = end.y - start.y
     const distance = Math.hypot(dx, dy)
-    if (distance <= 0.001) return end
+    if (distance <= 0.001) {
+      return end
+    }
     const baseOffset = Math.cos(Math.PI / 7) * this.resolveTargetArrowLength()
-    if (distance <= baseOffset + 1) return start
+    if (distance <= baseOffset + 1) {
+      return start
+    }
     return {
       x: end.x - dx / distance * baseOffset,
       y: end.y - dy / distance * baseOffset,
@@ -237,10 +252,14 @@ export class BpmnFlowView<E extends EventList = Record<string, any>>
 
   private appendSourceMarker(schema: NovaSchema, path: Array<ModelerPoint>, color: string, width: number, opacity: number): void {
     const flowType = normalizeBpmnFlowType(this.props.element.data?.flowType)
-    if (flowType === 'sequence') return
+    if (flowType === 'sequence') {
+      return
+    }
     const start = path[0]!
     const next = this.findNextDistinctPoint(path, 1, start)
-    if (!next) return
+    if (!next) {
+      return
+    }
     const angle = Math.atan2(next.y - start.y, next.x - start.x)
     if (flowType === 'conditionalSequence') {
       this.appendConditionalMarker(schema, start, angle, color, width, opacity)
@@ -295,7 +314,9 @@ export class BpmnFlowView<E extends EventList = Record<string, any>>
   private findPreviousDistinctPoint(path: Array<ModelerPoint>, from: number, point: ModelerPoint): ModelerPoint | null {
     for (let index = from; index >= 0; index -= 1) {
       const candidate = path[index]!
-      if (candidate.x !== point.x || candidate.y !== point.y) return candidate
+      if (candidate.x !== point.x || candidate.y !== point.y) {
+        return candidate
+      }
     }
     return null
   }
@@ -303,7 +324,9 @@ export class BpmnFlowView<E extends EventList = Record<string, any>>
   private findNextDistinctPoint(path: Array<ModelerPoint>, from: number, point: ModelerPoint): ModelerPoint | null {
     for (let index = from; index < path.length; index += 1) {
       const candidate = path[index]!
-      if (candidate.x !== point.x || candidate.y !== point.y) return candidate
+      if (candidate.x !== point.x || candidate.y !== point.y) {
+        return candidate
+      }
     }
     return null
   }
@@ -323,8 +346,12 @@ export class BpmnFlowView<E extends EventList = Record<string, any>>
 
   private resolveStroke(): string {
     const style = this.props.element.style ?? {}
-    if (this.props.preview) return String(style.stroke ?? this.resolveThemeColor('bpmnFlowPreviewStroke'))
-    if (this.props.selected) return String(style.selectedStroke ?? this.resolveThemeColor('bpmnFlowSelectedStroke'))
+    if (this.props.preview) {
+      return String(style.stroke ?? this.resolveThemeColor('bpmnFlowPreviewStroke'))
+    }
+    if (this.props.selected) {
+      return String(style.selectedStroke ?? this.resolveThemeColor('bpmnFlowSelectedStroke'))
+    }
     return String(style.stroke ?? this.resolveThemeColor('bpmnFlowStroke'))
   }
 
@@ -356,8 +383,8 @@ export const MODELER_BPMN_FLOW_VIEW_DESCRIPTOR = createNovaDecoratedComponentDes
 
 export interface BpmnFlowLabelLayout {
   text: string
-  rect: { x: number; y: number; width: number; height: number }
-  lines: Array<{ text: string; x: number; y: number; width: number; widthLimit: number; height: number }>
+  rect: { x: number, y: number, width: number, height: number }
+  lines: Array<{ text: string, x: number, y: number, width: number, widthLimit: number, height: number }>
   fontFamily: string
   fontSize: number
   fontWeight: '500'
@@ -405,13 +432,19 @@ export function resolveBpmnFlowLabelLayout(input: {
 }
 
 function resolvePathMidpoint(path: Array<ModelerPoint>): ModelerPoint | null {
-  if (path.length === 0) return null
-  if (path.length === 1) return path[0]!
+  if (path.length === 0) {
+    return null
+  }
+  if (path.length === 1) {
+    return path[0]!
+  }
   let total = 0
   for (let index = 0; index < path.length - 1; index += 1) {
     total += distance(path[index]!, path[index + 1]!)
   }
-  if (total <= 0.001) return path[0]!
+  if (total <= 0.001) {
+    return path[0]!
+  }
   const target = total / 2
   let walked = 0
   for (let index = 0; index < path.length - 1; index += 1) {

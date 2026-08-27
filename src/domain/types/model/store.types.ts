@@ -11,8 +11,8 @@ export interface ModelerViewportStore {
   x: number
   y: number
   scale: number
-  load(input?: Partial<ModelerViewport>): void
-  toJSON(): ModelerViewport
+  load: (input?: Partial<ModelerViewport>) => void
+  toJSON: () => ModelerViewport
 }
 
 export interface ModelerCanvasStore {
@@ -21,21 +21,21 @@ export interface ModelerCanvasStore {
   width: number
   height: number
   gridSize: number
-  load(input?: Partial<ModelerCanvas>): void
-  toJSON(): ModelerCanvas
+  load: (input?: Partial<ModelerCanvas>) => void
+  toJSON: () => ModelerCanvas
 }
 
 export interface ModelerSelectionStore {
   ids: Array<string>
-  set(ids: Array<string>): void
-  toJSON(): Array<string>
+  set: (ids: Array<string>) => void
+  toJSON: () => Array<string>
 }
 
 export interface ModelerElementsStore {
   items: Array<ModelerElement>
-  load(input?: Array<ModelerElement>): void
-  set(items: Array<ModelerElement>): void
-  toJSON(): Array<ModelerElement>
+  load: (input?: Array<ModelerElement>) => void
+  set: (items: Array<ModelerElement>) => void
+  toJSON: () => Array<ModelerElement>
 }
 
 export interface ModelerStore {
@@ -48,11 +48,11 @@ export interface ModelerStore {
   viewportVersion: number
   elementsVersion: number
   selectionVersion: number
-  getModel(): ModelerModel
-  setModel(input: ModelerModel | ModelerModelInput): ModelerModel
-  apply(command: ModelerCommand): ModelerModel
-  setViewport(viewport: Partial<ModelerViewport>): void
-  setSelection(ids: Array<string>): void
-  load(input?: ModelerModel | ModelerModelInput): void
-  toModel(): ModelerModel
+  getModel: () => ModelerModel
+  setModel: (input: ModelerModel | ModelerModelInput) => ModelerModel
+  apply: (command: ModelerCommand) => ModelerModel
+  setViewport: (viewport: Partial<ModelerViewport>) => void
+  setSelection: (ids: Array<string>) => void
+  load: (input?: ModelerModel | ModelerModelInput) => void
+  toModel: () => ModelerModel
 }

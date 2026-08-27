@@ -15,8 +15,8 @@ export interface BpmnSubProcessElementData extends Record<string, unknown> {
 
 export type BpmnSubProcessElement = ModelerElement<BpmnSubProcessElementData>
 
-export type BpmnSubProcessElementInput =
-  ModelerElementInput<Partial<BpmnSubProcessElementData>> & {
+export type BpmnSubProcessElementInput
+  = ModelerElementInput<Partial<BpmnSubProcessElementData>> & {
     name?: string
     subProcessType?: BpmnSubProcessType
     loopType?: BpmnTaskLoopType

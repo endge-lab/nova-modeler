@@ -1,8 +1,8 @@
-import { Modeler } from '@/config/schema.config'
 import type {
   ModelerElementDefinition,
   ModelerElementRenderContext,
 } from '@/domain/types/index'
+import { Modeler } from '@/config/schema.config'
 import {
   BASIC_RECT_DEFAULT_HEIGHT,
   BASIC_RECT_DEFAULT_WIDTH,

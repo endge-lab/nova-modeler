@@ -36,8 +36,8 @@ export interface ModelerPaletteOptions {
 }
 
 export interface ModelerPaletteRegistryApi {
-  register(definition: ModelerPaletteItemDefinition): () => void
-  get(id: string): ModelerPaletteItemDefinition | undefined
-  getAll(): ReadonlyArray<ModelerPaletteItemDefinition>
-  getItems(): Array<ModelerPaletteItemDefinition>
+  register: (definition: ModelerPaletteItemDefinition) => () => void
+  get: (id: string) => ModelerPaletteItemDefinition | undefined
+  getAll: () => ReadonlyArray<ModelerPaletteItemDefinition>
+  getItems: () => Array<ModelerPaletteItemDefinition>
 }

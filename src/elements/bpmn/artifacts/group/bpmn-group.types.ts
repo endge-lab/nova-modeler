@@ -9,7 +9,7 @@ export interface BpmnGroupElementData extends Record<string, unknown> {
 
 export type BpmnGroupElement = ModelerElement<BpmnGroupElementData>
 
-export type BpmnGroupElementInput =
-  ModelerElementInput<Partial<BpmnGroupElementData>> & {
+export type BpmnGroupElementInput
+  = ModelerElementInput<Partial<BpmnGroupElementData>> & {
     name?: string
   }

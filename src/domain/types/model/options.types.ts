@@ -1,9 +1,9 @@
 import type { ModelerSnapOptions } from '@/domain/types/interaction/snap.types'
+import type { ModelerPaletteOptions } from '@/domain/types/palette.types'
 import type {
   ModelerKeyboardShortcut,
   ModelerShortcutOptions,
 } from '@/domain/types/shortcut.types'
-import type { ModelerPaletteOptions } from '@/domain/types/palette.types'
 
 export interface ModelerViewportOptions {
   minZoom?: number

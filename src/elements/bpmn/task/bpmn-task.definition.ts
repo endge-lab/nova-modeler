@@ -1,9 +1,14 @@
-import { Modeler } from '@/config/schema.config'
 import type {
   ModelerElementDefinition,
   ModelerElementRenderContext,
   ModelerPoint,
 } from '@/domain/types/index'
+import type {
+  BpmnTaskElement,
+  BpmnTaskElementInput,
+} from '@/elements/bpmn/task/bpmn-task.types'
+import { Modeler } from '@/config/schema.config'
+import { BpmnActivityVariantProvider } from '@/elements/bpmn/activity/bpmn-activity.variants'
 import {
   BPMN_TASK_DEFAULT_HEIGHT,
   BPMN_TASK_DEFAULT_WIDTH,
@@ -11,11 +16,6 @@ import {
   createBpmnTaskElement,
 } from '@/elements/bpmn/task/bpmn-task.factory'
 import { createBpmnTaskPorts } from '@/elements/bpmn/task/bpmn-task.ports'
-import { BpmnActivityVariantProvider } from '@/elements/bpmn/activity/bpmn-activity.variants'
-import type {
-  BpmnTaskElement,
-  BpmnTaskElementInput,
-} from '@/elements/bpmn/task/bpmn-task.types'
 
 export const BpmnTaskDefinition: ModelerElementDefinition<BpmnTaskElement> = {
   type: BPMN_TASK_TYPE,
@@ -72,13 +72,27 @@ export const BpmnTaskDefinition: ModelerElementDefinition<BpmnTaskElement> = {
 
 function resolveBpmnTaskTooltip(element: BpmnTaskElement): string {
   const taskType = element.data?.taskType
-  if (taskType === 'user') return 'User task'
-  if (taskType === 'manual') return 'Manual task'
-  if (taskType === 'service') return 'Service task'
-  if (taskType === 'script') return 'Script task'
-  if (taskType === 'businessRule') return 'Business rule task'
-  if (taskType === 'send') return 'Send task'
-  if (taskType === 'receive') return 'Receive task'
+  if (taskType === 'user') {
+    return 'User task'
+  }
+  if (taskType === 'manual') {
+    return 'Manual task'
+  }
+  if (taskType === 'service') {
+    return 'Service task'
+  }
+  if (taskType === 'script') {
+    return 'Script task'
+  }
+  if (taskType === 'businessRule') {
+    return 'Business rule task'
+  }
+  if (taskType === 'send') {
+    return 'Send task'
+  }
+  if (taskType === 'receive') {
+    return 'Receive task'
+  }
   return 'Task'
 }
 

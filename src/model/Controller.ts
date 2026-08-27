@@ -1,17 +1,16 @@
-import { Nova } from '@endge/nova'
 import type {
   ControllerHost,
   ControllerOptions,
-  ModelerController,
   ModelerCommand,
+  ModelerCommitChange,
+  ModelerCommitMeta,
+  ModelerController,
   ModelerEdgeElement,
   ModelerElement,
   ModelerElementRegistry,
   ModelerGesture,
   ModelerHitTarget,
   ModelerLayout,
-  ModelerCommitChange,
-  ModelerCommitMeta,
   ModelerModel,
   ModelerModelInput,
   ModelerModelListener,
@@ -29,35 +28,36 @@ import type {
   ModelerStoreKey,
   ModelerViewport,
 } from '@/domain/types/index'
-import { isModelerEdgeElement } from '@/domain/types/index'
+import type { BpmnParticipantElement } from '@/elements/bpmn/participant/bpmn-participant.types'
+import { Nova } from '@endge/nova'
 import { normalizeModelerOptions } from '@/config/options.config'
-import { clamp } from '@/tools/number'
-import { Store } from '@/model/Store'
-import { createModelerElementRegistry } from '@/model/ElementRegistry'
-import { createPluginRuntime } from '@/model/plugin-runtime/PluginRuntime'
-import { ModelerVisibilityRuntime } from '@/model/ModelerVisibilityRuntime'
-import { ModelerExternalLabelRuntime } from '@/model/ModelerExternalLabelRuntime'
-import { ModelerInvalidationScope } from '@/model/ModelerInvalidationScope'
-import { ActionRegistry } from '@/model/registry/ActionRegistry'
-import { ElementVariantRegistry } from '@/model/registry/ElementVariantRegistry'
-import { PaletteRegistry } from '@/model/registry/PaletteRegistry'
-import { ShortcutRegistry } from '@/model/registry/ShortcutRegistry'
-import { ToolRegistry } from '@/model/registry/ToolRegistry'
-import {
-  MODELER_PORT_RADIUS,
-  MODELER_ROTATE_HANDLE_SIZE,
-  MODELER_RESIZE_HANDLE_SIZE,
-  MODELER_ELEMENTS_PLUGIN_ID,
-} from '@/plugins/elements/elements.constants'
-import { ElementsPlugin } from '@/plugins/elements/elements-plugin'
-import { CoreActionsPlugin } from '@/plugins/core/core-actions-plugin'
-import { MODEL_ELEMENTS_RUNTIME } from '@/plugins/elements/model/ElementsRuntime'
+import { isModelerEdgeElement } from '@/domain/types/index'
 import {
   BPMN_PARTICIPANT_TYPE,
   createBpmnParticipantLayout,
   normalizeBpmnParticipantOrientation,
 } from '@/elements/bpmn/participant/bpmn-participant.factory'
-import type { BpmnParticipantElement } from '@/elements/bpmn/participant/bpmn-participant.types'
+import { createModelerElementRegistry } from '@/model/ElementRegistry'
+import { ModelerExternalLabelRuntime } from '@/model/ModelerExternalLabelRuntime'
+import { ModelerInvalidationScope } from '@/model/ModelerInvalidationScope'
+import { ModelerVisibilityRuntime } from '@/model/ModelerVisibilityRuntime'
+import { createPluginRuntime } from '@/model/plugin-runtime/PluginRuntime'
+import { ActionRegistry } from '@/model/registry/ActionRegistry'
+import { ElementVariantRegistry } from '@/model/registry/ElementVariantRegistry'
+import { PaletteRegistry } from '@/model/registry/PaletteRegistry'
+import { ShortcutRegistry } from '@/model/registry/ShortcutRegistry'
+import { ToolRegistry } from '@/model/registry/ToolRegistry'
+import { Store } from '@/model/Store'
+import { CoreActionsPlugin } from '@/plugins/core/core-actions-plugin'
+import { ElementsPlugin } from '@/plugins/elements/elements-plugin'
+import {
+  MODELER_ELEMENTS_PLUGIN_ID,
+  MODELER_PORT_RADIUS,
+  MODELER_RESIZE_HANDLE_SIZE,
+  MODELER_ROTATE_HANDLE_SIZE,
+} from '@/plugins/elements/elements.constants'
+import { MODEL_ELEMENTS_RUNTIME } from '@/plugins/elements/model/ElementsRuntime'
+import { clamp } from '@/tools/number'
 
 const MODELER_WORLD_BOUNDS_PADDING_RATIO = 0.2
 const BPMN_LANE_RESIZE_HANDLE_SCREEN_TOLERANCE = 6
@@ -155,13 +155,17 @@ export class Controller implements ModelerController {
   }
 
   configure(options: ControllerOptions): void {
-    if (options.options) this.options = normalizeModelerOptions(options.options)
+    if (options.options) {
+      this.options = normalizeModelerOptions(options.options)
+    }
     this.onModelChange = options.onModelChange ?? this.onModelChange
     this.onSelectionChange = options.onSelectionChange ?? this.onSelectionChange
     if (options.pluginRuntime || options.plugins) {
       this.setPluginRuntime(options.pluginRuntime ?? createPluginRuntime({ plugins: options.plugins }))
     }
-    if (options.model) this.setModel(options.model)
+    if (options.model) {
+      this.setModel(options.model)
+    }
     else {
       this.activateConfiguredTool()
       this.recomputeLayout()
@@ -170,8 +174,12 @@ export class Controller implements ModelerController {
   }
 
   resize(width: number, height: number): void {
-    if (!this.host) return
-    if (this.host.width === width && this.host.height === height) return
+    if (!this.host) {
+      return
+    }
+    if (this.host.width === width && this.host.height === height) {
+      return
+    }
     this.host.width = width
     this.host.height = height
     this.recomputeLayout()
@@ -199,7 +207,9 @@ export class Controller implements ModelerController {
   }
 
   applyCommand(command: ModelerCommand): ModelerModel {
-    if (command.type === 'setViewport') return this.setViewport(command.viewport)
+    if (command.type === 'setViewport') {
+      return this.setViewport(command.viewport)
+    }
     const previous = this.committedModel
     const next = this.store.apply(command)
     return this.afterModelCommit(previous, next)
@@ -252,12 +262,14 @@ export class Controller implements ModelerController {
 
   hitTest(point: ModelerPoint): ModelerHitTarget {
     const elementTarget = this.hitTestElements(point)
-    if (elementTarget.type !== 'empty') return elementTarget
+    if (elementTarget.type !== 'empty') {
+      return elementTarget
+    }
     const canvas = this.layout.canvas
-    return point.x >= canvas.x &&
-      point.x <= canvas.x + canvas.width &&
-      point.y >= canvas.y &&
-      point.y <= canvas.y + canvas.height
+    return point.x >= canvas.x
+      && point.x <= canvas.x + canvas.width
+      && point.y >= canvas.y
+      && point.y <= canvas.y + canvas.height
       ? { type: 'canvas' }
       : { type: 'empty' }
   }
@@ -282,8 +294,12 @@ export class Controller implements ModelerController {
 
   private afterModelCommit(previous: ModelerModel, next: ModelerModel, meta = this.resolveCommitMeta(previous, next)): ModelerModel {
     const selectedLabel = this.externalLabelRuntime.getSelected()
-    if (selectedLabel && !next.selection.includes(selectedLabel.elementId)) this.externalLabelRuntime.clearSelection()
-    if (meta.viewportOnly) this.layout = { ...this.layout, viewport: next.viewport }
+    if (selectedLabel && !next.selection.includes(selectedLabel.elementId)) {
+      this.externalLabelRuntime.clearSelection()
+    }
+    if (meta.viewportOnly) {
+      this.layout = { ...this.layout, viewport: next.viewport }
+    }
     else {
       this.worldBoundsCache = null
       this.recomputeLayout()
@@ -292,7 +308,9 @@ export class Controller implements ModelerController {
     this.onModelChange?.(next)
     this.onSelectionChange?.(next.selection)
     for (const entry of this.modelListeners) {
-      if (meta.viewportOnly && entry.options.includeViewport === false) continue
+      if (meta.viewportOnly && entry.options.includeViewport === false) {
+        continue
+      }
       entry.listener(next, meta)
     }
     this.host?.onModelCommit(previous, next, meta)
@@ -302,11 +320,21 @@ export class Controller implements ModelerController {
 
   private resolveCommitMeta(previous: ModelerModel, next: ModelerModel): ModelerCommitMeta {
     const changed: Array<ModelerCommitChange> = []
-    if (previous.viewportVersion !== next.viewportVersion) changed.push('viewport')
-    if (previous.elementsVersion !== next.elementsVersion) changed.push('data')
-    if (previous.bpmnDefinitionsVersion !== next.bpmnDefinitionsVersion) changed.push('bpmnDefinitions')
-    if (previous.selectionVersion !== next.selectionVersion) changed.push('selection')
-    if (!sameCanvas(previous, next)) changed.push('canvas')
+    if (previous.viewportVersion !== next.viewportVersion) {
+      changed.push('viewport')
+    }
+    if (previous.elementsVersion !== next.elementsVersion) {
+      changed.push('data')
+    }
+    if (previous.bpmnDefinitionsVersion !== next.bpmnDefinitionsVersion) {
+      changed.push('bpmnDefinitions')
+    }
+    if (previous.selectionVersion !== next.selectionVersion) {
+      changed.push('selection')
+    }
+    if (!sameCanvas(previous, next)) {
+      changed.push('canvas')
+    }
     return {
       changed,
       viewportOnly: changed.length === 1 && changed[0] === 'viewport',
@@ -314,14 +342,18 @@ export class Controller implements ModelerController {
   }
 
   private setPluginRuntime(pluginRuntime: ModelerPluginRuntime): void {
-    if (pluginRuntime === this.pluginRuntime) return
+    if (pluginRuntime === this.pluginRuntime) {
+      return
+    }
     this.pluginRuntime.unbindRoot()
     this.pluginLayers = []
     this.pluginGestures = []
     this.pluginRuntime = pluginRuntime
     this.ensureDefaultPlugins()
     this.lastConfiguredActiveToolId = undefined
-    if (this.host) this.pluginRuntime.bindRoot(this.pluginContext)
+    if (this.host) {
+      this.pluginRuntime.bindRoot(this.pluginContext)
+    }
   }
 
   private recomputeLayout(): void {
@@ -341,7 +373,9 @@ export class Controller implements ModelerController {
 
   private resolveCachedWorldBounds(model: ModelerModel): ModelerRect {
     const signature = createWorldBoundsSignature(model)
-    if (this.worldBoundsCache?.signature === signature) return this.worldBoundsCache.bounds
+    if (this.worldBoundsCache?.signature === signature) {
+      return this.worldBoundsCache.bounds
+    }
     const bounds = this.resolveWorldBounds(model)
     this.worldBoundsCache = { signature, bounds }
     return bounds
@@ -364,7 +398,9 @@ export class Controller implements ModelerController {
     const points = [element.source.point, ...element.waypoints, element.target.point].filter(
       (point): point is ModelerPoint => Boolean(point),
     )
-    if (points.length === 0) return { x: 0, y: 0, width: 1, height: 1 }
+    if (points.length === 0) {
+      return { x: 0, y: 0, width: 1, height: 1 }
+    }
     let minX = Number.POSITIVE_INFINITY
     let minY = Number.POSITIVE_INFINITY
     let maxX = Number.NEGATIVE_INFINITY
@@ -385,7 +421,9 @@ export class Controller implements ModelerController {
 
   private resolveExternalLabelWorldBounds(element: ModelerElement): ModelerRect | null {
     const pluginContext = (this as unknown as { pluginContext?: ModelerPluginContext }).pluginContext
-    if (!pluginContext) return null
+    if (!pluginContext) {
+      return null
+    }
     return this.externalLabelRuntime.resolveBounds(pluginContext, element)
   }
 
@@ -421,7 +459,7 @@ export class Controller implements ModelerController {
     this.pluginLayers.sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
     this.invalidate('render')
     return () => {
-      this.pluginLayers = this.pluginLayers.filter((item) => item !== layer)
+      this.pluginLayers = this.pluginLayers.filter(item => item !== layer)
       this.invalidate('render')
     }
   }
@@ -430,7 +468,7 @@ export class Controller implements ModelerController {
     this.pluginGestures.push(gesture)
     this.pluginGestures.sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0))
     return () => {
-      this.pluginGestures = this.pluginGestures.filter((item) => item !== gesture)
+      this.pluginGestures = this.pluginGestures.filter(item => item !== gesture)
     }
   }
 
@@ -438,8 +476,8 @@ export class Controller implements ModelerController {
     return {
       model: {
         get: () => this.getModel(),
-        set: (model) => this.setModel(model),
-        update: (updater) => this.setModel(updater(this.getModel())),
+        set: model => this.setModel(model),
+        update: updater => this.setModel(updater(this.getModel())),
         subscribe: (listener, options = {}) => {
           const entry: ModelerModelListenerEntry = {
             listener,
@@ -458,134 +496,158 @@ export class Controller implements ModelerController {
             }
           }
         },
-        inject: (key) => this.storeValues.get(key as ModelerStoreKey<unknown>) as never,
+        inject: key => this.storeValues.get(key as ModelerStoreKey<unknown>) as never,
       },
       getModel: () => this.getModel(),
       getLayout: () => this.getLayout(),
       getOptions: () => this.getOptions(),
       getElementRegistry: () => this.getElementRegistry(),
       getViewport: () => this.getViewport(),
-      setViewport: (viewport) => this.setViewport(viewport),
-      applyCommand: (command) => this.applyCommand(command),
-      hitTest: (point) => this.hitTest(point),
-      screenToWorld: (point) => this.screenToWorld(point),
-      worldToScreen: (point) => this.worldToScreen(point),
-      invalidate: (phase) => this.invalidate(phase),
+      setViewport: viewport => this.setViewport(viewport),
+      applyCommand: command => this.applyCommand(command),
+      hitTest: point => this.hitTest(point),
+      screenToWorld: point => this.screenToWorld(point),
+      worldToScreen: point => this.worldToScreen(point),
+      invalidate: phase => this.invalidate(phase),
       visibility: this.visibilityRuntime,
       externalLabels: this.externalLabelRuntime,
       layers: {
-        add: (layer) => this.addLayer(layer),
-        get: (name) => this.requireHost().layers.get(name),
+        add: layer => this.addLayer(layer),
+        get: name => this.requireHost().layers.get(name),
         mount: (name, schema) => this.requireHost().layers.mount(name, schema),
-        unmount: (node) => this.requireHost().layers.unmount(node),
+        unmount: node => this.requireHost().layers.unmount(node),
         reconcile: (name, ownerId, schema) => this.requireHost().layers.reconcile(name, ownerId, schema),
       },
-      gestures: { add: (gesture) => this.addGesture(gesture) },
+      gestures: { add: gesture => this.addGesture(gesture) },
       actions: {
-        register: (definition) => this.actions.register(definition),
-        get: (id) => this.actions.get(id),
+        register: definition => this.actions.register(definition),
+        get: id => this.actions.get(id),
         getAll: () => this.actions.getAll(),
-        run: (id) => this.actions.run(id),
+        run: id => this.actions.run(id),
       },
       elementVariants: {
-        register: (provider) => this.elementVariants.register(provider),
+        register: provider => this.elementVariants.register(provider),
         getAll: () => this.elementVariants.getAll(),
-        getProviders: (element) => this.elementVariants.getProviders(element),
-        getProvider: (element) => this.elementVariants.getProvider(element),
-        hasProvider: (element) => this.elementVariants.hasProvider(element),
+        getProviders: element => this.elementVariants.getProviders(element),
+        getProvider: element => this.elementVariants.getProvider(element),
+        hasProvider: element => this.elementVariants.hasProvider(element),
       },
       tools: {
-        register: (definition) => this.tools.register(definition),
-        get: (id) => this.tools.get(id),
+        register: definition => this.tools.register(definition),
+        get: id => this.tools.get(id),
         getAll: () => this.tools.getAll(),
-        activate: (id) => this.tools.activate(id),
-        deactivate: (id) => this.tools.deactivate(id),
+        activate: id => this.tools.activate(id),
+        deactivate: id => this.tools.deactivate(id),
         getActive: () => this.tools.getActive(),
         getActiveId: () => this.tools.getActiveId(),
         createAt: (id, point) => this.tools.createAt(id, point),
-        subscribe: (listener) => this.tools.subscribe(listener),
+        subscribe: listener => this.tools.subscribe(listener),
       },
       palette: {
-        register: (definition) => this.palette.register(definition),
-        get: (id) => this.palette.get(id),
+        register: definition => this.palette.register(definition),
+        get: id => this.palette.get(id),
         getAll: () => this.palette.getAll(),
         getItems: () => this.palette.getItems(),
       },
       shortcuts: {
-        register: (definition) => this.shortcuts.register(definition),
-        get: (id) => this.shortcuts.get(id),
+        register: definition => this.shortcuts.register(definition),
+        get: id => this.shortcuts.get(id),
         getAll: () => this.shortcuts.getAll(),
-        resolve: (event) => this.shortcuts.resolve(event),
+        resolve: event => this.shortcuts.resolve(event),
       },
     }
   }
 
   private requireHost(): ControllerHost {
-    if (!this.host) throw new Error('[Controller] Modeler host is not mounted.')
+    if (!this.host) {
+      throw new Error('[Controller] Modeler host is not mounted.')
+    }
     return this.host
   }
 
   static shouldSyncLayerTemplates(previous: ModelerModel, next: ModelerModel): boolean {
-    if (previous.id !== next.id) return true
-    if (previous.selectionVersion !== next.selectionVersion) return true
+    if (previous.id !== next.id) {
+      return true
+    }
+    if (previous.selectionVersion !== next.selectionVersion) {
+      return true
+    }
     return !sameCanvas(previous, next)
   }
 
   private ensureDefaultPlugins(plugins: Array<ModelerPlugin> = []): void {
-    if (!this.pluginRuntime.getPlugins().some((plugin) => plugin.id === CoreActionsPlugin.ID)) {
+    if (!this.pluginRuntime.getPlugins().some(plugin => plugin.id === CoreActionsPlugin.ID)) {
       this.pluginRuntime.use(CoreActionsPlugin.create())
     }
-    if (!this.pluginRuntime.getPlugins().some((plugin) => plugin.id === MODELER_ELEMENTS_PLUGIN_ID)) {
+    if (!this.pluginRuntime.getPlugins().some(plugin => plugin.id === MODELER_ELEMENTS_PLUGIN_ID)) {
       this.pluginRuntime.use(ElementsPlugin.create())
     }
-    plugins.forEach((plugin) => this.pluginRuntime.use(plugin))
+    plugins.forEach(plugin => this.pluginRuntime.use(plugin))
   }
 
   private activateConfiguredTool(): void {
     const configured = this.options.current.interaction?.tools?.activeToolId
-    if (configured === this.lastConfiguredActiveToolId) return
+    if (configured === this.lastConfiguredActiveToolId) {
+      return
+    }
     this.lastConfiguredActiveToolId = configured
-    if (configured) this.tools.activate(configured)
-    else this.tools.deactivate()
+    if (configured) {
+      this.tools.activate(configured)
+    }
+    else { this.tools.deactivate() }
   }
 
   private hitTestElements(point: ModelerPoint): ModelerHitTarget {
     const elements = this.store.elements.items
-    if (elements.length === 0) return { type: 'empty' }
+    if (elements.length === 0) {
+      return { type: 'empty' }
+    }
     const selected = this.store.selection.ids.length > 0 ? new Set(this.store.selection.ids) : null
     const externalLabelHandle = this.hitTestExternalLabelResizeHandle(point)
-    if (externalLabelHandle) return externalLabelHandle
+    if (externalLabelHandle) {
+      return externalLabelHandle
+    }
     for (let index = elements.length - 1; index >= 0; index -= 1) {
       const element = elements[index]
-      if (!element) continue
+      if (!element) {
+        continue
+      }
       const definition = this.elementRegistry.get(element.type)
-      if (!definition || !selected?.has(element.id)) continue
+      if (!definition || !selected?.has(element.id)) {
+        continue
+      }
       const handle = MODEL_ELEMENTS_RUNTIME.handles.createRotateHandle(element, definition)
-      if (!handle) continue
+      if (!handle) {
+        continue
+      }
       const screen = this.worldToScreen(handle)
       const size = MODELER_ROTATE_HANDLE_SIZE
       if (
-        point.x >= screen.x - size / 2 &&
-        point.x <= screen.x + size / 2 &&
-        point.y >= screen.y - size / 2 &&
-        point.y <= screen.y + size / 2
+        point.x >= screen.x - size / 2
+        && point.x <= screen.x + size / 2
+        && point.y >= screen.y - size / 2
+        && point.y <= screen.y + size / 2
       ) {
         return { type: 'rotate-handle', elementId: element.id }
       }
     }
     for (let index = elements.length - 1; index >= 0; index -= 1) {
       const element = elements[index]
-      if (!element) continue
+      if (!element) {
+        continue
+      }
       const definition = this.elementRegistry.get(element.type)
-      if (!definition || !selected?.has(element.id)) continue
+      if (!definition || !selected?.has(element.id)) {
+        continue
+      }
       for (const handle of MODEL_ELEMENTS_RUNTIME.handles.createResizeHandles(element, definition)) {
         const screen = this.worldToScreen(handle)
         const size = MODELER_RESIZE_HANDLE_SIZE
         if (
-          point.x >= screen.x - size / 2 &&
-          point.x <= screen.x + size / 2 &&
-          point.y >= screen.y - size / 2 &&
-          point.y <= screen.y + size / 2
+          point.x >= screen.x - size / 2
+          && point.x <= screen.x + size / 2
+          && point.y >= screen.y - size / 2
+          && point.y <= screen.y + size / 2
         ) {
           return { type: 'resize-handle', elementId: element.id, handle: handle.handle }
         }
@@ -593,16 +655,26 @@ export class Controller implements ModelerController {
     }
     for (let index = elements.length - 1; index >= 0; index -= 1) {
       const element = elements[index]
-      if (!element || !selected?.has(element.id) || element.type !== BPMN_PARTICIPANT_TYPE) continue
+      if (!element || !selected?.has(element.id) || element.type !== BPMN_PARTICIPANT_TYPE) {
+        continue
+      }
       const target = this.hitTestBpmnParticipantLaneResizeHandle(point, element as BpmnParticipantElement)
-      if (target) return target
+      if (target) {
+        return target
+      }
     }
     for (let index = elements.length - 1; index >= 0; index -= 1) {
       const element = elements[index]
-      if (!element) continue
+      if (!element) {
+        continue
+      }
       const definition = this.elementRegistry.get(element.type)
-      if (!definition || !selected?.has(element.id)) continue
-      if (definition.capabilities?.ports === false) continue
+      if (!definition || !selected?.has(element.id)) {
+        continue
+      }
+      if (definition.capabilities?.ports === false) {
+        continue
+      }
       for (const port of MODEL_ELEMENTS_RUNTIME.ports.createElementPorts(
         element,
         definition.getPorts?.(this.pluginContext, element) ?? [],
@@ -618,15 +690,17 @@ export class Controller implements ModelerController {
     }
     for (let index = elements.length - 1; index >= 0; index -= 1) {
       const element = elements[index]
-      if (!element || !isModelerEdgeElement(element) || !selected?.has(element.id)) continue
+      if (!element || !isModelerEdgeElement(element) || !selected?.has(element.id)) {
+        continue
+      }
       for (const handle of MODEL_ELEMENTS_RUNTIME.edges.createWaypointHandles(element)) {
         const screen = this.worldToScreen(handle)
         const size = handle.size
         if (
-          point.x >= screen.x - size / 2 &&
-          point.x <= screen.x + size / 2 &&
-          point.y >= screen.y - size / 2 &&
-          point.y <= screen.y + size / 2
+          point.x >= screen.x - size / 2
+          && point.x <= screen.x + size / 2
+          && point.y >= screen.y - size / 2
+          && point.y <= screen.y + size / 2
         ) {
           return { type: 'edge-waypoint-handle', elementId: element.id, waypointIndex: handle.waypointIndex }
         }
@@ -634,22 +708,32 @@ export class Controller implements ModelerController {
     }
     for (let index = elements.length - 1; index >= 0; index -= 1) {
       const element = elements[index]
-      if (!element || !isModelerEdgeElement(element) || !selected?.has(element.id)) continue
+      if (!element || !isModelerEdgeElement(element) || !selected?.has(element.id)) {
+        continue
+      }
       const handle = MODEL_ELEMENTS_RUNTIME.edges.createSegmentHandleAtPoint(
         this.pluginContext,
         element,
         this.screenToWorld(point),
       )
-      if (handle) return { type: 'edge-segment-handle', elementId: element.id, segmentIndex: handle.segmentIndex }
+      if (handle) {
+        return { type: 'edge-segment-handle', elementId: element.id, segmentIndex: handle.segmentIndex }
+      }
     }
     const ordered = elements.length > 1 ? [...elements].sort(compareElementsByZIndex) : elements
     const externalLabelTarget = this.hitTestExternalLabels(ordered, point)
-    if (externalLabelTarget) return externalLabelTarget
+    if (externalLabelTarget) {
+      return externalLabelTarget
+    }
     for (let index = ordered.length - 1; index >= 0; index -= 1) {
       const element = ordered[index]
-      if (!element || !isModelerEdgeElement(element)) continue
+      if (!element || !isModelerEdgeElement(element)) {
+        continue
+      }
       const definition = this.elementRegistry.get(element.type)
-      if (!definition) continue
+      if (!definition) {
+        continue
+      }
       const world = this.screenToWorld(point)
       const contains = definition.hitTest ? definition.hitTest(this.pluginContext, element, world) : false
       if (contains) {
@@ -658,20 +742,26 @@ export class Controller implements ModelerController {
     }
     for (let index = ordered.length - 1; index >= 0; index -= 1) {
       const element = ordered[index]
-      if (!element || isModelerEdgeElement(element)) continue
+      if (!element || isModelerEdgeElement(element)) {
+        continue
+      }
       const definition = this.elementRegistry.get(element.type)
-      if (!definition) continue
+      if (!definition) {
+        continue
+      }
       const world = this.screenToWorld(point)
       const local = MODEL_ELEMENTS_RUNTIME.geometry.unrotatePoint(element, world)
       const contains = definition.hitTest
         ? definition.hitTest(this.pluginContext, element, local)
-        : local.x >= element.x &&
-          local.x <= element.x + element.width &&
-          local.y >= element.y &&
-          local.y <= element.y + element.height
+        : local.x >= element.x
+          && local.x <= element.x + element.width
+          && local.y >= element.y
+          && local.y <= element.y + element.height
       if (contains) {
         const partTarget = definition.hitTestPart?.(this.pluginContext, element, local)
-        if (partTarget) return partTarget
+        if (partTarget) {
+          return partTarget
+        }
         return { type: 'element', id: element.id }
       }
     }
@@ -682,9 +772,13 @@ export class Controller implements ModelerController {
     const world = this.screenToWorld(point)
     for (let index = ordered.length - 1; index >= 0; index -= 1) {
       const element = ordered[index]
-      if (!element) continue
+      if (!element) {
+        continue
+      }
       const definition = this.elementRegistry.get(element.type)
-      if (!definition?.externalLabel) continue
+      if (!definition?.externalLabel) {
+        continue
+      }
       if (this.externalLabelRuntime.hitTest(this.pluginContext, element, world)) {
         return { type: 'external-label', elementId: element.id }
       }
@@ -694,18 +788,24 @@ export class Controller implements ModelerController {
 
   private hitTestExternalLabelResizeHandle(point: ModelerPoint): ModelerHitTarget | null {
     const selected = this.externalLabelRuntime.getSelected()
-    if (!selected) return null
-    const element = this.store.elements.items.find((item) => item.id === selected.elementId)
-    if (!element) return null
+    if (!selected) {
+      return null
+    }
+    const element = this.store.elements.items.find(item => item.id === selected.elementId)
+    if (!element) {
+      return null
+    }
     const layout = this.externalLabelRuntime.resolve(this.pluginContext, element)
-    if (!layout) return null
+    if (!layout) {
+      return null
+    }
     for (const handle of MODELER_EXTERNAL_LABEL_HANDLES) {
       const handlePoint = resolveExternalLabelHandlePoint(layout.screenRect, handle)
       if (
-        point.x >= handlePoint.x - MODELER_EXTERNAL_LABEL_HANDLE_SIZE / 2 &&
-        point.x <= handlePoint.x + MODELER_EXTERNAL_LABEL_HANDLE_SIZE / 2 &&
-        point.y >= handlePoint.y - MODELER_EXTERNAL_LABEL_HANDLE_SIZE / 2 &&
-        point.y <= handlePoint.y + MODELER_EXTERNAL_LABEL_HANDLE_SIZE / 2
+        point.x >= handlePoint.x - MODELER_EXTERNAL_LABEL_HANDLE_SIZE / 2
+        && point.x <= handlePoint.x + MODELER_EXTERNAL_LABEL_HANDLE_SIZE / 2
+        && point.y >= handlePoint.y - MODELER_EXTERNAL_LABEL_HANDLE_SIZE / 2
+        && point.y <= handlePoint.y + MODELER_EXTERNAL_LABEL_HANDLE_SIZE / 2
       ) {
         return { type: 'external-label-resize-handle', elementId: element.id, handle }
       }
@@ -718,19 +818,23 @@ export class Controller implements ModelerController {
     element: BpmnParticipantElement,
   ): ModelerHitTarget | null {
     const layout = createBpmnParticipantLayout(element)
-    if (layout.lanes.length <= 1) return null
+    if (layout.lanes.length <= 1) {
+      return null
+    }
     const orientation = normalizeBpmnParticipantOrientation(element.data?.orientation)
     for (let index = 0; index < layout.lanes.length - 1; index += 1) {
       const lane = layout.lanes[index]
-      if (!lane) continue
+      if (!lane) {
+        continue
+      }
       if (orientation === 'vertical') {
         const x = this.worldToScreen({ x: lane.rect.x + lane.rect.width, y: lane.rect.y }).x
         const top = this.worldToScreen({ x: lane.rect.x, y: lane.rect.y }).y
         const bottom = this.worldToScreen({ x: lane.rect.x, y: lane.rect.y + lane.rect.height }).y
         if (
-          Math.abs(point.x - x) <= BPMN_LANE_RESIZE_HANDLE_SCREEN_TOLERANCE &&
-          point.y >= Math.min(top, bottom) &&
-          point.y <= Math.max(top, bottom)
+          Math.abs(point.x - x) <= BPMN_LANE_RESIZE_HANDLE_SCREEN_TOLERANCE
+          && point.y >= Math.min(top, bottom)
+          && point.y <= Math.max(top, bottom)
         ) {
           return { type: 'bpmn-lane-resize-handle', elementId: element.id, laneId: lane.id, orientation }
         }
@@ -740,9 +844,9 @@ export class Controller implements ModelerController {
       const left = this.worldToScreen({ x: lane.rect.x, y: lane.rect.y }).x
       const right = this.worldToScreen({ x: lane.rect.x + lane.rect.width, y: lane.rect.y }).x
       if (
-        Math.abs(point.y - y) <= BPMN_LANE_RESIZE_HANDLE_SCREEN_TOLERANCE &&
-        point.x >= Math.min(left, right) &&
-        point.x <= Math.max(left, right)
+        Math.abs(point.y - y) <= BPMN_LANE_RESIZE_HANDLE_SCREEN_TOLERANCE
+        && point.x >= Math.min(left, right)
+        && point.x <= Math.max(left, right)
       ) {
         return { type: 'bpmn-lane-resize-handle', elementId: element.id, laneId: lane.id, orientation }
       }
@@ -778,7 +882,9 @@ export function createModelerController(options: ControllerOptions = {}): Contro
 
 function compareElementsByZIndex(a: ModelerElement, b: ModelerElement): number {
   const zIndexDelta = (a.zIndex ?? 0) - (b.zIndex ?? 0)
-  if (zIndexDelta !== 0) return zIndexDelta
+  if (zIndexDelta !== 0) {
+    return zIndexDelta
+  }
   return resolveElementHitRank(a) - resolveElementHitRank(b)
 }
 
@@ -789,10 +895,18 @@ function resolveElementHitRank(element: ModelerElement): number {
 function resolveExternalLabelHandlePoint(rect: ModelerRect, handle: ModelerResizeHandle): ModelerPoint {
   const centerX = rect.x + rect.width / 2
   const centerY = rect.y + rect.height / 2
-  if (handle === 'n') return { x: centerX, y: rect.y }
-  if (handle === 'e') return { x: rect.x + rect.width, y: centerY }
-  if (handle === 's') return { x: centerX, y: rect.y + rect.height }
-  if (handle === 'w') return { x: rect.x, y: centerY }
+  if (handle === 'n') {
+    return { x: centerX, y: rect.y }
+  }
+  if (handle === 'e') {
+    return { x: rect.x + rect.width, y: centerY }
+  }
+  if (handle === 's') {
+    return { x: centerX, y: rect.y + rect.height }
+  }
+  if (handle === 'w') {
+    return { x: rect.x, y: centerY }
+  }
   return {
     x: handle.includes('e') ? rect.x + rect.width : rect.x,
     y: handle.includes('s') ? rect.y + rect.height : rect.y,

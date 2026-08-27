@@ -1,16 +1,16 @@
 import type {
   ModelerElementVariantProvider,
 } from '@/domain/types/index'
-import { BPMN_FLOW_TYPE } from '@/elements/bpmn/flow/bpmn-flow.factory'
+import type {
+  BpmnFlowElement,
+} from '@/elements/bpmn/flow/bpmn-flow.types'
 import {
   applyBpmnConnectionVariant,
   createBpmnConnectionDraft,
   getBpmnConnectionVariantDescriptor,
   updateBpmnConnectionVariantDraft,
 } from '@/elements/bpmn/bpmn-connection-variants'
-import type {
-  BpmnFlowElement,
-} from '@/elements/bpmn/flow/bpmn-flow.types'
+import { BPMN_FLOW_TYPE } from '@/elements/bpmn/flow/bpmn-flow.factory'
 
 export const BpmnFlowVariantProvider: ModelerElementVariantProvider<BpmnFlowElement> = {
   id: 'bpmn.flow.variants',

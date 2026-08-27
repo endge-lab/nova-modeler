@@ -10,7 +10,7 @@ export interface PluginRuntimeOptions {
 export interface ModelerPluginRuntime {
   use(plugin: ModelerPlugin): this
   unuse(pluginOrId: ModelerPlugin | string): this
-  bindRoot(context: ModelerPluginContext): void
-  unbindRoot(): void
-  getPlugins(): ReadonlyArray<ModelerPlugin>
+  bindRoot: (context: ModelerPluginContext) => void
+  unbindRoot: () => void
+  getPlugins: () => ReadonlyArray<ModelerPlugin>
 }

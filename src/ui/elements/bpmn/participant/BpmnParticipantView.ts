@@ -1,29 +1,10 @@
-import {
-  NovaComponent,
-  NovaComponentNode,
-  Prop,
-  createNovaDecoratedComponentDescriptor,
-  type NovaApp,
-  type NovaComponentDescriptor,
-  type NovaSchema,
-  type NovaSurface,
-} from '@endge/nova'
+import type { NovaApp, NovaComponentDescriptor, NovaSchema, NovaSurface } from '@endge/nova'
 import type { EventList } from '@endge/utils'
-import { Modeler } from '@/config/schema.config'
-import {
-  MODELER_THEME_FALLBACKS,
-  MODELER_THEME_TOKENS,
-  type ModelerThemeTokenKey,
-} from '@/config/theme.config'
+import type { ModelerThemeTokenKey } from '@/config/theme.config'
 import type {
   ModelerRect,
   ModelerViewport,
 } from '@/domain/types'
-import {
-  areBpmnParticipantLaneHeadersVisible,
-  createBpmnParticipantLayout,
-  normalizeBpmnParticipantOrientation,
-} from '@/elements/bpmn/participant/bpmn-participant.factory'
 import type {
   BpmnParticipantElement,
   BpmnParticipantLane,
@@ -31,6 +12,26 @@ import type {
   BpmnParticipantLayoutLane,
 } from '@/elements/bpmn/participant/bpmn-participant.types'
 import type { BpmnTaskNameLayout } from '@/ui/elements/bpmn/task/BpmnTaskView'
+import {
+  createNovaDecoratedComponentDescriptor,
+
+  NovaComponent,
+
+  NovaComponentNode,
+
+  Prop,
+} from '@endge/nova'
+import { Modeler } from '@/config/schema.config'
+import {
+  MODELER_THEME_FALLBACKS,
+  MODELER_THEME_TOKENS,
+
+} from '@/config/theme.config'
+import {
+  areBpmnParticipantLaneHeadersVisible,
+  createBpmnParticipantLayout,
+  normalizeBpmnParticipantOrientation,
+} from '@/elements/bpmn/participant/bpmn-participant.factory'
 
 export interface BpmnParticipantViewProps {
   element: BpmnParticipantElement
@@ -126,7 +127,9 @@ export class BpmnParticipantView<E extends EventList = Record<string, any>>
   override setProps(patch: Partial<BpmnParticipantViewResolvedProps>): this {
     const changedKeys = (Object.keys(patch) as Array<keyof BpmnParticipantViewResolvedProps>)
       .filter(key => patch[key] !== undefined && this.props[key] !== patch[key])
-    if (changedKeys.length === 0) return this
+    if (changedKeys.length === 0) {
+      return this
+    }
 
     const nextElement = patch.element ?? this.props.element
     const nextViewport = patch.viewport ?? this.props.viewport
@@ -142,8 +145,12 @@ export class BpmnParticipantView<E extends EventList = Record<string, any>>
       this.props.element = nextElement
       this.props.viewport = nextViewport
       this.syncViewportTransform()
-      if (elementChanged) this.notifySyncPortChanged('element', this.props.element)
-      if (viewportChanged) this.notifySyncPortChanged('viewport', this.props.viewport)
+      if (elementChanged) {
+        this.notifySyncPortChanged('element', this.props.element)
+      }
+      if (viewportChanged) {
+        this.notifySyncPortChanged('viewport', this.props.viewport)
+      }
       this.dirty({ matrix: true })
       return this
     }
@@ -210,13 +217,15 @@ export class BpmnParticipantView<E extends EventList = Record<string, any>>
     this.appendLaneBackgrounds(schema, layout.lanes, laneHeadersVisible)
     this.appendHeaders(schema, layout.participantHeaderRect, layout.laneHeaderAreaRect, laneHeadersVisible, strokeWidth)
     this.appendLaneLines(schema, layout.lanes, strokeWidth)
-    if (!this.props.hideName) this.appendLabels(schema)
+    if (!this.props.hideName) {
+      this.appendLabels(schema)
+    }
     return schema
   }
 
   private appendLaneBackgrounds(schema: NovaSchema, lanes: Array<BpmnParticipantLayoutLane>, laneHeadersVisible: boolean): void {
     const headerFill = 'rgba(248, 250, 252, 0.66)'
-    lanes.forEach(lane => {
+    lanes.forEach((lane) => {
       const fill = typeof lane.style?.fill === 'string' ? lane.style.fill : undefined
       if (fill) {
         schema.push({
@@ -225,7 +234,9 @@ export class BpmnParticipantView<E extends EventList = Record<string, any>>
           styles: { background: fill, border: { color: 'rgba(0,0,0,0)', width: 0, radius: 0 } },
         })
       }
-      if (!laneHeadersVisible) return
+      if (!laneHeadersVisible) {
+        return
+      }
       schema.push({
         type: 'rect',
         ...lane.headerRect,
@@ -266,11 +277,12 @@ export class BpmnParticipantView<E extends EventList = Record<string, any>>
   private appendLaneLines(schema: NovaSchema, lanes: Array<BpmnParticipantLayoutLane>, strokeWidth: number): void {
     const color = this.resolveThemeColor('elementStroke')
     const orientation = normalizeBpmnParticipantOrientation(this.props.element.data?.orientation)
-    lanes.slice(1).forEach(lane => {
+    lanes.slice(1).forEach((lane) => {
       const rect = lane.rect
       if (orientation === 'vertical') {
         schema.push({ type: 'line', x1: rect.x, y1: rect.y, x2: rect.x, y2: rect.y + rect.height, styles: { color, width: strokeWidth } })
-      } else {
+      }
+      else {
         schema.push({ type: 'line', x1: rect.x, y1: rect.y, x2: rect.x + rect.width, y2: rect.y, styles: { color, width: strokeWidth } })
       }
     })
@@ -286,7 +298,7 @@ export class BpmnParticipantView<E extends EventList = Record<string, any>>
     )
     this.appendLabel(schema, participant)
     if (areBpmnParticipantLaneHeadersVisible(element)) {
-      layout.lanes.forEach(lane => {
+      layout.lanes.forEach((lane) => {
         const laneLayout = createRenderLabelLayout(lane.name, lane.headerRect, element.data?.orientation)
         this.appendLabel(schema, laneLayout)
       })
@@ -449,31 +461,55 @@ function createRenderLabelLayout(
 let participantLabelMeasureCanvas: HTMLCanvasElement | null = null
 
 function measureParticipantLabelText(text: string, fontSize = PARTICIPANT_LABEL_FONT_SIZE): number {
-  if (typeof document === 'undefined') return Math.ceil(text.length * fontSize * 0.6)
+  if (typeof document === 'undefined') {
+    return Math.ceil(text.length * fontSize * 0.6)
+  }
   participantLabelMeasureCanvas ??= document.createElement('canvas')
   const context = participantLabelMeasureCanvas.getContext('2d')
-  if (!context) return Math.ceil(text.length * fontSize * 0.6)
+  if (!context) {
+    return Math.ceil(text.length * fontSize * 0.6)
+  }
   context.font = `normal ${PARTICIPANT_LABEL_FONT_WEIGHT} ${fontSize}px ${PARTICIPANT_LABEL_FONT_FAMILY}`
   return Math.ceil(context.measureText(text).width)
 }
 
 function areBpmnParticipantRenderInputsEqual(prev: BpmnParticipantElement, next: BpmnParticipantElement): boolean {
-  if (prev === next) return true
-  if (prev.id !== next.id) return false
-  if (prev.type !== next.type) return false
-  if (prev.width !== next.width || prev.height !== next.height) return false
-  if (!recordsEqual(prev.style, next.style)) return false
+  if (prev === next) {
+    return true
+  }
+  if (prev.id !== next.id) {
+    return false
+  }
+  if (prev.type !== next.type) {
+    return false
+  }
+  if (prev.width !== next.width || prev.height !== next.height) {
+    return false
+  }
+  if (!recordsEqual(prev.style, next.style)) {
+    return false
+  }
   const prevData = (prev.data ?? {}) as Partial<NonNullable<BpmnParticipantElement['data']>>
   const nextData = (next.data ?? {}) as Partial<NonNullable<BpmnParticipantElement['data']>>
-  if (prevData.name !== nextData.name) return false
-  if (prevData.orientation !== nextData.orientation) return false
-  if (prevData.singleLaneVisible !== nextData.singleLaneVisible) return false
+  if (prevData.name !== nextData.name) {
+    return false
+  }
+  if (prevData.orientation !== nextData.orientation) {
+    return false
+  }
+  if (prevData.singleLaneVisible !== nextData.singleLaneVisible) {
+    return false
+  }
   const prevLanes: Array<BpmnParticipantLane> = Array.isArray(prevData.lanes) ? prevData.lanes : []
   const nextLanes: Array<BpmnParticipantLane> = Array.isArray(nextData.lanes) ? nextData.lanes : []
-  if (prevLanes.length !== nextLanes.length) return false
+  if (prevLanes.length !== nextLanes.length) {
+    return false
+  }
   return prevLanes.every((lane, index) => {
     const nextLane = nextLanes[index]
-    if (!nextLane) return false
+    if (!nextLane) {
+      return false
+    }
     return lane.id === nextLane.id
       && lane.name === nextLane.name
       && lane.size === nextLane.size
@@ -489,7 +525,9 @@ function recordsEqual(
   const nextRecord = next ?? {}
   const prevKeys = Object.keys(prevRecord)
   const nextKeys = Object.keys(nextRecord)
-  if (prevKeys.length !== nextKeys.length) return false
+  if (prevKeys.length !== nextKeys.length) {
+    return false
+  }
   return prevKeys.every(key => Object.is(prevRecord[key], nextRecord[key]))
 }
 

@@ -1,9 +1,13 @@
-import { Modeler } from '@/config/schema.config'
 import type {
   ModelerElementDefinition,
   ModelerElementRenderContext,
   ModelerPoint,
 } from '@/domain/types/index'
+import type {
+  BpmnGroupElement,
+  BpmnGroupElementInput,
+} from '@/elements/bpmn/artifacts/group/bpmn-group.types'
+import { Modeler } from '@/config/schema.config'
 import {
   BPMN_GROUP_DEFAULT_HEIGHT,
   BPMN_GROUP_DEFAULT_WIDTH,
@@ -13,10 +17,6 @@ import {
   createBpmnGroupElement,
 } from '@/elements/bpmn/artifacts/group/bpmn-group.factory'
 import { createBpmnGroupPorts } from '@/elements/bpmn/artifacts/group/bpmn-group.ports'
-import type {
-  BpmnGroupElement,
-  BpmnGroupElementInput,
-} from '@/elements/bpmn/artifacts/group/bpmn-group.types'
 
 export const BpmnGroupDefinition: ModelerElementDefinition<BpmnGroupElement> = {
   type: BPMN_GROUP_TYPE,

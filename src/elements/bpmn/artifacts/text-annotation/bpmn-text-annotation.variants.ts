@@ -1,16 +1,16 @@
 import type {
   ModelerElementVariantProvider,
 } from '@/domain/types'
-import {
-  BPMN_TEXT_ANNOTATION_TYPE,
-  normalizeBpmnTextAnnotationBracketSide,
-} from '@/elements/bpmn/artifacts/text-annotation/bpmn-text-annotation.factory'
 import type {
   BpmnTextAnnotationBracketSide,
   BpmnTextAnnotationElement,
 } from '@/elements/bpmn/artifacts/text-annotation/bpmn-text-annotation.types'
+import {
+  BPMN_TEXT_ANNOTATION_TYPE,
+  normalizeBpmnTextAnnotationBracketSide,
+} from '@/elements/bpmn/artifacts/text-annotation/bpmn-text-annotation.factory'
 
-const BRACKET_SIDES: Array<{ id: BpmnTextAnnotationBracketSide; title: string }> = [
+const BRACKET_SIDES: Array<{ id: BpmnTextAnnotationBracketSide, title: string }> = [
   { id: 'left', title: 'Left bracket' },
   { id: 'right', title: 'Right bracket' },
 ]

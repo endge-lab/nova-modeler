@@ -1,9 +1,13 @@
-import { Modeler } from '@/config/schema.config'
 import type {
   ModelerElementDefinition,
   ModelerElementRenderContext,
   ModelerPoint,
 } from '@/domain/types/index'
+import type {
+  BpmnBoundaryEventElement,
+  BpmnBoundaryEventElementInput,
+} from '@/elements/bpmn/boundary-event/bpmn-boundary-event.types'
+import { Modeler } from '@/config/schema.config'
 import {
   BPMN_BOUNDARY_EVENT_DEFAULT_SIZE,
   BPMN_BOUNDARY_EVENT_TYPE,
@@ -11,10 +15,6 @@ import {
 } from '@/elements/bpmn/boundary-event/bpmn-boundary-event.factory'
 import { createBpmnBoundaryEventPorts } from '@/elements/bpmn/boundary-event/bpmn-boundary-event.ports'
 import { BpmnBoundaryEventVariantProvider } from '@/elements/bpmn/boundary-event/bpmn-boundary-event.variants'
-import type {
-  BpmnBoundaryEventElement,
-  BpmnBoundaryEventElementInput,
-} from '@/elements/bpmn/boundary-event/bpmn-boundary-event.types'
 
 export const BpmnBoundaryEventDefinition: ModelerElementDefinition<BpmnBoundaryEventElement> = {
   type: BPMN_BOUNDARY_EVENT_TYPE,

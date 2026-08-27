@@ -1,21 +1,22 @@
-import {
-  NovaComponent,
-  NovaComponentNode,
-  Prop,
-  createNovaDecoratedComponentDescriptor,
-  type NovaApp,
-  type NovaComponentDescriptor,
-  type NovaSchema,
-  type NovaSurface,
-} from '@endge/nova'
+import type { NovaApp, NovaComponentDescriptor, NovaSchema, NovaSurface } from '@endge/nova'
 import type { EventList } from '@endge/utils'
+import type { ModelerThemeTokenKey } from '@/config/theme.config'
+import type { ModelerExternalLabelLayout, ModelerViewport } from '@/domain/types/index'
+import {
+  createNovaDecoratedComponentDescriptor,
+
+  NovaComponent,
+
+  NovaComponentNode,
+
+  Prop,
+} from '@endge/nova'
 import { Modeler } from '@/config/schema.config'
 import {
   MODELER_THEME_FALLBACKS,
   MODELER_THEME_TOKENS,
-  type ModelerThemeTokenKey,
+
 } from '@/config/theme.config'
-import type { ModelerExternalLabelLayout, ModelerViewport } from '@/domain/types/index'
 
 export interface ExternalLabelViewProps {
   layout: ModelerExternalLabelLayout
@@ -87,7 +88,9 @@ export class ExternalLabelView<E extends EventList = Record<string, any>>
   override setProps(patch: Partial<ExternalLabelViewResolvedProps>): this {
     const changedKeys = (Object.keys(patch) as Array<keyof ExternalLabelViewResolvedProps>)
       .filter(key => patch[key] !== undefined && this.props[key] !== patch[key])
-    if (changedKeys.length === 0) return this
+    if (changedKeys.length === 0) {
+      return this
+    }
     if (changedKeys.every(key => key === 'viewport')) {
       this.props.viewport = patch.viewport ?? this.props.viewport
       this.syncViewportTransform()
@@ -157,7 +160,9 @@ export class ExternalLabelView<E extends EventList = Record<string, any>>
         })
       }
     }
-    if (this.props.selected) this.appendHandles(schema, rect)
+    if (this.props.selected) {
+      this.appendHandles(schema, rect)
+    }
     return schema
   }
 
@@ -174,7 +179,7 @@ export class ExternalLabelView<E extends EventList = Record<string, any>>
     })
   }
 
-  private appendHandles(schema: NovaSchema, rect: { x: number; y: number; width: number; height: number }): void {
+  private appendHandles(schema: NovaSchema, rect: { x: number, y: number, width: number, height: number }): void {
     for (const handle of LABEL_HANDLES) {
       const point = resolveHandlePoint(rect, handle)
       schema.push({
@@ -208,13 +213,21 @@ export class ExternalLabelView<E extends EventList = Record<string, any>>
   }
 }
 
-function resolveHandlePoint(rect: { x: number; y: number; width: number; height: number }, handle: typeof LABEL_HANDLES[number]): { x: number; y: number } {
+function resolveHandlePoint(rect: { x: number, y: number, width: number, height: number }, handle: typeof LABEL_HANDLES[number]): { x: number, y: number } {
   const cx = rect.x + rect.width / 2
   const cy = rect.y + rect.height / 2
-  if (handle === 'n') return { x: cx, y: rect.y }
-  if (handle === 'e') return { x: rect.x + rect.width, y: cy }
-  if (handle === 's') return { x: cx, y: rect.y + rect.height }
-  if (handle === 'w') return { x: rect.x, y: cy }
+  if (handle === 'n') {
+    return { x: cx, y: rect.y }
+  }
+  if (handle === 'e') {
+    return { x: rect.x + rect.width, y: cy }
+  }
+  if (handle === 's') {
+    return { x: cx, y: rect.y + rect.height }
+  }
+  if (handle === 'w') {
+    return { x: rect.x, y: cy }
+  }
   return {
     x: handle.includes('e') ? rect.x + rect.width : rect.x,
     y: handle.includes('s') ? rect.y + rect.height : rect.y,

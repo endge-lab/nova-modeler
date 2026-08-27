@@ -95,7 +95,7 @@ export interface ModelerSettingsSectionSchema extends NovaComponentSchema<Modele
 
 export interface ModelerSettingsControllerOptions {
   root: () => {
-    openDialog: (input: string | ({ type?: string; id?: string } & Record<string, unknown>), payload?: Record<string, unknown>) => string
+    openDialog: (input: string | ({ type?: string, id?: string } & Record<string, unknown>), payload?: Record<string, unknown>) => string
     closeDialog: (id?: string, event?: Event) => void
     updateDialog: (id: string, patch: DialogProps & Record<string, unknown>) => void
     getOpenDialogIds: () => Array<string>
@@ -106,9 +106,9 @@ export interface ModelerSettingsControllerOptions {
 
 export interface ModelerSettingsButtonSlotProps {
   selected: boolean
-  toggle(event?: Event): void
-  open(event?: Event): void
-  close(event?: Event): void
+  toggle: (event?: Event) => void
+  open: (event?: Event) => void
+  close: (event?: Event) => void
 }
 
 export interface ModelerSettingsButtonProps {
@@ -137,12 +137,12 @@ export interface ModelerSettingsButtonResolvedProps extends Required<Omit<Modele
 }
 
 export interface ModelerSettingsButtonApi {
-  open(event?: Event): void
-  close(event?: Event): void
-  toggle(event?: Event): void
-  isOpen(): boolean
-  setProps(patch: ModelerSettingsButtonProps): void
-  getProps(): Readonly<ModelerSettingsButtonResolvedProps>
+  open: (event?: Event) => void
+  close: (event?: Event) => void
+  toggle: (event?: Event) => void
+  isOpen: () => boolean
+  setProps: (patch: ModelerSettingsButtonProps) => void
+  getProps: () => Readonly<ModelerSettingsButtonResolvedProps>
 }
 
 export interface ModelerSettingsButtonSchema {

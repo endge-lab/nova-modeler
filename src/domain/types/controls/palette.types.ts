@@ -3,11 +3,11 @@ import type {
   NovaUiInset,
   NovaUiPosition,
 } from '@endge/nova-ui-kit'
-import type { ModelerController } from '@/domain/types/plugins/controller.types'
 import type {
   ModelerPaletteItemDefinition,
   ModelerPalettePlacement,
 } from '@/domain/types/palette.types'
+import type { ModelerController } from '@/domain/types/plugins/controller.types'
 
 export interface PaletteItemLayout {
   type: 'item'
@@ -78,10 +78,10 @@ export interface PaletteResolvedProps {
 }
 
 export interface PaletteApi {
-  createRect(): void
-  createBpmnEvent(): void
-  setProps(patch: PaletteProps): void
-  getProps(): Readonly<PaletteResolvedProps>
+  createRect: () => void
+  createBpmnEvent: () => void
+  setProps: (patch: PaletteProps) => void
+  getProps: () => Readonly<PaletteResolvedProps>
 }
 
 export type PaletteDescriptor = NovaComponentDescriptor<

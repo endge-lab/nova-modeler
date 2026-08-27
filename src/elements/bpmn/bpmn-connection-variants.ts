@@ -6,20 +6,20 @@ import type {
   ModelerElementVariantOption,
   ModelerPluginContext,
 } from '@/domain/types/index'
-import { isModelerEdgeElement } from '@/domain/types/index'
-import { createBpmnAssociationElement } from '@/elements/bpmn/association/bpmn-association.factory'
 import type {
   BpmnAssociationElement,
   BpmnAssociationType,
 } from '@/elements/bpmn/association/bpmn-association.types'
-import {
-  BPMN_FLOW_TYPE,
-  createBpmnFlowElement,
-} from '@/elements/bpmn/flow/bpmn-flow.factory'
 import type {
   BpmnFlowElement,
   BpmnFlowType,
 } from '@/elements/bpmn/flow/bpmn-flow.types'
+import { isModelerEdgeElement } from '@/domain/types/index'
+import { createBpmnAssociationElement } from '@/elements/bpmn/association/bpmn-association.factory'
+import {
+  BPMN_FLOW_TYPE,
+  createBpmnFlowElement,
+} from '@/elements/bpmn/flow/bpmn-flow.factory'
 import { MODEL_ELEMENTS_RUNTIME } from '@/plugins/elements/model/ElementsRuntime'
 
 export type BpmnConnectionFamily = 'flow' | 'association'
@@ -41,13 +41,13 @@ const CONNECTION_FAMILIES: Array<{
   { id: 'association', title: 'Association', description: 'Dashed BPMN association.' },
 ]
 
-const FLOW_TYPES: Array<{ id: BpmnFlowType; title: string; description: string }> = [
+const FLOW_TYPES: Array<{ id: BpmnFlowType, title: string, description: string }> = [
   { id: 'sequence', title: 'Sequence', description: 'Regular BPMN sequence flow.' },
   { id: 'conditionalSequence', title: 'Conditional sequence', description: 'Sequence flow with a condition marker.' },
   { id: 'defaultSequence', title: 'Default sequence', description: 'Default outgoing sequence flow.' },
 ]
 
-const ASSOCIATION_TYPES: Array<{ id: BpmnAssociationType; title: string; description: string }> = [
+const ASSOCIATION_TYPES: Array<{ id: BpmnAssociationType, title: string, description: string }> = [
   { id: 'undirected', title: 'Association', description: 'Dashed association without direction.' },
   { id: 'directed', title: 'Directed association', description: 'Dashed association with a target arrow.' },
   { id: 'bidirectional', title: 'Bidirectional association', description: 'Dashed association with source and target arrows.' },
@@ -181,7 +181,9 @@ function applyFlowInput(
   controlId: string,
   option: ModelerElementVariantOption,
 ): void {
-  if (!isBpmnFlowElement(element)) return
+  if (!isBpmnFlowElement(element)) {
+    return
+  }
   const value = String(option.data?.[controlId] ?? option.title ?? '').trim()
   context.applyCommand({
     type: 'element.patch',
@@ -238,7 +240,9 @@ function applyFlowVariant(
 ): void {
   const normalizedFlowType = normalizeFlowType(flowType)
   if (isBpmnFlowElement(element)) {
-    if (normalizedFlowType === 'defaultSequence') clearSiblingDefaultFlows(context, element.id, element.source.elementId)
+    if (normalizedFlowType === 'defaultSequence') {
+      clearSiblingDefaultFlows(context, element.id, element.source.elementId)
+    }
     context.applyCommand({
       type: 'element.patch',
       id: element.id,
@@ -256,8 +260,12 @@ function applyFlowVariant(
     data: sanitizeConnectionData(element.data),
     flowType: normalizedFlowType,
   })
-  if (showDuplicateConnectionWarning(context, element, nextElement, 'Sequence flow')) return
-  if (normalizedFlowType === 'defaultSequence') clearSiblingDefaultFlows(context, element.id, element.source.elementId)
+  if (showDuplicateConnectionWarning(context, element, nextElement, 'Sequence flow')) {
+    return
+  }
+  if (normalizedFlowType === 'defaultSequence') {
+    clearSiblingDefaultFlows(context, element.id, element.source.elementId)
+  }
   context.applyCommand({
     type: 'element.replace',
     id: element.id,
@@ -266,11 +274,19 @@ function applyFlowVariant(
 }
 
 function clearSiblingDefaultFlows(context: ModelerPluginContext, currentId: string, sourceId: string | undefined): void {
-  if (!sourceId) return
+  if (!sourceId) {
+    return
+  }
   for (const item of context.getModel().elements) {
-    if (item.id === currentId || item.type !== BPMN_FLOW_TYPE || !isModelerEdgeElement(item)) continue
-    if (item.source.elementId !== sourceId) continue
-    if (normalizeFlowType(item.data?.flowType) !== 'defaultSequence') continue
+    if (item.id === currentId || item.type !== BPMN_FLOW_TYPE || !isModelerEdgeElement(item)) {
+      continue
+    }
+    if (item.source.elementId !== sourceId) {
+      continue
+    }
+    if (normalizeFlowType(item.data?.flowType) !== 'defaultSequence') {
+      continue
+    }
     context.applyCommand({
       type: 'element.patch',
       id: item.id,
@@ -307,7 +323,9 @@ function applyAssociationVariant(
     data: sanitizeConnectionData(element.data),
     associationType: normalizeAssociationType(associationType),
   })
-  if (showDuplicateConnectionWarning(context, element, nextElement, 'Association')) return
+  if (showDuplicateConnectionWarning(context, element, nextElement, 'Association')) {
+    return
+  }
   context.applyCommand({
     type: 'element.replace',
     id: element.id,
@@ -322,7 +340,9 @@ function showDuplicateConnectionWarning(
   title: string,
 ): boolean {
   const duplicate = findDuplicateConnection(context, current.id, next)
-  if (!duplicate) return false
+  if (!duplicate) {
+    return false
+  }
   context.applyCommand({ type: 'select', ids: [duplicate.id] })
   MODEL_ELEMENTS_RUNTIME.connectionWarnings.show({
     title: 'Connection already exists',
@@ -339,9 +359,13 @@ function findDuplicateConnection(
 ): ModelerEdgeElement | undefined {
   const sourceId = candidate.source.elementId
   const targetId = candidate.target.elementId
-  if (!sourceId || !targetId) return undefined
+  if (!sourceId || !targetId) {
+    return undefined
+  }
   return context.getModel().elements.find((element): element is ModelerEdgeElement => {
-    if (element.id === currentId || !isModelerEdgeElement(element)) return false
+    if (element.id === currentId || !isModelerEdgeElement(element)) {
+      return false
+    }
     return element.type === candidate.type
       && element.source.elementId === sourceId
       && element.target.elementId === targetId
@@ -394,17 +418,23 @@ function resolveElementFamily(element: BpmnFlowElement | BpmnAssociationElement)
 }
 
 function resolveFamily(value: unknown, fallback: unknown): BpmnConnectionFamily {
-  if (value === 'association' || value === 'flow') return value
+  if (value === 'association' || value === 'flow') {
+    return value
+  }
   return fallback === 'association' ? 'association' : 'flow'
 }
 
 function normalizeFlowType(value: unknown): BpmnFlowType {
-  if (value === 'conditionalSequence' || value === 'defaultSequence' || value === 'sequence') return value
+  if (value === 'conditionalSequence' || value === 'defaultSequence' || value === 'sequence') {
+    return value
+  }
   return 'sequence'
 }
 
 function normalizeAssociationType(value: unknown): BpmnAssociationType {
-  if (value === 'directed' || value === 'bidirectional' || value === 'data' || value === 'undirected') return value
+  if (value === 'directed' || value === 'bidirectional' || value === 'data' || value === 'undirected') {
+    return value
+  }
   return 'undirected'
 }
 

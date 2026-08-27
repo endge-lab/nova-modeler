@@ -33,7 +33,9 @@ export class ElementsRouteOptimizer {
     const result: Array<ModelerEdgeWaypoint> = []
     for (const point of points) {
       const previous = result[result.length - 1]
-      if (previous && this.geometry.distance(previous, point) < minDistance) continue
+      if (previous && this.geometry.distance(previous, point) < minDistance) {
+        continue
+      }
       result.push(point)
     }
     return result
@@ -71,7 +73,9 @@ function distanceToSegment(point: ModelerPoint, start: ModelerPoint, end: Modele
   const dx = end.x - start.x
   const dy = end.y - start.y
   const lengthSquared = dx * dx + dy * dy
-  if (lengthSquared === 0) return Math.hypot(point.x - start.x, point.y - start.y)
+  if (lengthSquared === 0) {
+    return Math.hypot(point.x - start.x, point.y - start.y)
+  }
   const t = Math.max(0, Math.min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared))
   return Math.hypot(point.x - (start.x + t * dx), point.y - (start.y + t * dy))
 }

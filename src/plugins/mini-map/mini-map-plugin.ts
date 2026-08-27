@@ -1,12 +1,12 @@
 import type { NovaNode } from '@endge/nova'
-import { Modeler } from '@/config/schema.config'
-import { PluginBase } from '@/model/plugin-runtime/PluginBase'
 import type {
   MiniMapController,
   MiniMapControllerAdapter,
   MiniMapControllerOptions,
   MiniMapPluginOptions,
 } from '@/plugins/mini-map/mini-map.types'
+import { Modeler } from '@/config/schema.config'
+import { PluginBase } from '@/model/plugin-runtime/PluginBase'
 
 /**
  * Управляет внешним состоянием mini-map plugin.
@@ -24,7 +24,9 @@ export class MiniMapControllerModule implements MiniMapController {
   }
 
   setVisible(visible: boolean): void {
-    if (this.visibleValue === visible) return
+    if (this.visibleValue === visible) {
+      return
+    }
     this.visibleValue = visible
     this.options.onVisibleChange?.(visible)
     this.adapters.forEach(adapter => adapter.invalidate())
@@ -79,7 +81,9 @@ export class MiniMapPlugin extends PluginBase {
     this.disposeController = this.options.controller?.__bind({
       invalidate: () => this.syncNodeProps(),
     })
-    if (this.disposeController) this.addDisposer(this.disposeController)
+    if (this.disposeController) {
+      this.addDisposer(this.disposeController)
+    }
   }
 
   /**

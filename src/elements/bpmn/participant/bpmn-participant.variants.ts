@@ -1,19 +1,19 @@
-import { MODELER_ASSETS } from '@/assets/modeler-assets'
 import type {
   ModelerElementVariantDescriptor,
   ModelerElementVariantProvider,
 } from '@/domain/types'
+import type {
+  BpmnParticipantElement,
+  BpmnParticipantOrientation,
+} from '@/elements/bpmn/participant/bpmn-participant.types'
+import { MODELER_ASSETS } from '@/assets/modeler-assets'
 import {
   BPMN_PARTICIPANT_TYPE,
   createBpmnParticipantElement,
   normalizeBpmnParticipantOrientation,
 } from '@/elements/bpmn/participant/bpmn-participant.factory'
-import type {
-  BpmnParticipantElement,
-  BpmnParticipantOrientation,
-} from '@/elements/bpmn/participant/bpmn-participant.types'
 
-const ORIENTATIONS: Array<{ id: BpmnParticipantOrientation; title: string }> = [
+const ORIENTATIONS: Array<{ id: BpmnParticipantOrientation, title: string }> = [
   { id: 'horizontal', title: 'Horizontal' },
   { id: 'vertical', title: 'Vertical' },
 ]

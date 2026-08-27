@@ -1,19 +1,19 @@
-import { Modeler } from '@/config/schema.config'
 import type {
   ModelerElementDefinition,
   ModelerElementRenderContext,
 } from '@/domain/types/index'
-import { MODEL_ELEMENTS_RUNTIME } from '@/plugins/elements/model/ElementsRuntime'
+import type {
+  BpmnMessageFlowElement,
+  BpmnMessageFlowElementInput,
+} from '@/elements/bpmn/message-flow/bpmn-message-flow.types'
+import { Modeler } from '@/config/schema.config'
+import { createBpmnEdgeExternalLabelAdapter } from '@/elements/bpmn/bpmn-external-label'
 import {
   BPMN_MESSAGE_FLOW_TYPE,
   createBpmnMessageFlowElement,
 } from '@/elements/bpmn/message-flow/bpmn-message-flow.factory'
 import { BpmnMessageFlowVariantProvider } from '@/elements/bpmn/message-flow/bpmn-message-flow.variants'
-import { createBpmnEdgeExternalLabelAdapter } from '@/elements/bpmn/bpmn-external-label'
-import type {
-  BpmnMessageFlowElement,
-  BpmnMessageFlowElementInput,
-} from '@/elements/bpmn/message-flow/bpmn-message-flow.types'
+import { MODEL_ELEMENTS_RUNTIME } from '@/plugins/elements/model/ElementsRuntime'
 
 const BPMN_MESSAGE_FLOW_HIT_TOLERANCE = 6
 

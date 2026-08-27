@@ -1,34 +1,27 @@
-import {
-  NovaComponentNode,
-  type NovaApp,
-  type NovaComponentCreateContext,
-  type NovaComponentDescriptor,
-  type NovaComponentNode as NovaComponentNodeType,
-  type NovaComponentSchema,
-  type NovaElementSchema,
-  type NovaSurface,
-} from '@endge/nova'
+import type { NovaApp, NovaComponentCreateContext, NovaComponentDescriptor, NovaComponentNode as NovaComponentNodeType, NovaComponentSchema, NovaElementSchema, NovaSurface } from '@endge/nova'
+import type { DialogDefinition, DialogProps, DialogSlotContext } from '@endge/nova-ui-kit'
 import type { EventList } from '@endge/utils'
+import type { BpmnValidationDialogPayload, BpmnValidationDialogProps, BpmnValidationDialogResolvedProps, ModelerValidationIssue, ModelerValidationResult } from '@/domain/types/index'
 import {
-  NovaUIKit,
+
+  NovaComponentNode,
+
+} from '@endge/nova'
+import {
+
   findNovaUiRoot,
-  type DialogDefinition,
-  type DialogProps,
-  type DialogSlotContext,
+  NovaUIKit,
 } from '@endge/nova-ui-kit'
 import { MODELER_ASSETS } from '@/assets/modeler-assets'
 import { Modeler } from '@/config/schema.config'
 import {
-  MODELER_BPMN_VALIDATION_DIALOG_TYPE,
+
   MODELER_BPMN_VALIDATION_DIALOG_HEIGHT,
   MODELER_BPMN_VALIDATION_DIALOG_MIN_HEIGHT,
   MODELER_BPMN_VALIDATION_DIALOG_MIN_WIDTH,
+  MODELER_BPMN_VALIDATION_DIALOG_TYPE,
   MODELER_BPMN_VALIDATION_DIALOG_WIDTH,
-  type BpmnValidationDialogPayload,
-  type BpmnValidationDialogProps,
-  type BpmnValidationDialogResolvedProps,
-  type ModelerValidationIssue,
-  type ModelerValidationResult,
+
 } from '@/domain/types/index'
 
 export interface BpmnValidationDialogApi {
@@ -145,7 +138,7 @@ export class BpmnValidationDialog<E extends EventList = Record<string, any>>
   }
 
   private createDialogBody(slot: DialogSlotContext): Array<NovaElementSchema<any>> {
-    const dialogProps = slot.props as DialogProps & { width: number; height: number }
+    const dialogProps = slot.props as DialogProps & { width: number, height: number }
     const bodyWidth = Math.max(0, dialogProps.width - BODY_HORIZONTAL_PADDING)
     const bodyHeight = Math.max(0, dialogProps.height - BODY_VERTICAL_CHROME)
     const result = resolvePayloadResult(slot)

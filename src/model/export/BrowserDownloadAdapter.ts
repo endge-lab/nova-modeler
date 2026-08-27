@@ -6,7 +6,9 @@ export class BrowserDownloadAdapter {
    * Скачивает Blob через временную ссылку.
    */
   download(blob: Blob, fileName: string): void {
-    if (typeof document === 'undefined') return
+    if (typeof document === 'undefined') {
+      return
+    }
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url

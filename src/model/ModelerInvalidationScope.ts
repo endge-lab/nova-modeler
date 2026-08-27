@@ -13,7 +13,9 @@ export class ModelerInvalidationScope {
   }
 
   bumpMany(kinds: ReadonlyArray<ModelerCommitChange>): void {
-    for (const kind of kinds) this.bump(kind)
+    for (const kind of kinds) {
+      this.bump(kind)
+    }
   }
 
   get(kind: ModelerCommitChange): number {

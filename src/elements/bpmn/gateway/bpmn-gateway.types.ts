@@ -4,13 +4,13 @@ import type {
   ModelerExternalLabelGeometry,
 } from '@/domain/types/index'
 
-export type BpmnGatewayType =
-  | 'exclusive'
-  | 'parallel'
-  | 'inclusive'
-  | 'complex'
-  | 'eventBased'
-  | 'parallelEventBased'
+export type BpmnGatewayType
+  = | 'exclusive'
+    | 'parallel'
+    | 'inclusive'
+    | 'complex'
+    | 'eventBased'
+    | 'parallelEventBased'
 
 export interface BpmnGatewayElementData extends Record<string, unknown> {
   name: string
@@ -20,8 +20,8 @@ export interface BpmnGatewayElementData extends Record<string, unknown> {
 
 export type BpmnGatewayElement = ModelerElement<BpmnGatewayElementData>
 
-export type BpmnGatewayElementInput =
-  ModelerElementInput<Partial<BpmnGatewayElementData>> & {
+export type BpmnGatewayElementInput
+  = ModelerElementInput<Partial<BpmnGatewayElementData>> & {
     name?: string
     gatewayType?: BpmnGatewayType
     label?: ModelerExternalLabelGeometry

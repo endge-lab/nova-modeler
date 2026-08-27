@@ -83,7 +83,7 @@ export function resolveBpmnEventNameLayout(input: {
   }
 }
 
-export function containsBpmnEventNameLayoutPoint(layout: BpmnEventNameLayout, point: { x: number; y: number }): boolean {
+export function containsBpmnEventNameLayoutPoint(layout: BpmnEventNameLayout, point: { x: number, y: number }): boolean {
   return layout.text.length > 0
     && point.x >= layout.rect.x
     && point.x <= layout.rect.x + layout.rect.width
@@ -108,31 +108,39 @@ function buildEventNameSourceLines(
   width: number,
   style: { fontSize: number },
   limit: number,
-): Array<{ text: string; width: number }> {
+): Array<{ text: string, width: number }> {
   const words = text.split(/\s+/).filter(Boolean)
-  const lines: Array<{ text: string; width: number }> = []
+  const lines: Array<{ text: string, width: number }> = []
   let current = ''
   for (const word of words) {
     const next = current ? `${current} ${word}` : word
     if (current && measureEventNameText(next, style) > width) {
       lines.push(createEventNameLine(current, style))
       current = word
-      if (lines.length >= limit) break
+      if (lines.length >= limit) {
+        break
+      }
       continue
     }
     current = next
   }
-  if (current && lines.length < limit) lines.push(createEventNameLine(current, style))
-  if (lines.length === 0 && text) lines.push(createEventNameLine(text, style))
+  if (current && lines.length < limit) {
+    lines.push(createEventNameLine(current, style))
+  }
+  if (lines.length === 0 && text) {
+    lines.push(createEventNameLine(text, style))
+  }
   return lines
 }
 
-function createEventNameLine(text: string, style: { fontSize: number }): { text: string; width: number } {
+function createEventNameLine(text: string, style: { fontSize: number }): { text: string, width: number } {
   return { text, width: measureEventNameText(text, style) }
 }
 
 function fitEventNameWithEllipsis(text: string, width: number, style: { fontSize: number }): string {
-  if (measureEventNameText(text, style) <= width) return text
+  if (measureEventNameText(text, style) <= width) {
+    return text
+  }
   let next = text
   while (next.length > 0 && measureEventNameText(`${next}${EVENT_NAME_ELLIPSIS}`, style) > width) {
     next = next.slice(0, -1).trimEnd()

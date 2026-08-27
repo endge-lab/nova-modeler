@@ -1,7 +1,8 @@
+import type { BpmnEventNameLayout } from '@/elements/bpmn/event/bpmn-event.label'
 import {
+
   containsBpmnEventNameLayoutPoint,
   resolveBpmnEventNameLayout,
-  type BpmnEventNameLayout,
 } from '@/elements/bpmn/event/bpmn-event.label'
 
 export type BpmnGatewayNameLayout = BpmnEventNameLayout
@@ -14,6 +15,6 @@ export function resolveBpmnGatewayNameLayout(input: {
   return resolveBpmnEventNameLayout(input)
 }
 
-export function containsBpmnGatewayNameLayoutPoint(layout: BpmnGatewayNameLayout, point: { x: number; y: number }): boolean {
+export function containsBpmnGatewayNameLayoutPoint(layout: BpmnGatewayNameLayout, point: { x: number, y: number }): boolean {
   return containsBpmnEventNameLayoutPoint(layout, point)
 }

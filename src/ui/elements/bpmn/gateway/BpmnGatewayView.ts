@@ -1,25 +1,26 @@
-import {
-  NovaComponent,
-  NovaComponentNode,
-  Prop,
-  createNovaDecoratedComponentDescriptor,
-  type NovaApp,
-  type NovaComponentDescriptor,
-  type NovaSchema,
-  type NovaSurface,
-} from '@endge/nova'
+import type { NovaApp, NovaComponentDescriptor, NovaSchema, NovaSurface } from '@endge/nova'
 import type { EventList } from '@endge/utils'
-import { Modeler } from '@/config/schema.config'
-import {
-  MODELER_THEME_FALLBACKS,
-  MODELER_THEME_TOKENS,
-  type ModelerThemeTokenKey,
-} from '@/config/theme.config'
+import type { ModelerThemeTokenKey } from '@/config/theme.config'
 import type { ModelerViewport } from '@/domain/types'
 import type {
   BpmnGatewayElement,
   BpmnGatewayElementData,
 } from '@/elements/bpmn/gateway/bpmn-gateway.types'
+import {
+  createNovaDecoratedComponentDescriptor,
+
+  NovaComponent,
+
+  NovaComponentNode,
+
+  Prop,
+} from '@endge/nova'
+import { Modeler } from '@/config/schema.config'
+import {
+  MODELER_THEME_FALLBACKS,
+  MODELER_THEME_TOKENS,
+
+} from '@/config/theme.config'
 import { resolveBpmnGatewayNameLayout } from '@/elements/bpmn/gateway/bpmn-gateway.label'
 
 export interface BpmnGatewayViewProps {
@@ -130,7 +131,9 @@ export class BpmnGatewayView<E extends EventList = Record<string, any>>
     }]
 
     this.appendGatewayMarker(schema)
-    if (!this.props.hideName) this.appendGatewayName(schema)
+    if (!this.props.hideName) {
+      this.appendGatewayName(schema)
+    }
     return schema
   }
 
@@ -140,7 +143,9 @@ export class BpmnGatewayView<E extends EventList = Record<string, any>>
       width: this.width,
       height: this.height,
     })
-    if (!layout.text) return
+    if (!layout.text) {
+      return
+    }
     const color = this.resolveThemeColor('bpmnTaskTextColor')
     for (const line of layout.lines) {
       schema.push({
@@ -233,7 +238,9 @@ export class BpmnGatewayView<E extends EventList = Record<string, any>>
     const radius = size * 0.21
     this.appendCircleMarker(schema, 0, 0, radius)
     this.appendPentagonMarker(schema, 0, 0, radius * 0.72)
-    if (parallel) this.appendPlusMarker(schema, 0, 0, radius * 0.45)
+    if (parallel) {
+      this.appendPlusMarker(schema, 0, 0, radius * 0.45)
+    }
   }
 
   private appendPentagonMarker(schema: NovaSchema, x: number, y: number, radius: number): void {

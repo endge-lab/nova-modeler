@@ -25,10 +25,14 @@ export class ModelerExternalLabelRuntime implements ModelerExternalLabelApi {
 
   resolve(context: ModelerExternalLabelResolveContext, element: ModelerElement): ModelerExternalLabelLayout | null {
     const adapter = context.getElementRegistry().get(element.type)?.externalLabel
-    if (!adapter) return null
+    if (!adapter) {
+      return null
+    }
     const text = normalizeLabelText(adapter.getText(context, element))
     const geometry = this.resolveGeometry(context, element)
-    if (!geometry && !text) return null
+    if (!geometry && !text) {
+      return null
+    }
     const anchor = adapter.getAnchorPoint(context, element)
     const rect = geometry
       ? {
@@ -64,7 +68,7 @@ export class ModelerExternalLabelRuntime implements ModelerExternalLabelApi {
       worldConnectorEnd: connectorEnd,
       screenConnectorStart: screenAnchor,
       screenConnectorEnd: context.worldToScreen(connectorEnd),
-      lines: visibleLines.map(line => {
+      lines: visibleLines.map((line) => {
         const screen = context.worldToScreen({ x: line.x, y: line.y })
         return {
           ...line,
@@ -92,13 +96,17 @@ export class ModelerExternalLabelRuntime implements ModelerExternalLabelApi {
 
   hitTest(context: ModelerExternalLabelResolveContext, element: ModelerElement, worldPoint: ModelerPoint): boolean {
     const layout = this.resolve(context, element)
-    if (!layout || (!layout.text && !this.isSelected(element.id) && !element.data?.label)) return false
+    if (!layout || (!layout.text && !this.isSelected(element.id) && !element.data?.label)) {
+      return false
+    }
     return containsRect(layout.worldRect, worldPoint)
   }
 
   createGeometry(context: ModelerExternalLabelResolveContext, element: ModelerElement, rect?: ModelerRect): ModelerExternalLabelGeometry | null {
     const adapter = context.getElementRegistry().get(element.type)?.externalLabel
-    if (!adapter) return null
+    if (!adapter) {
+      return null
+    }
     const anchor = adapter.getAnchorPoint(context, element)
     const source = rect ?? this.resolve(context, element)?.worldRect ?? adapter.getDefaultRect(context, element)
     return normalizeGeometry({
@@ -123,18 +131,26 @@ export class ModelerExternalLabelRuntime implements ModelerExternalLabelApi {
       offsetX += dx
       width -= dx
     }
-    if (handle.includes('e')) width += dx
+    if (handle.includes('e')) {
+      width += dx
+    }
     if (handle.includes('n')) {
       offsetY += dy
       height -= dy
     }
-    if (handle.includes('s')) height += dy
+    if (handle.includes('s')) {
+      height += dy
+    }
     if (width < LABEL_MIN_WIDTH) {
-      if (handle.includes('w')) offsetX -= LABEL_MIN_WIDTH - width
+      if (handle.includes('w')) {
+        offsetX -= LABEL_MIN_WIDTH - width
+      }
       width = LABEL_MIN_WIDTH
     }
     if (height < LABEL_MIN_HEIGHT) {
-      if (handle.includes('n')) offsetY -= LABEL_MIN_HEIGHT - height
+      if (handle.includes('n')) {
+        offsetY -= LABEL_MIN_HEIGHT - height
+      }
       height = LABEL_MIN_HEIGHT
     }
     return { offsetX, offsetY, width, height }
@@ -146,7 +162,9 @@ export class ModelerExternalLabelRuntime implements ModelerExternalLabelApi {
 
   select(elementId: string | null): void {
     const next = elementId ? { elementId, partId: 'label' as const } : null
-    if (this.selected?.elementId === next?.elementId && this.selected?.partId === next?.partId) return
+    if (this.selected?.elementId === next?.elementId && this.selected?.partId === next?.partId) {
+      return
+    }
     this.selected = next
     this.emit()
   }
@@ -169,7 +187,9 @@ export class ModelerExternalLabelRuntime implements ModelerExternalLabelApi {
   }
 
   private createLines(text: string, rect: ModelerRect): Array<ModelerExternalLabelLine> {
-    if (!text) return []
+    if (!text) {
+      return []
+    }
     const words = text.split(/\s+/).filter(Boolean)
     const lines: Array<ModelerExternalLabelLine> = []
     let current = ''
@@ -178,13 +198,19 @@ export class ModelerExternalLabelRuntime implements ModelerExternalLabelApi {
       if (current && measureText(next) > rect.width) {
         lines.push(this.createLine(current, rect, lines.length))
         current = word
-        if (lines.length >= LABEL_MAX_AUTO_LINES + 4) break
+        if (lines.length >= LABEL_MAX_AUTO_LINES + 4) {
+          break
+        }
         continue
       }
       current = next
     }
-    if (current) lines.push(this.createLine(current, rect, lines.length))
-    if (lines.length === 0) lines.push(this.createLine(text, rect, 0))
+    if (current) {
+      lines.push(this.createLine(current, rect, lines.length))
+    }
+    if (lines.length === 0) {
+      lines.push(this.createLine(text, rect, 0))
+    }
     return lines
   }
 
@@ -211,18 +237,24 @@ export class ModelerExternalLabelRuntime implements ModelerExternalLabelApi {
   }
 
   private emit(): void {
-    for (const listener of this.listeners) listener()
+    for (const listener of this.listeners) {
+      listener()
+    }
   }
 }
 
 function normalizeGeometry(value: unknown): ModelerExternalLabelGeometry | null {
-  if (!value || typeof value !== 'object') return null
+  if (!value || typeof value !== 'object') {
+    return null
+  }
   const input = value as Partial<ModelerExternalLabelGeometry>
   const offsetX = finite(input.offsetX)
   const offsetY = finite(input.offsetY)
   const width = finite(input.width)
   const height = finite(input.height)
-  if (offsetX === null || offsetY === null || width === null || height === null) return null
+  if (offsetX === null || offsetY === null || width === null || height === null) {
+    return null
+  }
   return {
     offsetX,
     offsetY,
@@ -258,7 +290,9 @@ function measureText(text: string): number {
 }
 
 function fitTextWithEllipsis(text: string, width: number): string {
-  if (measureText(text) <= width) return text
+  if (measureText(text) <= width) {
+    return text
+  }
   let next = text
   while (next.length > 0 && measureText(`${next}${LABEL_ELLIPSIS}`) > width) {
     next = next.slice(0, -1).trimEnd()

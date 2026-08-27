@@ -42,27 +42,27 @@ export interface ModelerElementVariantApplyContext<TElement extends ModelerEleme
 export interface ModelerElementVariantProvider<TElement extends ModelerElement = ModelerElement> {
   id: string
   priority?: number
-  matches(context: ModelerPluginContext, element: ModelerElement): element is TElement
-  createDraft?(context: ModelerPluginContext, element: TElement): ModelerElementVariantDraft
-  getDescriptor(
+  matches: (context: ModelerPluginContext, element: ModelerElement) => element is TElement
+  createDraft?: (context: ModelerPluginContext, element: TElement) => ModelerElementVariantDraft
+  getDescriptor: (
     context: ModelerPluginContext,
     element: TElement,
     draft: ModelerElementVariantDraft,
-  ): ModelerElementVariantDescriptor
-  updateDraft?(
+  ) => ModelerElementVariantDescriptor
+  updateDraft?: (
     context: ModelerPluginContext,
     element: TElement,
     draft: ModelerElementVariantDraft,
     control: ModelerElementVariantControl,
     option: ModelerElementVariantOption,
-  ): ModelerElementVariantDraft
-  apply(context: ModelerElementVariantApplyContext<TElement>): void
+  ) => ModelerElementVariantDraft
+  apply: (context: ModelerElementVariantApplyContext<TElement>) => void
 }
 
 export interface ModelerElementVariantRegistryApi {
-  register(provider: ModelerElementVariantProvider): () => void
-  getAll(): ReadonlyArray<ModelerElementVariantProvider>
-  getProviders(element: ModelerElement): Array<ModelerElementVariantProvider>
-  getProvider(element: ModelerElement): ModelerElementVariantProvider | undefined
-  hasProvider(element: ModelerElement): boolean
+  register: (provider: ModelerElementVariantProvider) => () => void
+  getAll: () => ReadonlyArray<ModelerElementVariantProvider>
+  getProviders: (element: ModelerElement) => Array<ModelerElementVariantProvider>
+  getProvider: (element: ModelerElement) => ModelerElementVariantProvider | undefined
+  hasProvider: (element: ModelerElement) => boolean
 }

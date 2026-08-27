@@ -1,31 +1,32 @@
-import { MODELER_ASSETS } from '@/assets/modeler-assets'
 import type {
   ModelerElementVariantDraft,
   ModelerElementVariantOption,
   ModelerElementVariantProvider,
 } from '@/domain/types'
-import {
-  BPMN_EVENT_POSITIONS,
-  BPMN_EVENT_TYPE,
-  defaultBpmnEventDirection,
-  normalizeBpmnEventDirection,
-  normalizeBpmnEventPosition,
-  normalizeBpmnEventTrigger,
-  normalizeBpmnEventVariantData,
-  resolveBpmnEventVariants,
-  type BpmnEventVariantData,
-} from '@/elements/bpmn/event/bpmn-event.factory'
+import type { BpmnEventVariantData } from '@/elements/bpmn/event/bpmn-event.factory'
 import type {
   BpmnEventElement,
   BpmnEventPosition,
   BpmnEventTrigger,
 } from '@/elements/bpmn/event/bpmn-event.types'
+import { MODELER_ASSETS } from '@/assets/modeler-assets'
 import {
   applyBpmnEventDefinitionRefControl,
   createBpmnEventDefinitionRefControls,
   ensureBpmnGlobalDefinitionPatchForTrigger,
   updateBpmnEventDefinitionDraft,
 } from '@/elements/bpmn/definitions/bpmn-event-definition-refs'
+import {
+  BPMN_EVENT_POSITIONS,
+  BPMN_EVENT_TYPE,
+
+  defaultBpmnEventDirection,
+  normalizeBpmnEventDirection,
+  normalizeBpmnEventPosition,
+  normalizeBpmnEventTrigger,
+  normalizeBpmnEventVariantData,
+  resolveBpmnEventVariants,
+} from '@/elements/bpmn/event/bpmn-event.factory'
 
 export const BpmnEventVariantProvider: ModelerElementVariantProvider<BpmnEventElement> = {
   id: 'bpmn.event.variants',
@@ -138,9 +139,9 @@ export function createBpmnEventVariantOptions(
     title: option.title,
     icon: resolveBpmnEventTriggerIcon(option.trigger),
     selected:
-      current.eventPosition === option.eventPosition &&
-      current.trigger === option.trigger &&
-      current.direction === option.direction,
+      current.eventPosition === option.eventPosition
+      && current.trigger === option.trigger
+      && current.direction === option.direction,
     data: {
       eventPosition: option.eventPosition,
       trigger: option.trigger,
@@ -171,22 +172,46 @@ export function resolveBpmnEventVariantData(
 }
 
 export function resolveBpmnEventTriggerIcon(trigger: BpmnEventTrigger) {
-  if (trigger === 'message') return MODELER_ASSETS.icons.message
-  if (trigger === 'timer') return MODELER_ASSETS.icons.timer
-  if (trigger === 'error') return MODELER_ASSETS.icons.error
-  if (trigger === 'escalation') return MODELER_ASSETS.icons.escalation
-  if (trigger === 'cancel') return MODELER_ASSETS.icons.cancel
-  if (trigger === 'compensation') return MODELER_ASSETS.icons.compensation
-  if (trigger === 'conditional') return MODELER_ASSETS.icons.conditional
-  if (trigger === 'link') return MODELER_ASSETS.icons.link
-  if (trigger === 'signal') return MODELER_ASSETS.icons.signal
-  if (trigger === 'terminate') return MODELER_ASSETS.icons.terminate
-  if (trigger === 'multiple') return MODELER_ASSETS.icons.multiple
-  if (trigger === 'parallelMultiple') return MODELER_ASSETS.icons.parallelMultiple
+  if (trigger === 'message') {
+    return MODELER_ASSETS.icons.message
+  }
+  if (trigger === 'timer') {
+    return MODELER_ASSETS.icons.timer
+  }
+  if (trigger === 'error') {
+    return MODELER_ASSETS.icons.error
+  }
+  if (trigger === 'escalation') {
+    return MODELER_ASSETS.icons.escalation
+  }
+  if (trigger === 'cancel') {
+    return MODELER_ASSETS.icons.cancel
+  }
+  if (trigger === 'compensation') {
+    return MODELER_ASSETS.icons.compensation
+  }
+  if (trigger === 'conditional') {
+    return MODELER_ASSETS.icons.conditional
+  }
+  if (trigger === 'link') {
+    return MODELER_ASSETS.icons.link
+  }
+  if (trigger === 'signal') {
+    return MODELER_ASSETS.icons.signal
+  }
+  if (trigger === 'terminate') {
+    return MODELER_ASSETS.icons.terminate
+  }
+  if (trigger === 'multiple') {
+    return MODELER_ASSETS.icons.multiple
+  }
+  if (trigger === 'parallelMultiple') {
+    return MODELER_ASSETS.icons.parallelMultiple
+  }
   return undefined
 }
 
-export function resolveBpmnEventTriggers(eventPosition: BpmnEventPosition): Array<BpmnEventVariantData & { id: string; title: string }> {
+export function resolveBpmnEventTriggers(eventPosition: BpmnEventPosition): Array<BpmnEventVariantData & { id: string, title: string }> {
   return resolveBpmnEventVariants(eventPosition)
 }
 
@@ -195,7 +220,9 @@ function createBpmnLinkEventRefControls(
   trigger: BpmnEventTrigger,
   draft: ModelerElementVariantDraft,
 ) {
-  if (trigger !== 'link') return []
+  if (trigger !== 'link') {
+    return []
+  }
   const value = resolveBpmnLinkRef(element, draft) ?? defaultBpmnLinkRef(element)
   return [{
     id: 'linkRef',
@@ -213,7 +240,9 @@ function applyBpmnLinkEventRefControl(
   control: { id: string },
   option: ModelerElementVariantOption,
 ): Record<string, unknown> | null {
-  if (trigger !== 'link' || control.id !== 'linkRef') return null
+  if (trigger !== 'link' || control.id !== 'linkRef') {
+    return null
+  }
   return {
     linkRef: normalizeBpmnLinkRef(option.data?.linkRef ?? option.title) ?? defaultBpmnLinkRef(element),
   }
@@ -224,7 +253,9 @@ function ensureBpmnLinkEventPatch(
   trigger: BpmnEventTrigger,
   draft: ModelerElementVariantDraft,
 ): Record<string, unknown> {
-  if (trigger !== 'link') return {}
+  if (trigger !== 'link') {
+    return {}
+  }
   return {
     linkRef: resolveBpmnLinkRef(element, draft) ?? defaultBpmnLinkRef(element),
   }

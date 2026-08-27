@@ -1,8 +1,8 @@
-import { normalizeBpmnTaskLoopType } from '@/elements/bpmn/task/bpmn-task.factory'
 import type {
   BpmnCallActivityElement,
   BpmnCallActivityElementInput,
 } from '@/elements/bpmn/call-activity/bpmn-call-activity.types'
+import { normalizeBpmnTaskLoopType } from '@/elements/bpmn/task/bpmn-task.factory'
 
 export const BPMN_CALL_ACTIVITY_TYPE = 'bpmn.callActivity'
 export const BPMN_CALL_ACTIVITY_DEFAULT_WIDTH = 160

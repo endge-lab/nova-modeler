@@ -1,37 +1,14 @@
-import { describe, expect, it, vi } from 'vitest'
+import type { NovaSchema } from '@endge/nova'
+import type { ModelerElement, ModelerLayout, ModelerModel, ModelerModelInput, ModelerPluginContext, ModelerRect, ModelerViewport, Root } from '@/index'
 import {
   Nova,
+
   RaphSchedulerType,
   RendererType,
-  type NovaSchema,
 } from '@endge/nova'
+import { describe, expect, it, vi } from 'vitest'
+import { appendGridSchema, BpmnBatchRuntime, BpmnValidationPlugin, BpmnValidationRuntime, createBpmnEventElement, createBpmnFlowElement, createBpmnGatewayElement, createBpmnParticipantElement, createBpmnTaskElement, createGridRenderPlan, createModelerController, createModelerElementRegistry, createModelerModel, createPluginRuntime, Grid, isBpmnRecipeNodeType, isBpmnRecipeRenderableNode, MiniMapPlugin, MODEL_ELEMENTS_RUNTIME, Modeler, ModelerVisibilityRuntime, registerModeler } from '@/index'
 import insuranceClaimDemoModel from '../../../../insurance-bpmn-full.json'
-import {
-  BpmnBatchRuntime,
-  BpmnValidationPlugin,
-  BpmnValidationRuntime,
-  Grid,
-  MiniMapPlugin,
-  MODEL_ELEMENTS_RUNTIME,
-  Modeler,
-  ModelerVisibilityRuntime,
-  appendGridSchema,
-  createBpmnEventElement,
-  createBpmnFlowElement,
-  createBpmnGatewayElement,
-  createBpmnParticipantElement,
-  createBpmnTaskElement,
-  createPluginRuntime,
-  createModelerElementRegistry,
-  createGridRenderPlan,
-  createModelerController,
-  createModelerModel,
-  isBpmnRecipeNodeType,
-  isBpmnRecipeRenderableNode,
-  registerModeler,
-  type Root,
-} from '@/index'
-import type { ModelerElement, ModelerLayout, ModelerModel, ModelerModelInput, ModelerPluginContext, ModelerRect, ModelerViewport } from '@/index'
 
 const diagnosticsIt = isDiagnosticsBenchEnabled() ? it : it.skip
 
@@ -71,7 +48,9 @@ describe('nova modeler minimal benchmarks', () => {
 
   it('creates minimap plugin without model element overhead', () => {
     const started = performance.now()
-    for (let index = 0; index < 10_000; index += 1) MiniMapPlugin.create({ width: 160, height: 100 })
+    for (let index = 0; index < 10_000; index += 1) {
+      MiniMapPlugin.create({ width: 160, height: 100 })
+    }
     expect(performance.now() - started).toBeLessThan(120)
   })
 
@@ -137,7 +116,9 @@ describe('nova modeler minimal benchmarks', () => {
       batchRebuilds: 1,
     })
 
-    for (let index = 0; index < 20; index += 1) writeRecipeNodePayload(runtime, nodes)
+    for (let index = 0; index < 20; index += 1) {
+      writeRecipeNodePayload(runtime, nodes)
+    }
     expect(runtime.getFillBatch().revision).toBe(firstRevision)
     expect(runtime.getDiagnostics().panZoomRenderSkips).toBe(20)
     expect(performance.now() - started).toBeLessThan(budgetMs)
@@ -179,8 +160,12 @@ describe('nova modeler minimal benchmarks', () => {
   })
 
   it('keeps insurance-like swimlane pan and zoom retained', () => {
-    if (!URL.createObjectURL) URL.createObjectURL = vi.fn(() => 'blob:nova-modeler-bench')
-    if (!URL.revokeObjectURL) URL.revokeObjectURL = vi.fn()
+    if (!URL.createObjectURL) {
+      URL.createObjectURL = vi.fn(() => 'blob:nova-modeler-bench')
+    }
+    if (!URL.revokeObjectURL) {
+      URL.revokeObjectURL = vi.fn()
+    }
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(createBench2DContextStub())
     const participants = createInsuranceLikeParticipants()
     const app = Nova.createApp({
@@ -208,11 +193,13 @@ describe('nova modeler minimal benchmarks', () => {
     app.raph.run()
 
     const containers = app.surfaces.find(item => item.name === 'insurance-like-retained-root:containers')
-    if (!containers) throw new Error('containers layer not mounted')
+    if (!containers) {
+      throw new Error('containers layer not mounted')
+    }
     containers.compileRenderFrame()
     const recipeLayer = app.components.require('modeler-elements:bpmn-container-recipe-layer') as unknown as {
       render: () => void
-      batchRuntime: { getFillBatch(): { revision?: number } }
+      batchRuntime: { getFillBatch: () => { revision?: number } }
     }
     const firstFillRevision = recipeLayer.batchRuntime.getFillBatch().revision
     const renderSpy = vi.spyOn(recipeLayer, 'render')
@@ -245,8 +232,12 @@ describe('nova modeler minimal benchmarks', () => {
   })
 
   it('keeps the full insurance BPMN demo pan and zoom on retained recipe layers', () => {
-    if (!URL.createObjectURL) URL.createObjectURL = vi.fn(() => 'blob:nova-modeler-bench')
-    if (!URL.revokeObjectURL) URL.revokeObjectURL = vi.fn()
+    if (!URL.createObjectURL) {
+      URL.createObjectURL = vi.fn(() => 'blob:nova-modeler-bench')
+    }
+    if (!URL.revokeObjectURL) {
+      URL.revokeObjectURL = vi.fn()
+    }
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(createBench2DContextStub())
     const demoModel = createModelerModel({
       ...(insuranceClaimDemoModel as unknown as ModelerModelInput),
@@ -275,7 +266,9 @@ describe('nova modeler minimal benchmarks', () => {
 
     const containers = app.surfaces.find(item => item.name === 'full-insurance-retained-root:containers')
     const interaction = app.surfaces.find(item => item.name === 'full-insurance-retained-root:interaction')
-    if (!containers || !interaction) throw new Error('modeler layers not mounted')
+    if (!containers || !interaction) {
+      throw new Error('modeler layers not mounted')
+    }
     containers.compileRenderFrame()
     interaction.compileRenderFrame()
     const containerRecipeLayer = app.components.require('modeler-elements:bpmn-container-recipe-layer') as unknown as {
@@ -314,11 +307,17 @@ describe('nova modeler minimal benchmarks', () => {
   })
 
   it('keeps full insurance WebGL pan uploads bounded after resident schema batch warmup', () => {
-    if (!URL.createObjectURL) URL.createObjectURL = vi.fn(() => 'blob:nova-modeler-bench')
-    if (!URL.revokeObjectURL) URL.revokeObjectURL = vi.fn()
+    if (!URL.createObjectURL) {
+      URL.createObjectURL = vi.fn(() => 'blob:nova-modeler-bench')
+    }
+    if (!URL.revokeObjectURL) {
+      URL.revokeObjectURL = vi.fn()
+    }
     const gl = createBenchWebGLContextStub()
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(function getContextMock(this: HTMLCanvasElement, type: string) {
-      if (type === RendererType.WebGL || type === 'webgl2' || type === 'webgl' || type === 'experimental-webgl') return gl
+      if (type === RendererType.WebGL || type === 'webgl2' || type === 'webgl' || type === 'experimental-webgl') {
+        return gl
+      }
       if (type === '2d') {
         const context = createBench2DContextStub()
         ;(context as { canvas?: HTMLCanvasElement }).canvas = this
@@ -507,15 +506,19 @@ describe('nova modeler minimal benchmarks', () => {
   })
 
   diagnosticsIt('diagnoses full insurance viewport commit levels', () => {
-    if (!URL.createObjectURL) URL.createObjectURL = vi.fn(() => 'blob:nova-modeler-bench')
-    if (!URL.revokeObjectURL) URL.revokeObjectURL = vi.fn()
+    if (!URL.createObjectURL) {
+      URL.createObjectURL = vi.fn(() => 'blob:nova-modeler-bench')
+    }
+    if (!URL.revokeObjectURL) {
+      URL.revokeObjectURL = vi.fn()
+    }
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(createBench2DContextStub())
     const viewports = createInsuranceDiagnosticViewports(60)
     const model = createFullInsuranceBenchModel(viewports[0]!)
 
     const fakeHostController = createModelerController({ model })
     fakeHostController.mount(createBenchHost(2048, 1240))
-    const fakeHostSamples = measureViewportCommits(viewports, viewport => {
+    const fakeHostSamples = measureViewportCommits(viewports, (viewport) => {
       fakeHostController.setViewport(viewport)
     })
     fakeHostController.unmount()
@@ -530,7 +533,7 @@ describe('nova modeler minimal benchmarks', () => {
     const realStoreHost = createBenchHost(2048, 1240) as ReturnType<typeof createBenchHost> & { app: typeof realStoreApp }
     realStoreHost.app = realStoreApp
     realStoreController.mount(realStoreHost)
-    const realStoreSamples = measureViewportCommits(viewports, viewport => {
+    const realStoreSamples = measureViewportCommits(viewports, (viewport) => {
       realStoreController.setViewport(viewport)
     })
     realStoreController.unmount()
@@ -555,7 +558,7 @@ describe('nova modeler minimal benchmarks', () => {
     }) as Root
     rootApp.raph.run()
     rootApp.raph.run()
-    const rootSamples = measureViewportCommits(viewports, viewport => {
+    const rootSamples = measureViewportCommits(viewports, (viewport) => {
       root.getApi().setViewport(viewport)
     })
     rootApp.destroy()
@@ -603,7 +606,7 @@ describe('nova modeler minimal benchmarks', () => {
       instrumentMethod(target, 'resolveEdgeWorldBounds'),
       instrumentMethod(target, 'resolveExternalLabelWorldBounds'),
     ]
-    const setViewportSamples = measureViewportCommits(viewports, viewport => {
+    const setViewportSamples = measureViewportCommits(viewports, (viewport) => {
       controller.setViewport(viewport)
     })
     const report = {
@@ -613,7 +616,9 @@ describe('nova modeler minimal benchmarks', () => {
     }
     console.info(`\n[nova-modeler diagnostics:controller-internals]\n${JSON.stringify(report, null, 2)}`)
 
-    for (const instrument of instruments) instrument.restore()
+    for (const instrument of instruments) {
+      instrument.restore()
+    }
     controller.unmount()
 
     expect(report.frames).toBe(60)
@@ -625,8 +630,12 @@ describe('nova modeler minimal benchmarks', () => {
   })
 
   diagnosticsIt('diagnoses full insurance Nova runtime stages by surface', () => {
-    if (!URL.createObjectURL) URL.createObjectURL = vi.fn(() => 'blob:nova-modeler-bench')
-    if (!URL.revokeObjectURL) URL.revokeObjectURL = vi.fn()
+    if (!URL.createObjectURL) {
+      URL.createObjectURL = vi.fn(() => 'blob:nova-modeler-bench')
+    }
+    if (!URL.revokeObjectURL) {
+      URL.revokeObjectURL = vi.fn()
+    }
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(createBench2DContextStub())
     const viewports = createInsuranceDiagnosticViewports(60)
     const app = Nova.createApp({
@@ -737,8 +746,12 @@ describe('nova modeler minimal benchmarks', () => {
     const nodes = Array.from({ length: 10_000 }, (_item, index) => {
       const x = (index % 100) * 180
       const y = Math.floor(index / 100) * 120
-      if (index % 3 === 0) return createBpmnEventElement({ id: `node-${index}`, x, y })
-      if (index % 3 === 1) return createBpmnTaskElement({ id: `node-${index}`, x, y })
+      if (index % 3 === 0) {
+        return createBpmnEventElement({ id: `node-${index}`, x, y })
+      }
+      if (index % 3 === 1) {
+        return createBpmnTaskElement({ id: `node-${index}`, x, y })
+      }
       return createBpmnGatewayElement({ id: `node-${index}`, x, y })
     })
     const flows = Array.from({ length: 10_000 }, (_item, index) => createBpmnFlowElement({
@@ -784,7 +797,9 @@ describe('nova modeler minimal benchmarks', () => {
         ...flow,
         waypoints: optimized,
       }, { x: 200 + (index % 600), y: 124 + (index % 3) })
-      if (handle) hitCount += 1
+      if (handle) {
+        hitCount += 1
+      }
     }
     expect(hitCount).toBeGreaterThan(0)
     expect(performance.now() - started).toBeLessThan(1000)
@@ -804,7 +819,9 @@ describe('nova modeler minimal benchmarks', () => {
     let validCount = 0
     for (let index = 0; index < 1_000; index += 1) {
       const result = BpmnValidationRuntime.validate(createModelerModel({ elements, version: index }))
-      if (result.status === 'valid') validCount += 1
+      if (result.status === 'valid') {
+        validCount += 1
+      }
     }
     expect(validCount).toBe(1_000)
     expect(performance.now() - started).toBeLessThan(120)
@@ -894,30 +911,30 @@ function benchNoop(): void {}
 function createBenchWebGLContextStub(): WebGL2RenderingContext {
   const constants: Record<string, number> = {
     ARRAY_BUFFER: 0x8892,
-    BLEND: 0x0be2,
-    CLAMP_TO_EDGE: 0x812f,
-    COLOR_ATTACHMENT0: 0x8ce0,
+    BLEND: 0x0BE2,
+    CLAMP_TO_EDGE: 0x812F,
+    COLOR_ATTACHMENT0: 0x8CE0,
     COLOR_BUFFER_BIT: 0x4000,
-    COMPILE_STATUS: 0x8b81,
-    CULL_FACE: 0x0b44,
-    DEPTH_TEST: 0x0b71,
-    DYNAMIC_DRAW: 0x88e8,
+    COMPILE_STATUS: 0x8B81,
+    CULL_FACE: 0x0B44,
+    DEPTH_TEST: 0x0B71,
+    DYNAMIC_DRAW: 0x88E8,
     FLOAT: 0x1406,
-    FRAMEBUFFER: 0x8d40,
-    FRAMEBUFFER_COMPLETE: 0x8cd5,
-    FRAGMENT_SHADER: 0x8b30,
+    FRAMEBUFFER: 0x8D40,
+    FRAMEBUFFER_COMPLETE: 0x8CD5,
+    FRAGMENT_SHADER: 0x8B30,
     LINEAR: 0x2601,
-    LINK_STATUS: 0x8b82,
+    LINK_STATUS: 0x8B82,
     NO_ERROR: 0,
     ONE: 1,
     ONE_MINUS_SRC_ALPHA: 0x0303,
     RGBA: 0x1908,
     REPEAT: 0x2901,
-    SCISSOR_TEST: 0x0c11,
+    SCISSOR_TEST: 0x0C11,
     SRC_ALPHA: 0x0302,
-    STATIC_DRAW: 0x88e4,
-    TEXTURE0: 0x84c0,
-    TEXTURE_2D: 0x0de1,
+    STATIC_DRAW: 0x88E4,
+    TEXTURE0: 0x84C0,
+    TEXTURE_2D: 0x0DE1,
     TEXTURE_MAG_FILTER: 0x2800,
     TEXTURE_MIN_FILTER: 0x2801,
     TEXTURE_WRAP_S: 0x2802,
@@ -925,7 +942,7 @@ function createBenchWebGLContextStub(): WebGL2RenderingContext {
     TRIANGLES: 0x0004,
     UNPACK_PREMULTIPLY_ALPHA_WEBGL: 0x9241,
     UNSIGNED_BYTE: 0x1401,
-    VERTEX_SHADER: 0x8b31,
+    VERTEX_SHADER: 0x8B31,
   }
 
   return {
@@ -1074,7 +1091,7 @@ function summarizeNumberSeries(values: Array<number>) {
 }
 
 function measureViewportCommits(viewports: ReadonlyArray<ModelerViewport>, commit: (viewport: ModelerViewport) => void): Array<number> {
-  return viewports.map(viewport => {
+  return viewports.map((viewport) => {
     const started = performance.now()
     commit(viewport)
     return performance.now() - started
@@ -1083,14 +1100,17 @@ function measureViewportCommits(viewports: ReadonlyArray<ModelerViewport>, commi
 
 function instrumentMethod<T extends Record<string, any>>(target: T, methodName: keyof T & string) {
   const original = target[methodName]
-  if (typeof original !== 'function') throw new Error(`Cannot instrument missing method ${methodName}`)
+  if (typeof original !== 'function') {
+    throw new TypeError(`Cannot instrument missing method ${methodName}`)
+  }
   const samples: Array<number> = []
   let calls = 0
   target[methodName] = function instrumentedMethod(this: unknown, ...args: Array<unknown>) {
     const started = performance.now()
     try {
       return original.apply(this, args)
-    } finally {
+    }
+    finally {
       calls += 1
       samples.push(performance.now() - started)
     }
@@ -1112,7 +1132,7 @@ function round(value: number): number {
   return Math.round(value * 1000) / 1000
 }
 
-function instrumentSurfaceCompile(surfaces: Array<{ name: string; compileRenderFrame: () => { metrics?: Record<string, number> } }>) {
+function instrumentSurfaceCompile(surfaces: Array<{ name: string, compileRenderFrame: () => { metrics?: Record<string, number> } }>) {
   const entries = new Map<string, {
     calls: number
     wallSamples: Array<number>
@@ -1167,7 +1187,9 @@ function instrumentSurfaceCompile(surfaces: Array<{ name: string; compileRenderF
       groups: entry.groups,
     })),
     restore: () => {
-      for (const restore of restorers) restore()
+      for (const restore of restorers) {
+        restore()
+      }
     },
   }
 }
@@ -1280,8 +1302,8 @@ function instrumentBackendReplay(app: unknown) {
   }
 }
 
-function summarizeSurfaceRenderMetrics(surfaces: Array<{ name: string; renderMetrics: Record<string, number> | null }>) {
-  return surfaces.map(surface => {
+function summarizeSurfaceRenderMetrics(surfaces: Array<{ name: string, renderMetrics: Record<string, number> | null }>) {
+  return surfaces.map((surface) => {
     const metrics = surface.renderMetrics ?? {}
     return {
       name: surface.name,
@@ -1341,8 +1363,12 @@ function createSparseBpmnRecipeNodes(count: number): Array<ModelerElement> {
   return Array.from({ length: count }, (_item, index) => {
     const x = (index % 160) * 190
     const y = Math.floor(index / 160) * 130
-    if (index % 3 === 0) return createBpmnTaskElement({ id: `recipe-node-${index}`, x, y, name: `Task ${index}` })
-    if (index % 3 === 1) return createBpmnEventElement({ id: `recipe-node-${index}`, x, y })
+    if (index % 3 === 0) {
+      return createBpmnTaskElement({ id: `recipe-node-${index}`, x, y, name: `Task ${index}` })
+    }
+    if (index % 3 === 1) {
+      return createBpmnEventElement({ id: `recipe-node-${index}`, x, y })
+    }
     return createBpmnGatewayElement({ id: `recipe-node-${index}`, x, y })
   })
 }
@@ -1375,7 +1401,7 @@ function createVisibilityLayout(viewport: ModelerViewport, width: number, height
 
 function createVisibilityClassifier() {
   return {
-    isEdge: (element: { source?: unknown; target?: unknown }) => Boolean(element.source && element.target),
+    isEdge: (element: { source?: unknown, target?: unknown }) => Boolean(element.source && element.target),
     isRecipeNodeType: isBpmnRecipeNodeType,
     isRecipeRenderable: isBpmnRecipeRenderableNode,
   }
@@ -1410,9 +1436,15 @@ function createLargeValidBpmnElements(nodeCount: number, flowCount: number) {
   const nodes = Array.from({ length: nodeCount }, (_item, index) => {
     const x = (index % 100) * 180
     const y = Math.floor(index / 100) * 120
-    if (index === 0) return createBpmnEventElement({ id: 'node-0', x, y, eventPosition: 'start' })
-    if (index === nodeCount - 1) return createBpmnEventElement({ id: `node-${index}`, x, y, eventPosition: 'end' })
-    if (index % 2 === 0) return createBpmnTaskElement({ id: `node-${index}`, x, y })
+    if (index === 0) {
+      return createBpmnEventElement({ id: 'node-0', x, y, eventPosition: 'start' })
+    }
+    if (index === nodeCount - 1) {
+      return createBpmnEventElement({ id: `node-${index}`, x, y, eventPosition: 'end' })
+    }
+    if (index % 2 === 0) {
+      return createBpmnTaskElement({ id: `node-${index}`, x, y })
+    }
     return createBpmnGatewayElement({ id: `node-${index}`, x, y })
   })
   const flows = Array.from({ length: flowCount }, (_item, index) => {

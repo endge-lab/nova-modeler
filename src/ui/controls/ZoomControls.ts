@@ -1,22 +1,19 @@
+import type { NovaApp, NovaComponentDescriptor, NovaSurface } from '@endge/nova'
+import type { NovaUiLayoutConstraints, NovaUiLayoutMeasure, NovaUiLayoutRect, ZoomControlsProps as UIKitZoomControlsProps, ZoomControlsApi, ZoomControlsResolvedProps } from '@endge/nova-ui-kit'
 import type { EventList } from '@endge/utils'
-import { NovaComponent, NovaComponentNode, NovaTemplateRuntime, Prop, createNovaDecoratedComponentDescriptor, type NovaApp, type NovaComponentDescriptor, type NovaSurface } from '@endge/nova'
+import type { ModelerController } from '@/domain/types/index'
+import { createNovaDecoratedComponentDescriptor, NovaComponent, NovaComponentNode, NovaTemplateRuntime, Prop } from '@endge/nova'
 import {
+  normalizeZoomControlsProps,
   NOVA_UI_LAYOUT_TARGET,
   NovaUIKit,
-  type NovaUiLayoutConstraints,
-  type NovaUiLayoutMeasure,
-  type NovaUiLayoutRect,
-  normalizeZoomControlsProps,
-  type ZoomControlsApi,
-  type ZoomControlsProps as UIKitZoomControlsProps,
-  type ZoomControlsResolvedProps,
+
 } from '@endge/nova-ui-kit'
-import { Modeler } from '@/config/schema.config'
 import {
   MODELER_CONTEXT,
   MODELER_STORE,
 } from '@/config/context.config'
-import type { ModelerController } from '@/domain/types/index'
+import { Modeler } from '@/config/schema.config'
 import { clamp } from '@/tools/number'
 
 export interface ZoomControlsProps extends Omit<UIKitZoomControlsProps, 'value' | 'onChange'> {
@@ -112,7 +109,9 @@ export class ZoomControls<E extends EventList = Record<string, any>>
       zIndex: this.props.zIndex,
     })
     this.setLocalRenderBounds({ x: 0, y: 0, width: rect.width, height: rect.height })
-    if (changed) this.dirty({ matrix: true, update: sizeChanged, render: true })
+    if (changed) {
+      this.dirty({ matrix: true, update: sizeChanged, render: true })
+    }
     return changed
   }
 
@@ -150,14 +149,18 @@ export class ZoomControls<E extends EventList = Record<string, any>>
 
   private zoomBy(direction: -1 | 1): void {
     const viewportController = this.resolveViewportController()
-    if (!viewportController) return
+    if (!viewportController) {
+      return
+    }
     const viewport = viewportController.getViewport()
     this.setViewportScale(clamp(viewport.scale + this.props.step * direction, this.props.minZoom, this.props.maxZoom))
   }
 
   private setViewportScale(scale: number): void {
     const viewportController = this.resolveViewportController()
-    if (!viewportController) return
+    if (!viewportController) {
+      return
+    }
     const layout = viewportController.getLayout()
     const anchor = {
       x: layout.canvas.x + layout.canvas.width / 2,

@@ -2,12 +2,14 @@ import type { ModelerPoint } from '@/domain/types/index'
 
 export class ElementsContextPadAnchors {
   private readonly anchors = new Map<string, ModelerPoint>()
-  private readonly parts = new Map<string, { partType: string; partId: string }>()
+  private readonly parts = new Map<string, { partType: string, partId: string }>()
 
-  set(elementId: string, point: ModelerPoint, part?: { partType: string; partId: string }): void {
+  set(elementId: string, point: ModelerPoint, part?: { partType: string, partId: string }): void {
     this.anchors.set(elementId, { x: point.x, y: point.y })
-    if (part) this.parts.set(elementId, { ...part })
-    else this.parts.delete(elementId)
+    if (part) {
+      this.parts.set(elementId, { ...part })
+    }
+    else { this.parts.delete(elementId) }
   }
 
   get(elementId: string): ModelerPoint | undefined {
@@ -15,7 +17,7 @@ export class ElementsContextPadAnchors {
     return point ? { x: point.x, y: point.y } : undefined
   }
 
-  getPart(elementId: string): { partType: string; partId: string } | undefined {
+  getPart(elementId: string): { partType: string, partId: string } | undefined {
     const part = this.parts.get(elementId)
     return part ? { ...part } : undefined
   }

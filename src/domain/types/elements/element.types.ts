@@ -13,5 +13,5 @@ export interface ModelerElement<TData extends Record<string, unknown> = Record<s
   style?: ModelerElementStyle
 }
 
-export type ModelerElementInput<TData extends Record<string, unknown> = Record<string, unknown>> =
-  Partial<ModelerElement<TData>> & Pick<ModelerElement<TData>, 'id'>
+export type ModelerElementInput<TData extends Record<string, unknown> = Record<string, unknown>>
+  = Partial<ModelerElement<TData>> & Pick<ModelerElement<TData>, 'id'>

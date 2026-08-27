@@ -4,9 +4,12 @@ import type {
   NovaSurface,
   NovaTemplateChildSchema,
 } from '@endge/nova'
+import type { ModelerActionRegistryApi } from '@/domain/types/action.types'
 import type { ModelerCommand } from '@/domain/types/command.types'
 import type { ModelerElementRegistry } from '@/domain/types/elements/element-registry.types'
-import type { ModelerOptions } from '@/domain/types/model/options.types'
+import type { ModelerElementVariantRegistryApi } from '@/domain/types/elements/element-variant.types'
+import type { ModelerHitTarget } from '@/domain/types/interaction/hit-target.types'
+import type { ModelerExternalLabelApi } from '@/domain/types/model/external-label.types'
 import type {
   ModelerPoint,
   ModelerViewport,
@@ -15,17 +18,14 @@ import type {
   ModelerLayout,
   ModelerModel,
 } from '@/domain/types/model/model.types'
+import type { ModelerOptions } from '@/domain/types/model/options.types'
 import type { ModelerVisibilityApi } from '@/domain/types/model/visibility.types'
-import type { ModelerExternalLabelApi } from '@/domain/types/model/external-label.types'
-import type { ModelerHitTarget } from '@/domain/types/interaction/hit-target.types'
-import type { ModelerLayerName } from '@/domain/types/plugins/layer.types'
-import type { ModelerActionRegistryApi } from '@/domain/types/action.types'
-import type { ModelerElementVariantRegistryApi } from '@/domain/types/elements/element-variant.types'
 import type { ModelerPaletteRegistryApi } from '@/domain/types/palette.types'
+import type { ModelerLayerName } from '@/domain/types/plugins/layer.types'
 import type { ModelerShortcutRegistryApi } from '@/domain/types/shortcut.types'
 import type { ModelerToolRegistryApi } from '@/domain/types/tool.types'
 
-export type ModelerStoreKey<T> = string | symbol | { id: string; __type?: T }
+export type ModelerStoreKey<T> = string | symbol | { id: string, __type?: T }
 
 export interface ModelerPluginLayer {
   id: string
@@ -34,33 +34,33 @@ export interface ModelerPluginLayer {
 }
 
 export interface ModelerLayerApi {
-  add(layer: ModelerPluginLayer): () => void
-  get(name: ModelerLayerName): NovaSurface<any>
-  mount(name: ModelerLayerName, schema: NovaTemplateChildSchema): NovaNode<any>
-  unmount(node: NovaNode<any>): void
-  reconcile(name: ModelerLayerName, ownerId: string, schema: Array<NovaTemplateChildSchema>): () => void
+  add: (layer: ModelerPluginLayer) => () => void
+  get: (name: ModelerLayerName) => NovaSurface<any>
+  mount: (name: ModelerLayerName, schema: NovaTemplateChildSchema) => NovaNode<any>
+  unmount: (node: NovaNode<any>) => void
+  reconcile: (name: ModelerLayerName, ownerId: string, schema: Array<NovaTemplateChildSchema>) => () => void
 }
 
 export interface ModelerContextStore {
-  provide<T>(key: ModelerStoreKey<T>, value: T): () => void
-  inject<T>(key: ModelerStoreKey<T>): T | undefined
+  provide: <T>(key: ModelerStoreKey<T>, value: T) => () => void
+  inject: <T>(key: ModelerStoreKey<T>) => T | undefined
 }
 
 export interface ModelerContextModelApi {
-  get(): ModelerModel
-  set(model: ModelerModel): void
-  update(updater: (model: ModelerModel) => ModelerModel): ModelerModel
-  subscribe(listener: ModelerModelListener, options?: ModelerModelSubscribeOptions): () => void
+  get: () => ModelerModel
+  set: (model: ModelerModel) => void
+  update: (updater: (model: ModelerModel) => ModelerModel) => ModelerModel
+  subscribe: (listener: ModelerModelListener, options?: ModelerModelSubscribeOptions) => () => void
 }
 
-export type ModelerCommitChange =
-  | 'viewport'
-  | 'data'
-  | 'selection'
-  | 'canvas'
-  | 'bpmnDefinitions'
-  | 'overlay'
-  | 'theme'
+export type ModelerCommitChange
+  = | 'viewport'
+    | 'data'
+    | 'selection'
+    | 'canvas'
+    | 'bpmnDefinitions'
+    | 'overlay'
+    | 'theme'
 
 export interface ModelerCommitMeta {
   viewportOnly: boolean
@@ -86,21 +86,21 @@ export interface ModelerGesture {
 export interface ModelerPluginContext {
   model: ModelerContextModelApi
   store: ModelerContextStore
-  getModel(): ModelerModel
-  getLayout(): ModelerLayout
-  getOptions(): ModelerOptions
-  getElementRegistry(): ModelerElementRegistry
-  getViewport(): ModelerViewport
-  setViewport(viewport: Partial<ModelerViewport>): ModelerModel
-  applyCommand(command: ModelerCommand): ModelerModel
-  hitTest(point: ModelerPoint): ModelerHitTarget
-  screenToWorld(point: ModelerPoint): ModelerPoint
-  worldToScreen(point: ModelerPoint): ModelerPoint
-  invalidate(phase?: 'update' | 'render' | 'both'): void
+  getModel: () => ModelerModel
+  getLayout: () => ModelerLayout
+  getOptions: () => ModelerOptions
+  getElementRegistry: () => ModelerElementRegistry
+  getViewport: () => ModelerViewport
+  setViewport: (viewport: Partial<ModelerViewport>) => ModelerModel
+  applyCommand: (command: ModelerCommand) => ModelerModel
+  hitTest: (point: ModelerPoint) => ModelerHitTarget
+  screenToWorld: (point: ModelerPoint) => ModelerPoint
+  worldToScreen: (point: ModelerPoint) => ModelerPoint
+  invalidate: (phase?: 'update' | 'render' | 'both') => void
   visibility: ModelerVisibilityApi
   externalLabels: ModelerExternalLabelApi
   layers: ModelerLayerApi
-  gestures: { add(gesture: ModelerGesture): () => void }
+  gestures: { add: (gesture: ModelerGesture) => () => void }
   actions: ModelerActionRegistryApi
   elementVariants: ModelerElementVariantRegistryApi
   tools: ModelerToolRegistryApi
@@ -110,6 +110,6 @@ export interface ModelerPluginContext {
 
 export interface ModelerPlugin {
   id: string
-  setup(context: ModelerPluginContext): void | (() => void)
-  dispose?(): void
+  setup: (context: ModelerPluginContext) => void | (() => void)
+  dispose?: () => void
 }

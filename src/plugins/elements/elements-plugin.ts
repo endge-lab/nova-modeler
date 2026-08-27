@@ -1,20 +1,24 @@
-import { PluginBase } from '@/model/plugin-runtime/PluginBase'
 import type {
-  ModelerElement,
   ModelerEdgeElement,
+  ModelerElement,
   ModelerElementDefinition,
-  ModelerPoint,
   ModelerPluginContext,
+  ModelerPoint,
 } from '@/domain/types/index'
+import type { ElementsConnectionEdgeInput } from '@/plugins/elements/model/ElementsConnectionFlow'
+import type {
+  ElementsRuntime,
+} from '@/plugins/elements/model/ElementsRuntime'
 import { BPMN_TEXT_ANNOTATION_TYPE } from '@/elements/bpmn/artifacts/text-annotation/bpmn-text-annotation.factory'
-import { BPMN_DATA_OBJECT_TYPE } from '@/elements/bpmn/data/data-object/bpmn-data-object.factory'
-import { BPMN_DATA_STORE_TYPE } from '@/elements/bpmn/data/data-store/bpmn-data-store.factory'
+import { BPMN_CALL_ACTIVITY_TYPE } from '@/elements/bpmn/call-activity/bpmn-call-activity.factory'
 import {
   canConnectBpmnDataAssociation,
   createBpmnDataAssociationForEndpoints,
   isBpmnDataAssociationActivityElement,
   isBpmnDataAssociationDataElement,
 } from '@/elements/bpmn/data-association/bpmn-data-association.factory'
+import { BPMN_DATA_OBJECT_TYPE } from '@/elements/bpmn/data/data-object/bpmn-data-object.factory'
+import { BPMN_DATA_STORE_TYPE } from '@/elements/bpmn/data/data-store/bpmn-data-store.factory'
 import { BPMN_EVENT_TYPE } from '@/elements/bpmn/event/bpmn-event.factory'
 import { BPMN_GATEWAY_TYPE } from '@/elements/bpmn/gateway/bpmn-gateway.factory'
 import {
@@ -23,15 +27,13 @@ import {
   isBpmnMessageFlowNode,
   resolveBpmnMessageFlowParticipantId,
 } from '@/elements/bpmn/message-flow/bpmn-message-flow.factory'
-import { BPMN_CALL_ACTIVITY_TYPE } from '@/elements/bpmn/call-activity/bpmn-call-activity.factory'
 import { BPMN_SUB_PROCESS_TYPE } from '@/elements/bpmn/sub-process/bpmn-sub-process.factory'
 import { BPMN_TASK_TYPE } from '@/elements/bpmn/task/bpmn-task.factory'
-import type { ElementsConnectionEdgeInput } from '@/plugins/elements/model/ElementsConnectionFlow'
-import { MODELER_ELEMENTS_PLUGIN_ID } from '@/plugins/elements/elements.constants'
+import { PluginBase } from '@/model/plugin-runtime/PluginBase'
 import { ElementsGestures } from '@/plugins/elements/elements-gestures'
 import { ElementsLayer } from '@/plugins/elements/elements-layer'
+import { MODELER_ELEMENTS_PLUGIN_ID } from '@/plugins/elements/elements.constants'
 import {
-  ElementsRuntime,
   MODEL_ELEMENTS_RUNTIME,
 } from '@/plugins/elements/model/ElementsRuntime'
 import { eventPoint } from '@/tools/event-point'
@@ -46,9 +48,13 @@ export class ElementsPlugin extends PluginBase {
   private gestures: ElementsGestures | null = null
   private createCounter = 0
   private readonly handleWindowKeyDown = (event: KeyboardEvent): void => {
-    if (event.key !== 'Escape') return
+    if (event.key !== 'Escape') {
+      return
+    }
     const activeToolId = this.context.tools.getActiveId()
-    if (!this.isConnectionToolId(activeToolId) && !this.runtime.connection.get()) return
+    if (!this.isConnectionToolId(activeToolId) && !this.runtime.connection.get()) {
+      return
+    }
     event.preventDefault()
     this.runtime.connectionFlow.clear()
     this.context.tools.deactivate(activeToolId ?? undefined)
@@ -79,8 +85,10 @@ export class ElementsPlugin extends PluginBase {
     this.gestures = new ElementsGestures(this.context, this.runtime)
     this.layer.sync()
     this.addDisposer(this.context.model.subscribe((_model, meta) => {
-      if (meta.viewportOnly) this.layer?.syncViewport()
-      else this.layer?.sync()
+      if (meta.viewportOnly) {
+        this.layer?.syncViewport()
+      }
+      else { this.layer?.sync() }
     }))
     this.gestures.bind(dispose => this.addDisposer(dispose))
   }
@@ -95,8 +103,10 @@ export class ElementsPlugin extends PluginBase {
         ...(definition.createTools ?? []),
       ]
       for (const createTool of createTools) {
-        if (definition.kind === 'edge') this.publishEdgeCreateTool(definition, createTool)
-        else this.publishElementCreateTool(definition, createTool)
+        if (definition.kind === 'edge') {
+          this.publishEdgeCreateTool(definition, createTool)
+        }
+        else { this.publishElementCreateTool(definition, createTool) }
       }
     }
   }
@@ -112,7 +122,7 @@ export class ElementsPlugin extends PluginBase {
     this.addDisposer(this.context.actions.register({
       id: actionId,
       title: createTool.title,
-      run: context => {
+      run: (context) => {
         context.tools.activate(toolId)
       },
     }))
@@ -164,7 +174,7 @@ export class ElementsPlugin extends PluginBase {
     this.addDisposer(this.context.actions.register({
       id: actionId,
       title: createTool.title,
-      run: context => {
+      run: (context) => {
         this.runtime.connectionFlow.useEdgeFactory(edgeFactory)
         context.tools.activate(toolId)
       },
@@ -210,7 +220,7 @@ export class ElementsPlugin extends PluginBase {
     this.addDisposer(this.context.actions.register({
       id: 'element.connect',
       title: 'Connect elements',
-      run: context => {
+      run: (context) => {
         this.runtime.connectionFlow.useDefaultEdgeFactory()
         context.tools.activate('connect')
       },
@@ -218,9 +228,11 @@ export class ElementsPlugin extends PluginBase {
     this.addDisposer(this.context.actions.register({
       id: 'element.connect.from-selection',
       title: 'Connect from selected element',
-      run: context => {
+      run: (context) => {
         const sourceId = context.getModel().selection[0]
-        if (!sourceId) return
+        if (!sourceId) {
+          return
+        }
         this.runtime.connectionFlow.useDefaultEdgeFactory()
         context.tools.activate('connect')
         this.beginConnectionFromElement(context, sourceId, 'context-pad')
@@ -284,9 +296,11 @@ export class ElementsPlugin extends PluginBase {
     this.addDisposer(this.context.actions.register({
       id: 'element.connect.data-association.from-selection',
       title: 'Connect data association',
-      run: context => {
+      run: (context) => {
         const sourceId = context.getModel().selection[0]
-        if (!sourceId) return
+        if (!sourceId) {
+          return
+        }
         this.runtime.connectionFlow.useEdgeFactory(edgeFactory)
         context.tools.activate('connect:bpmn.dataAssociation')
         this.beginConnectionFromElement(context, sourceId, 'context-pad')
@@ -326,7 +340,7 @@ export class ElementsPlugin extends PluginBase {
     this.addDisposer(this.context.actions.register({
       id: 'element.create.bpmn.message-flow',
       title: 'Message flow',
-      run: context => {
+      run: (context) => {
         this.runtime.connectionFlow.useEdgeFactory(edgeFactory)
         context.tools.activate('connect:bpmn.messageFlow')
       },
@@ -334,9 +348,11 @@ export class ElementsPlugin extends PluginBase {
     this.addDisposer(this.context.actions.register({
       id: 'element.connect.message-flow.from-selection',
       title: 'Connect message flow',
-      run: context => {
+      run: (context) => {
         const sourceId = context.getModel().selection[0]
-        if (!sourceId) return
+        if (!sourceId) {
+          return
+        }
         this.runtime.connectionFlow.useEdgeFactory(edgeFactory)
         context.tools.activate('connect:bpmn.messageFlow')
         this.beginConnectionFromElement(context, sourceId, 'context-pad')
@@ -401,7 +417,9 @@ export class ElementsPlugin extends PluginBase {
 
   private updateConnectionPreview(context: ModelerPluginContext, event: MouseEvent): void {
     const state = this.runtime.connection.get()
-    if (!state) return
+    if (!state) {
+      return
+    }
     const screen = eventPoint(event)
     this.runtime.connectionFlow.updatePreviewToPoint(
       context,
@@ -411,12 +429,16 @@ export class ElementsPlugin extends PluginBase {
   }
 
   private createEdgeCanStart(type: string): ((context: ModelerPluginContext, element: ModelerElement) => boolean) | undefined {
-    if (type !== 'bpmn.association') return undefined
+    if (type !== 'bpmn.association') {
+      return undefined
+    }
     return (_context, element) => isAssociationNode(element)
   }
 
   private createEdgeCanComplete(type: string): ((context: ModelerPluginContext, source: ModelerElement, target: ModelerElement) => boolean) | undefined {
-    if (type !== 'bpmn.association') return undefined
+    if (type !== 'bpmn.association') {
+      return undefined
+    }
     return (_context, source, target) => isAssociationNode(source) && isAssociationNode(target)
   }
 
@@ -436,13 +458,17 @@ export class ElementsPlugin extends PluginBase {
   }
 
   private setupWindowEvents(): void {
-    if (typeof window === 'undefined') return
+    if (typeof window === 'undefined') {
+      return
+    }
     window.addEventListener('keydown', this.handleWindowKeyDown, true)
     this.addDisposer(() => this.teardownWindowEvents())
   }
 
   private teardownWindowEvents(): void {
-    if (typeof window === 'undefined') return
+    if (typeof window === 'undefined') {
+      return
+    }
     window.removeEventListener('keydown', this.handleWindowKeyDown, true)
   }
 }

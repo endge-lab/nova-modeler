@@ -5,11 +5,11 @@ import type {
   ModelerResizeHandleDescriptor,
   ModelerRotateHandleDescriptor,
 } from '@/domain/types/index'
+import type { ElementsGeometry } from '@/plugins/elements/model/ElementsGeometry'
 import {
   MODELER_RESIZE_HANDLE_SIZE,
   MODELER_ROTATE_HANDLE_SIZE,
 } from '@/plugins/elements/elements.constants'
-import type { ElementsGeometry } from '@/plugins/elements/model/ElementsGeometry'
 
 /**
  * Создает runtime handles для элементов.
@@ -25,7 +25,9 @@ export class ElementsHandles {
     definition: ModelerElementDefinition,
   ): Array<ModelerResizeHandleDescriptor> {
     const resize = definition.capabilities?.resizable
-    if (!resize) return []
+    if (!resize) {
+      return []
+    }
     return resize.handles.map(handle => ({
       elementId: element.id,
       handle,
@@ -43,7 +45,9 @@ export class ElementsHandles {
     definition: ModelerElementDefinition,
   ): ModelerRotateHandleDescriptor | null {
     const rotatable = definition.capabilities?.rotatable
-    if (!rotatable) return null
+    if (!rotatable) {
+      return null
+    }
     return {
       elementId: element.id,
       size: MODELER_ROTATE_HANDLE_SIZE,
@@ -58,7 +62,7 @@ export class ElementsHandles {
   /**
    * Возвращает локальную точку resize handle.
    */
-  private resizeHandlePoint(element: ModelerElement, handle: ModelerResizeHandle): { x: number; y: number } {
+  private resizeHandlePoint(element: ModelerElement, handle: ModelerResizeHandle): { x: number, y: number } {
     const centerX = element.x + element.width / 2
     const centerY = element.y + element.height / 2
     return {
@@ -71,9 +75,15 @@ export class ElementsHandles {
    * Возвращает CSS cursor для resize handle.
    */
   private cursorForResizeHandle(handle: ModelerResizeHandle): string {
-    if (handle === 'n' || handle === 's') return 'ns-resize'
-    if (handle === 'e' || handle === 'w') return 'ew-resize'
-    if (handle === 'ne' || handle === 'sw') return 'nesw-resize'
+    if (handle === 'n' || handle === 's') {
+      return 'ns-resize'
+    }
+    if (handle === 'e' || handle === 'w') {
+      return 'ew-resize'
+    }
+    if (handle === 'ne' || handle === 'sw') {
+      return 'nesw-resize'
+    }
     return 'nwse-resize'
   }
 }

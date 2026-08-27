@@ -10,22 +10,22 @@ export interface ModelerToolDefinition {
   kind: ModelerToolKind
   title?: string
   tooltip?: TooltipInput
-  activate?(context: ModelerPluginContext): void
-  deactivate?(context: ModelerPluginContext): void
-  onPointerMove?(context: ModelerPluginContext, event: MouseEvent): false | void
-  onCancel?(context: ModelerPluginContext): void
-  createAt?(context: ModelerPluginContext, point: ModelerPoint): ModelerElement | undefined
+  activate?: (context: ModelerPluginContext) => void
+  deactivate?: (context: ModelerPluginContext) => void
+  onPointerMove?: (context: ModelerPluginContext, event: MouseEvent) => false | void
+  onCancel?: (context: ModelerPluginContext) => void
+  createAt?: (context: ModelerPluginContext, point: ModelerPoint) => ModelerElement | undefined
   oneShot?: boolean
 }
 
 export interface ModelerToolRegistryApi {
-  register(definition: ModelerToolDefinition): () => void
-  get(id: string): ModelerToolDefinition | undefined
-  getAll(): ReadonlyArray<ModelerToolDefinition>
-  activate(id: string): boolean
-  deactivate(id?: string): boolean
-  getActive(): ModelerToolDefinition | undefined
-  getActiveId(): string | null
-  createAt(id: string, point: ModelerPoint): ModelerElement | undefined
-  subscribe(listener: (activeToolId: string | null) => void): () => void
+  register: (definition: ModelerToolDefinition) => () => void
+  get: (id: string) => ModelerToolDefinition | undefined
+  getAll: () => ReadonlyArray<ModelerToolDefinition>
+  activate: (id: string) => boolean
+  deactivate: (id?: string) => boolean
+  getActive: () => ModelerToolDefinition | undefined
+  getActiveId: () => string | null
+  createAt: (id: string, point: ModelerPoint) => ModelerElement | undefined
+  subscribe: (listener: (activeToolId: string | null) => void) => () => void
 }

@@ -29,8 +29,8 @@ export interface ModelerShortcutOptions {
 }
 
 export interface ModelerShortcutRegistryApi {
-  register(definition: ModelerShortcutDefinition): () => void
-  get(id: string): ModelerShortcutDefinition | undefined
-  getAll(): ReadonlyArray<ModelerShortcutDefinition>
-  resolve(event: KeyboardEvent): ModelerResolvedShortcut | undefined
+  register: (definition: ModelerShortcutDefinition) => () => void
+  get: (id: string) => ModelerShortcutDefinition | undefined
+  getAll: () => ReadonlyArray<ModelerShortcutDefinition>
+  resolve: (event: KeyboardEvent) => ModelerResolvedShortcut | undefined
 }

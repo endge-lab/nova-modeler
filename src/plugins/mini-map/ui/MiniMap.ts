@@ -1,33 +1,33 @@
+import type { NovaApp, NovaComponentDescriptor, NovaSchema, NovaSurface } from '@endge/nova'
+import type { EventList } from '@endge/utils'
+import type {
+  ModelerOverlayPlacement,
+  ModelerPoint,
+  ModelerRect,
+} from '@/domain/types/index'
+import type { MiniMapLayout, MiniMapTheme } from '@/plugins/mini-map/mini-map-schema'
 import {
-  NovaComponent,
-  NovaComponentNode,
   boundsContainsPoint,
   createNovaDecoratedComponentDescriptor,
-  type NovaApp,
-  type NovaComponentDescriptor,
-  type NovaSchema,
-  type NovaSurface,
+
+  NovaComponent,
+
+  NovaComponentNode,
+
 } from '@endge/nova'
-import type { EventList } from '@endge/utils'
+import {
+  MODELER_CONTEXT,
+  MODELER_STORE,
+} from '@/config/context.config'
 import { Modeler } from '@/config/schema.config'
 import {
   MODELER_THEME_FALLBACKS,
   MODELER_THEME_TOKENS,
 } from '@/config/theme.config'
 import {
-  MODELER_CONTEXT,
-  MODELER_STORE,
-} from '@/config/context.config'
-import type {
-  ModelerOverlayPlacement,
-  ModelerPoint,
-  ModelerRect,
-} from '@/domain/types/index'
-import {
   createMiniMapLayout,
   createMiniMapSchema,
-  type MiniMapLayout,
-  type MiniMapTheme,
+
 } from '@/plugins/mini-map/mini-map-schema'
 
 export interface MiniMapProps {
@@ -127,14 +127,18 @@ export class MiniMap<E extends EventList = Record<string, any>>
   }
 
   private setupEvents(): void {
-    this.on('mousedown', event => {
-      if (!this.props.draggableViewport || event.button !== 0) return false
+    this.on('mousedown', (event) => {
+      if (!this.props.draggableViewport || event.button !== 0) {
+        return false
+      }
       this.dragging = true
       this.panTo({ x: event.offsetX, y: event.offsetY })
       return false
     })
-    this.on('mousemove', event => {
-      if (!this.dragging) return false
+    this.on('mousemove', (event) => {
+      if (!this.dragging) {
+        return false
+      }
       this.panTo({ x: event.offsetX, y: event.offsetY })
       return false
     })
@@ -149,7 +153,9 @@ export class MiniMap<E extends EventList = Record<string, any>>
 
   private panTo(point: ModelerPoint): void {
     const context = this.inject(MODELER_CONTEXT)
-    if (!context) return
+    if (!context) {
+      return
+    }
     const mini = this.resolveLayout()
     const layout = context.getLayout()
     const nx = clamp01((point.x - mini.content.x) / Math.max(1, mini.content.width))

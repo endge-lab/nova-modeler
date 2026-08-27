@@ -1,4 +1,3 @@
-import { MODELER_ASSETS } from '@/assets/modeler-assets'
 import type {
   BpmnGlobalDefinition,
   BpmnGlobalDefinitionKind,
@@ -8,12 +7,14 @@ import type {
   ModelerElementVariantOption,
   ModelerPluginContext,
 } from '@/domain/types'
+import type { BpmnGlobalDefinitionRefKey } from '@/model/bpmn-definitions'
+import { MODELER_ASSETS } from '@/assets/modeler-assets'
 import {
+
   createBpmnGlobalDefinition,
   defaultBpmnGlobalDefinitionName,
   resolveBpmnGlobalDefinitionKindForTrigger,
   resolveBpmnGlobalDefinitionRefKey,
-  type BpmnGlobalDefinitionRefKey,
 } from '@/model/bpmn-definitions'
 
 const CREATE_DEFINITION_ID = '__create-bpmn-definition__'
@@ -25,7 +26,9 @@ export function createBpmnEventDefinitionRefControls(
   draft: ModelerElementVariantDraft,
 ): Array<ModelerElementVariantControl> {
   const kind = resolveBpmnGlobalDefinitionKindForTrigger(trigger)
-  if (!kind) return []
+  if (!kind) {
+    return []
+  }
   const refKey = resolveBpmnGlobalDefinitionRefKey(kind)
   const definitions = resolveDefinitionsByKind(context, kind)
   const currentRef = resolveCurrentDefinitionRef(element, draft, refKey)
@@ -88,7 +91,9 @@ export function applyBpmnEventDefinitionRefControl(params: {
   option: ModelerElementVariantOption
 }): Record<string, unknown> | null {
   const kind = resolveBpmnGlobalDefinitionKindForTrigger(params.trigger)
-  if (!kind) return null
+  if (!kind) {
+    return null
+  }
   const refKey = resolveBpmnGlobalDefinitionRefKey(kind)
   if (params.control.id === refKey) {
     const next = params.option.data?.createBpmnDefinitionKind === kind
@@ -96,9 +101,13 @@ export function applyBpmnEventDefinitionRefControl(params: {
       : resolveDefinitionsByKind(params.context, kind).find(definition => definition.id === params.option.data?.[refKey])
     return next ? { [refKey]: next.id } : null
   }
-  if (params.control.id !== 'definitionName') return null
+  if (params.control.id !== 'definitionName') {
+    return null
+  }
   const definition = ensureBpmnGlobalDefinitionForTrigger(params.context, params.element, params.trigger, params.draft)
-  if (!definition) return null
+  if (!definition) {
+    return null
+  }
   const name = String(params.option.data?.definitionName ?? params.option.title ?? '').trim() || defaultBpmnGlobalDefinitionName(kind)
   upsertDefinition(params.context, { ...definition, name })
   return { [refKey]: definition.id }
@@ -111,9 +120,13 @@ export function ensureBpmnGlobalDefinitionPatchForTrigger(
   draft: ModelerElementVariantDraft,
 ): Record<string, unknown> {
   const definition = ensureBpmnGlobalDefinitionForTrigger(context, element, trigger, draft)
-  if (!definition) return {}
+  if (!definition) {
+    return {}
+  }
   const kind = resolveBpmnGlobalDefinitionKindForTrigger(trigger)
-  if (!kind) return {}
+  if (!kind) {
+    return {}
+  }
   return { [resolveBpmnGlobalDefinitionRefKey(kind)]: definition.id }
 }
 
@@ -124,12 +137,16 @@ function ensureBpmnGlobalDefinitionForTrigger(
   draft: ModelerElementVariantDraft,
 ): BpmnGlobalDefinition | null {
   const kind = resolveBpmnGlobalDefinitionKindForTrigger(trigger)
-  if (!kind) return null
+  if (!kind) {
+    return null
+  }
   const refKey = resolveBpmnGlobalDefinitionRefKey(kind)
   const definitions = resolveDefinitionsByKind(context, kind)
   const currentRef = resolveCurrentDefinitionRef(element, draft, refKey)
   const existing = definitions.find(definition => definition.id === currentRef) ?? definitions[0]
-  if (existing) return existing
+  if (existing) {
+    return existing
+  }
   return createAndStoreDefinition(context, kind, element)
 }
 
@@ -164,21 +181,35 @@ function resolveCurrentDefinitionRef(
   refKey: BpmnGlobalDefinitionRefKey,
 ): string | undefined {
   const draftValue = draft[refKey]
-  if (typeof draftValue === 'string' && draftValue) return draftValue
+  if (typeof draftValue === 'string' && draftValue) {
+    return draftValue
+  }
   const elementValue = element.data?.[refKey]
   return typeof elementValue === 'string' && elementValue ? elementValue : undefined
 }
 
 function resolveDefinitionLabel(kind: BpmnGlobalDefinitionKind): string {
-  if (kind === 'message') return 'Message'
-  if (kind === 'signal') return 'Signal'
-  if (kind === 'error') return 'Error'
+  if (kind === 'message') {
+    return 'Message'
+  }
+  if (kind === 'signal') {
+    return 'Signal'
+  }
+  if (kind === 'error') {
+    return 'Error'
+  }
   return 'Escalation'
 }
 
 function resolveDefinitionIcon(kind: BpmnGlobalDefinitionKind) {
-  if (kind === 'message') return MODELER_ASSETS.icons.message
-  if (kind === 'signal') return MODELER_ASSETS.icons.signal
-  if (kind === 'error') return MODELER_ASSETS.icons.error
+  if (kind === 'message') {
+    return MODELER_ASSETS.icons.message
+  }
+  if (kind === 'signal') {
+    return MODELER_ASSETS.icons.signal
+  }
+  if (kind === 'error') {
+    return MODELER_ASSETS.icons.error
+  }
   return MODELER_ASSETS.icons.escalation
 }

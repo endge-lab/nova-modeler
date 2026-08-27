@@ -1,21 +1,21 @@
-import { MODELER_ASSETS } from '@/assets/modeler-assets'
 import type {
   ModelerElementVariantProvider,
 } from '@/domain/types'
-import {
-  BPMN_GATEWAY_TYPE,
-  normalizeBpmnGatewayType,
-} from '@/elements/bpmn/gateway/bpmn-gateway.factory'
 import type {
   BpmnGatewayElement,
   BpmnGatewayType,
 } from '@/elements/bpmn/gateway/bpmn-gateway.types'
+import { MODELER_ASSETS } from '@/assets/modeler-assets'
+import {
+  BPMN_GATEWAY_TYPE,
+  normalizeBpmnGatewayType,
+} from '@/elements/bpmn/gateway/bpmn-gateway.factory'
 
 export interface BpmnGatewayVariantData extends Record<string, unknown> {
   gatewayType: BpmnGatewayType
 }
 
-const GATEWAY_TYPES: Array<{ id: BpmnGatewayType; title: string }> = [
+const GATEWAY_TYPES: Array<{ id: BpmnGatewayType, title: string }> = [
   { id: 'exclusive', title: 'Exclusive gateway' },
   { id: 'parallel', title: 'Parallel gateway' },
   { id: 'inclusive', title: 'Inclusive gateway' },
@@ -71,11 +71,21 @@ export const BpmnGatewayVariantProvider: ModelerElementVariantProvider<BpmnGatew
 }
 
 export function resolveBpmnGatewayTypeIcon(gatewayType: BpmnGatewayType) {
-  if (gatewayType === 'parallel') return MODELER_ASSETS.icons.gatewayParallel
-  if (gatewayType === 'inclusive') return MODELER_ASSETS.icons.gatewayInclusive
-  if (gatewayType === 'complex') return MODELER_ASSETS.icons.gatewayComplex
-  if (gatewayType === 'eventBased') return MODELER_ASSETS.icons.gatewayEventBased
-  if (gatewayType === 'parallelEventBased') return MODELER_ASSETS.icons.gatewayParallelEventBased
+  if (gatewayType === 'parallel') {
+    return MODELER_ASSETS.icons.gatewayParallel
+  }
+  if (gatewayType === 'inclusive') {
+    return MODELER_ASSETS.icons.gatewayInclusive
+  }
+  if (gatewayType === 'complex') {
+    return MODELER_ASSETS.icons.gatewayComplex
+  }
+  if (gatewayType === 'eventBased') {
+    return MODELER_ASSETS.icons.gatewayEventBased
+  }
+  if (gatewayType === 'parallelEventBased') {
+    return MODELER_ASSETS.icons.gatewayParallelEventBased
+  }
   return MODELER_ASSETS.icons.gatewayExclusive
 }
 

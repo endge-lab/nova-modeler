@@ -1,26 +1,27 @@
-import {
-  NovaComponent,
-  NovaComponentNode,
-  Prop,
-  createNovaDecoratedComponentDescriptor,
-  type NovaApp,
-  type NovaComponentDescriptor,
-  type NovaSchema,
-  type NovaSurface,
-} from '@endge/nova'
+import type { NovaApp, NovaComponentDescriptor, NovaSchema, NovaSurface } from '@endge/nova'
 import type { EventList } from '@endge/utils'
-import { Modeler } from '@/config/schema.config'
-import {
-  MODELER_THEME_FALLBACKS,
-  MODELER_THEME_TOKENS,
-  type ModelerThemeTokenKey,
-} from '@/config/theme.config'
+import type { ModelerThemeTokenKey } from '@/config/theme.config'
 import type { ModelerViewport } from '@/domain/types'
 import type {
   BpmnEventDirection,
   BpmnEventElement,
   BpmnEventTrigger,
 } from '@/elements/bpmn/event/bpmn-event.types'
+import {
+  createNovaDecoratedComponentDescriptor,
+
+  NovaComponent,
+
+  NovaComponentNode,
+
+  Prop,
+} from '@endge/nova'
+import { Modeler } from '@/config/schema.config'
+import {
+  MODELER_THEME_FALLBACKS,
+  MODELER_THEME_TOKENS,
+
+} from '@/config/theme.config'
 import { resolveBpmnEventNameLayout } from '@/elements/bpmn/event/bpmn-event.label'
 
 export interface BpmnEventViewProps {
@@ -118,7 +119,9 @@ export class BpmnEventView<E extends EventList = Record<string, any>>
       schema.push(this.createCircle(radius, fill, stroke, strokeWidth))
       schema.push(this.createCircle(Math.max(0, radius - this.resolveIntermediateGap()), 'rgba(0,0,0,0)', stroke, strokeWidth))
       this.appendTriggerMarker(schema)
-      if (!this.props.hideName) this.appendEventName(schema)
+      if (!this.props.hideName) {
+        this.appendEventName(schema)
+      }
       return schema
     }
 
@@ -129,7 +132,9 @@ export class BpmnEventView<E extends EventList = Record<string, any>>
       data.eventPosition === 'end' ? Math.max(endStrokeWidth, strokeWidth) : strokeWidth,
     ))
     this.appendTriggerMarker(schema)
-    if (!this.props.hideName) this.appendEventName(schema)
+    if (!this.props.hideName) {
+      this.appendEventName(schema)
+    }
     return schema
   }
 
@@ -139,7 +144,9 @@ export class BpmnEventView<E extends EventList = Record<string, any>>
       width: this.width,
       height: this.height,
     })
-    if (!layout.text) return
+    if (!layout.text) {
+      return
+    }
     const color = this.resolveThemeColor('bpmnTaskTextColor')
     for (const line of layout.lines) {
       schema.push({
@@ -168,7 +175,9 @@ export class BpmnEventView<E extends EventList = Record<string, any>>
   private appendTriggerMarker(schema: NovaSchema): void {
     const data = this.props.element.data ?? { eventPosition: 'start' as const, trigger: 'none' as const }
     const trigger = data.trigger ?? 'none'
-    if (trigger === 'none') return
+    if (trigger === 'none') {
+      return
+    }
     const position = data.eventPosition ?? 'start'
     const direction = data.direction ?? (position === 'end' ? 'throw' : 'catch')
     const markerColor = String(this.props.element.style?.markerColor ?? this.resolveThemeColor('bpmnEventStroke', 'elementStroke'))
@@ -268,7 +277,9 @@ export class BpmnEventView<E extends EventList = Record<string, any>>
 
   private appendCancelMarker(schema: NovaSchema, size: number, color: string, filled: boolean): void {
     const lineWidth = filled ? 2.4 : 2
-    if (filled) this.appendCircleMarker(schema, size * 0.36, color, true)
+    if (filled) {
+      this.appendCircleMarker(schema, size * 0.36, color, true)
+    }
     const lineColor = filled ? '#ffffff' : color
     schema.push({ type: 'line', x1: -size * 0.24, y1: -size * 0.24, x2: size * 0.24, y2: size * 0.24, styles: { color: lineColor, width: lineWidth } })
     schema.push({ type: 'line', x1: size * 0.24, y1: -size * 0.24, x2: -size * 0.24, y2: size * 0.24, styles: { color: lineColor, width: lineWidth } })
@@ -311,7 +322,9 @@ export class BpmnEventView<E extends EventList = Record<string, any>>
   }
 
   private appendParallelMultipleMarker(schema: NovaSchema, size: number, color: string, filled: boolean): void {
-    if (filled) this.appendCircleMarker(schema, size * 0.36, color, true)
+    if (filled) {
+      this.appendCircleMarker(schema, size * 0.36, color, true)
+    }
     const lineColor = filled ? '#ffffff' : color
     const width = filled ? 2.4 : 2
     schema.push({ type: 'line', x1: -size * 0.3, y1: 0, x2: size * 0.3, y2: 0, styles: { color: lineColor, width } })
@@ -362,7 +375,7 @@ export class BpmnEventView<E extends EventList = Record<string, any>>
     })
   }
 
-  private appendPolygonMarker(schema: NovaSchema, points: Array<{ x: number; y: number }>, color: string, filled: boolean): void {
+  private appendPolygonMarker(schema: NovaSchema, points: Array<{ x: number, y: number }>, color: string, filled: boolean): void {
     schema.push({
       type: 'polygon',
       points,

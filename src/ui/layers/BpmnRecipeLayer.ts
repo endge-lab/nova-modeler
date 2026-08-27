@@ -1,22 +1,6 @@
-import {
-  NovaComponent,
-  NovaComponentNode,
-  Prop,
-  createNovaDecoratedComponentDescriptor,
-  type NovaApp,
-  type NovaComponentDescriptor,
-  type NovaRectBatch,
-  type NovaSchema,
-  type NovaSurface,
-  type NovaTextBatch,
-} from '@endge/nova'
+import type { NovaApp, NovaComponentDescriptor, NovaRectBatch, NovaSchema, NovaSurface, NovaTextBatch } from '@endge/nova'
 import type { EventList } from '@endge/utils'
-import { Modeler } from '@/config/schema.config'
-import {
-  MODELER_THEME_FALLBACKS,
-  MODELER_THEME_TOKENS,
-  type ModelerThemeTokenKey,
-} from '@/config/theme.config'
+import type { ModelerThemeTokenKey } from '@/config/theme.config'
 import type {
   ModelerBpmnRecipeRenderingOptions,
   ModelerElement,
@@ -24,6 +8,28 @@ import type {
   ModelerRect,
   ModelerViewport,
 } from '@/domain/types/index'
+import type {
+  BpmnEventDirection,
+  BpmnEventTrigger,
+} from '@/elements/bpmn/event/bpmn-event.types'
+import type { BpmnGatewayType } from '@/elements/bpmn/gateway/bpmn-gateway.types'
+import type { BpmnParticipantElement } from '@/elements/bpmn/participant/bpmn-participant.types'
+import type { BpmnTaskElementData } from '@/elements/bpmn/task/bpmn-task.types'
+import {
+  createNovaDecoratedComponentDescriptor,
+
+  NovaComponent,
+
+  NovaComponentNode,
+
+  Prop,
+} from '@endge/nova'
+import { Modeler } from '@/config/schema.config'
+import {
+  MODELER_THEME_FALLBACKS,
+  MODELER_THEME_TOKENS,
+
+} from '@/config/theme.config'
 import { BPMN_GROUP_TYPE } from '@/elements/bpmn/artifacts/group/bpmn-group.factory'
 import {
   BPMN_TEXT_ANNOTATION_TYPE,
@@ -41,25 +47,18 @@ import {
   normalizeBpmnEventTrigger,
 } from '@/elements/bpmn/event/bpmn-event.factory'
 import { resolveBpmnEventNameLayout } from '@/elements/bpmn/event/bpmn-event.label'
-import type {
-  BpmnEventDirection,
-  BpmnEventTrigger,
-} from '@/elements/bpmn/event/bpmn-event.types'
 import {
   BPMN_GATEWAY_TYPE,
   normalizeBpmnGatewayType,
 } from '@/elements/bpmn/gateway/bpmn-gateway.factory'
 import { resolveBpmnGatewayNameLayout } from '@/elements/bpmn/gateway/bpmn-gateway.label'
-import type { BpmnGatewayType } from '@/elements/bpmn/gateway/bpmn-gateway.types'
 import {
   areBpmnParticipantLaneHeadersVisible,
   createBpmnParticipantLayout,
   normalizeBpmnParticipantOrientation,
 } from '@/elements/bpmn/participant/bpmn-participant.factory'
-import type { BpmnParticipantElement } from '@/elements/bpmn/participant/bpmn-participant.types'
 import { BPMN_SUB_PROCESS_TYPE } from '@/elements/bpmn/sub-process/bpmn-sub-process.factory'
 import { BPMN_TASK_TYPE } from '@/elements/bpmn/task/bpmn-task.factory'
-import type { BpmnTaskElementData } from '@/elements/bpmn/task/bpmn-task.types'
 import { resolveBpmnActivityNameLayout } from '@/ui/elements/bpmn/activity/BpmnActivityView'
 import { resolveBpmnTaskNameLayout } from '@/ui/elements/bpmn/task/BpmnTaskView'
 
@@ -124,8 +123,12 @@ export function normalizeBpmnRecipeRenderingOptions(options?: ModelerOptions): R
 
 export function shouldUseBpmnRecipeRendering(options: ModelerOptions, viewport: ModelerViewport): boolean {
   const recipeOptions = normalizeBpmnRecipeRenderingOptions(options)
-  if (!recipeOptions.enabled || !recipeOptions.nodes || recipeOptions.mode === 'off') return false
-  if (recipeOptions.mode === 'lod') return viewport.scale <= recipeOptions.lodScale
+  if (!recipeOptions.enabled || !recipeOptions.nodes || recipeOptions.mode === 'off') {
+    return false
+  }
+  if (recipeOptions.mode === 'lod') {
+    return viewport.scale <= recipeOptions.lodScale
+  }
   return true
 }
 
@@ -202,7 +205,9 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
   override setProps(patch: Partial<BpmnRecipeLayerViewResolvedProps>): this {
     const changedKeys = (Object.keys(patch) as Array<keyof BpmnRecipeLayerViewResolvedProps>)
       .filter(key => patch[key] !== undefined && this.props[key] !== patch[key])
-    if (changedKeys.length === 0) return this
+    if (changedKeys.length === 0) {
+      return this
+    }
 
     const nextViewport = patch.viewport ?? this.props.viewport
     const viewportOnly = changedKeys.every(key => key === 'viewport')
@@ -259,19 +264,29 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     })
     const fillBatch = this.batchRuntime.getFillBatch()
     const textBatch = this.batchRuntime.getTextBatch()
-    if (fillBatch.count > 0) this.renderer.rects(fillBatch)
-    if (schema.length > 0) this.renderer.schema(schema)
-    if (textBatch.count > 0) this.renderer.texts(textBatch)
+    if (fillBatch.count > 0) {
+      this.renderer.rects(fillBatch)
+    }
+    if (schema.length > 0) {
+      this.renderer.schema(schema)
+    }
+    if (textBatch.count > 0) {
+      this.renderer.texts(textBatch)
+    }
   }
 
   private createTextWriter(schema: NovaSchema, batchWriter: BpmnRecipeTextWriter): BpmnRecipeTextWriter {
-    if (this.props.textMode === 'batch') return batchWriter
+    if (this.props.textMode === 'batch') {
+      return batchWriter
+    }
     if (this.props.textMode === 'hide-small') {
       return { write: () => undefined }
     }
     return {
       write: (_elementId, _slotId, text, rect) => {
-        if (text.trim().length === 0 || rect.width <= 1 || rect.height <= 1) return
+        if (text.trim().length === 0 || rect.width <= 1 || rect.height <= 1) {
+          return
+        }
         schema.push({
           type: 'text',
           text,
@@ -343,7 +358,9 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     const fill = this.resolveElementFill(element, 'bpmnTaskFill', 'elementFill')
     const stroke = this.resolveElementStroke(element, 'bpmnTaskStroke', 'elementStroke')
     const radius = this.resolveElementRadius(element, 'bpmnTaskRadius')
-    if (!fillWriter.write(element.id, 'activity-fill', rect, fill, radius)) schema.push(createFillRect(rect, fill, radius))
+    if (!fillWriter.write(element.id, 'activity-fill', rect, fill, radius)) {
+      schema.push(createFillRect(rect, fill, radius))
+    }
     const borderWidth = this.resolveElementStrokeWidth(element, 'bpmnTaskStrokeWidth', 'elementStrokeWidth')
       * (element.type === BPMN_CALL_ACTIVITY_TYPE ? 1.6 : 1)
     schema.push({
@@ -434,7 +451,9 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     }
     this.appendEventTriggerMarker(schema, element, center, Math.min(rect.width, rect.height) * 0.48)
     if (element.type === BPMN_EVENT_TYPE) {
-      if (this.appendExternalGeometryLabel(textWriter, element, 'event-label', center)) return
+      if (this.appendExternalGeometryLabel(textWriter, element, 'event-label', center)) {
+        return
+      }
       const layout = resolveBpmnEventNameLayout({
         name: element.data?.name as string | undefined,
         width: rect.width,
@@ -451,10 +470,12 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     }
   }
 
-  private appendEventTriggerMarker(schema: NovaSchema, element: ModelerElement, center: { x: number; y: number }, size: number): void {
+  private appendEventTriggerMarker(schema: NovaSchema, element: ModelerElement, center: { x: number, y: number }, size: number): void {
     const data = element.data ?? {}
     const trigger = normalizeBpmnEventTrigger(data.trigger)
-    if (trigger === 'none') return
+    if (trigger === 'none') {
+      return
+    }
     const position = normalizeBpmnEventPosition(data.eventPosition)
     const direction = normalizeBpmnEventDirection(data.direction, defaultBpmnEventDirection(position))
     const color = String(element.style?.markerColor ?? this.resolveThemeColor('bpmnEventStroke', 'elementStroke'))
@@ -466,7 +487,7 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     schema: NovaSchema,
     trigger: BpmnEventTrigger,
     direction: BpmnEventDirection,
-    center: { x: number; y: number },
+    center: { x: number, y: number },
     size: number,
     color: string,
     filled: boolean,
@@ -514,7 +535,7 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     this.appendMultipleMarker(schema, center, size, color, filled || direction === 'throw')
   }
 
-  private appendMessageMarker(schema: NovaSchema, center: { x: number; y: number }, size: number, color: string, filled: boolean): void {
+  private appendMessageMarker(schema: NovaSchema, center: { x: number, y: number }, size: number, color: string, filled: boolean): void {
     const width = size * 0.78
     const height = size * 0.48
     const x = center.x - width / 2
@@ -525,7 +546,7 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     schema.push({ type: 'line', x1: x + width, y1: y, x2: center.x, y2: y + height * 0.56, styles: { color: lineColor, width: 1.6 } })
   }
 
-  private appendTimerMarker(schema: NovaSchema, center: { x: number; y: number }, size: number, color: string, filled: boolean): void {
+  private appendTimerMarker(schema: NovaSchema, center: { x: number, y: number }, size: number, color: string, filled: boolean): void {
     const radius = size * 0.32
     this.appendCircleMarker(schema, center, radius, color, filled)
     const lineColor = filled ? '#ffffff' : color
@@ -533,7 +554,7 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     schema.push({ type: 'line', x1: center.x, y1: center.y, x2: center.x + radius * 0.42, y2: center.y + radius * 0.2, styles: { color: lineColor, width: 1.6 } })
   }
 
-  private appendErrorMarker(schema: NovaSchema, center: { x: number; y: number }, size: number, color: string, filled: boolean): void {
+  private appendErrorMarker(schema: NovaSchema, center: { x: number, y: number }, size: number, color: string, filled: boolean): void {
     this.appendPolygonMarker(schema, center, [
       { x: -size * 0.12, y: -size * 0.42 },
       { x: size * 0.2, y: -size * 0.06 },
@@ -544,7 +565,7 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     ], color, filled)
   }
 
-  private appendTriangleMarker(schema: NovaSchema, center: { x: number; y: number }, size: number, color: string, filled: boolean): void {
+  private appendTriangleMarker(schema: NovaSchema, center: { x: number, y: number }, size: number, color: string, filled: boolean): void {
     this.appendPolygonMarker(schema, center, [
       { x: 0, y: -size * 0.4 },
       { x: size * 0.4, y: size * 0.32 },
@@ -552,15 +573,17 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     ], color, filled)
   }
 
-  private appendCancelMarker(schema: NovaSchema, center: { x: number; y: number }, size: number, color: string, filled: boolean): void {
+  private appendCancelMarker(schema: NovaSchema, center: { x: number, y: number }, size: number, color: string, filled: boolean): void {
     const lineWidth = filled ? 2.4 : 2
-    if (filled) this.appendCircleMarker(schema, center, size * 0.36, color, true)
+    if (filled) {
+      this.appendCircleMarker(schema, center, size * 0.36, color, true)
+    }
     const lineColor = filled ? '#ffffff' : color
     schema.push({ type: 'line', x1: center.x - size * 0.24, y1: center.y - size * 0.24, x2: center.x + size * 0.24, y2: center.y + size * 0.24, styles: { color: lineColor, width: lineWidth } })
     schema.push({ type: 'line', x1: center.x + size * 0.24, y1: center.y - size * 0.24, x2: center.x - size * 0.24, y2: center.y + size * 0.24, styles: { color: lineColor, width: lineWidth } })
   }
 
-  private appendCompensationMarker(schema: NovaSchema, center: { x: number; y: number }, size: number, color: string, filled: boolean): void {
+  private appendCompensationMarker(schema: NovaSchema, center: { x: number, y: number }, size: number, color: string, filled: boolean): void {
     const pointsA = [
       { x: -size * 0.38, y: 0 },
       { x: -size * 0.04, y: -size * 0.3 },
@@ -571,7 +594,7 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     this.appendPolygonMarker(schema, center, pointsB, color, filled)
   }
 
-  private appendConditionalMarker(schema: NovaSchema, center: { x: number; y: number }, size: number, color: string, filled: boolean): void {
+  private appendConditionalMarker(schema: NovaSchema, center: { x: number, y: number }, size: number, color: string, filled: boolean): void {
     const width = size * 0.58
     const height = size * 0.7
     const x = center.x - width / 2
@@ -584,7 +607,7 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     }
   }
 
-  private appendLinkMarker(schema: NovaSchema, center: { x: number; y: number }, size: number, color: string, filled: boolean): void {
+  private appendLinkMarker(schema: NovaSchema, center: { x: number, y: number }, size: number, color: string, filled: boolean): void {
     this.appendPolygonMarker(schema, center, [
       { x: -size * 0.42, y: -size * 0.22 },
       { x: size * 0.06, y: -size * 0.22 },
@@ -596,15 +619,17 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     ], color, filled)
   }
 
-  private appendParallelMultipleMarker(schema: NovaSchema, center: { x: number; y: number }, size: number, color: string, filled: boolean): void {
-    if (filled) this.appendCircleMarker(schema, center, size * 0.36, color, true)
+  private appendParallelMultipleMarker(schema: NovaSchema, center: { x: number, y: number }, size: number, color: string, filled: boolean): void {
+    if (filled) {
+      this.appendCircleMarker(schema, center, size * 0.36, color, true)
+    }
     const lineColor = filled ? '#ffffff' : color
     const width = filled ? 2.4 : 2
     schema.push({ type: 'line', x1: center.x - size * 0.3, y1: center.y, x2: center.x + size * 0.3, y2: center.y, styles: { color: lineColor, width } })
     schema.push({ type: 'line', x1: center.x, y1: center.y - size * 0.3, x2: center.x, y2: center.y + size * 0.3, styles: { color: lineColor, width } })
   }
 
-  private appendMultipleMarker(schema: NovaSchema, center: { x: number; y: number }, size: number, color: string, filled: boolean): void {
+  private appendMultipleMarker(schema: NovaSchema, center: { x: number, y: number }, size: number, color: string, filled: boolean): void {
     const points = Array.from({ length: 5 }, (_, index) => {
       const angle = -Math.PI / 2 + index * (Math.PI * 2 / 5)
       return {
@@ -615,7 +640,7 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     this.appendPolygonMarker(schema, center, points, color, filled)
   }
 
-  private appendCircleMarker(schema: NovaSchema, center: { x: number; y: number }, radius: number, color: string, filled: boolean): void {
+  private appendCircleMarker(schema: NovaSchema, center: { x: number, y: number }, radius: number, color: string, filled: boolean): void {
     schema.push({
       type: 'circle',
       x: center.x,
@@ -642,7 +667,7 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     })
   }
 
-  private appendPolygonMarker(schema: NovaSchema, center: { x: number; y: number }, points: Array<{ x: number; y: number }>, color: string, filled: boolean): void {
+  private appendPolygonMarker(schema: NovaSchema, center: { x: number, y: number }, points: Array<{ x: number, y: number }>, color: string, filled: boolean): void {
     schema.push({
       type: 'polygon',
       points: points.map(point => ({ x: center.x + point.x, y: center.y + point.y })),
@@ -683,13 +708,17 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
       x: rect.x + rect.width / 2,
       y: rect.y + rect.height / 2,
     }
-    if (this.appendExternalGeometryLabel(textWriter, element, 'gateway-label', center)) return
+    if (this.appendExternalGeometryLabel(textWriter, element, 'gateway-label', center)) {
+      return
+    }
     const layout = resolveBpmnGatewayNameLayout({
       name: typeof element.data?.name === 'string' ? element.data.name : undefined,
       width: rect.width,
       height: rect.height,
     })
-    if (!layout.text) return
+    if (!layout.text) {
+      return
+    }
     layout.lines.forEach((line, index) => {
       textWriter.write(element.id, `gateway-label:${index}`, line.text, {
         x: center.x + line.x,
@@ -704,11 +733,13 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     textWriter: BpmnRecipeTextWriter,
     element: ModelerElement,
     slotPrefix: string,
-    anchor: { x: number; y: number },
+    anchor: { x: number, y: number },
   ): boolean {
     const geometry = normalizeRecipeLabelGeometry(element.data?.label)
     const text = typeof element.data?.name === 'string' ? element.data.name.trim() : ''
-    if (!geometry || !text) return false
+    if (!geometry || !text) {
+      return false
+    }
     const rect = {
       x: anchor.x + geometry.offsetX,
       y: anchor.y + geometry.offsetY,
@@ -748,7 +779,9 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
       const radius = size * 0.21
       this.appendGatewayCircleMarker(schema, center, radius, color, width)
       this.appendGatewayPentagonMarker(schema, center, radius * 0.72, color, width * 0.8)
-      if (gatewayType === 'parallelEventBased') this.appendGatewayPlusMarker(schema, center, radius * 0.45, color, width)
+      if (gatewayType === 'parallelEventBased') {
+        this.appendGatewayPlusMarker(schema, center, radius * 0.45, color, width)
+      }
       return
     }
     this.appendGatewayXMarker(schema, center, size * 0.18, color, width)
@@ -756,7 +789,7 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
 
   private appendGatewayXMarker(
     schema: NovaSchema,
-    center: { x: number; y: number },
+    center: { x: number, y: number },
     size: number,
     color: string,
     width: number,
@@ -767,7 +800,7 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
 
   private appendGatewayPlusMarker(
     schema: NovaSchema,
-    center: { x: number; y: number },
+    center: { x: number, y: number },
     size: number,
     color: string,
     width: number,
@@ -778,7 +811,7 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
 
   private appendGatewayCircleMarker(
     schema: NovaSchema,
-    center: { x: number; y: number },
+    center: { x: number, y: number },
     radius: number,
     color: string,
     width: number,
@@ -797,7 +830,7 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
 
   private appendGatewayAsteriskMarker(
     schema: NovaSchema,
-    center: { x: number; y: number },
+    center: { x: number, y: number },
     size: number,
     color: string,
     width: number,
@@ -808,7 +841,7 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
 
   private appendGatewayPentagonMarker(
     schema: NovaSchema,
-    center: { x: number; y: number },
+    center: { x: number, y: number },
     radius: number,
     color: string,
     width: number,
@@ -940,7 +973,7 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     const laneHeaderArea = this.worldRect(layout.laneHeaderAreaRect)
     const laneHeadersVisible = areBpmnParticipantLaneHeadersVisible(element)
     const headerFill = 'rgba(248, 250, 252, 0.66)'
-    layout.lanes.forEach(lane => {
+    layout.lanes.forEach((lane) => {
       const fill = typeof lane.style?.fill === 'string' ? lane.style.fill : undefined
       if (fill) {
         const rect = this.worldRect(lane.contentRect)
@@ -962,15 +995,22 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     const vertical = normalizeBpmnParticipantOrientation(element.data?.orientation) === 'vertical'
     if (vertical) {
       this.appendLine(schema, participantHeader.x, participantHeader.y + participantHeader.height, participantHeader.x + participantHeader.width, participantHeader.y + participantHeader.height, stroke, lineWidth)
-      if (laneHeadersVisible) this.appendLine(schema, laneHeaderArea.x, laneHeaderArea.y + laneHeaderArea.height, laneHeaderArea.x + laneHeaderArea.width, laneHeaderArea.y + laneHeaderArea.height, stroke, lineWidth)
-    } else {
-      this.appendLine(schema, participantHeader.x + participantHeader.width, participantHeader.y, participantHeader.x + participantHeader.width, participantHeader.y + participantHeader.height, stroke, lineWidth)
-      if (laneHeadersVisible) this.appendLine(schema, laneHeaderArea.x + laneHeaderArea.width, laneHeaderArea.y, laneHeaderArea.x + laneHeaderArea.width, laneHeaderArea.y + laneHeaderArea.height, stroke, lineWidth)
+      if (laneHeadersVisible) {
+        this.appendLine(schema, laneHeaderArea.x, laneHeaderArea.y + laneHeaderArea.height, laneHeaderArea.x + laneHeaderArea.width, laneHeaderArea.y + laneHeaderArea.height, stroke, lineWidth)
+      }
     }
-    layout.lanes.slice(1).forEach(lane => {
+    else {
+      this.appendLine(schema, participantHeader.x + participantHeader.width, participantHeader.y, participantHeader.x + participantHeader.width, participantHeader.y + participantHeader.height, stroke, lineWidth)
+      if (laneHeadersVisible) {
+        this.appendLine(schema, laneHeaderArea.x + laneHeaderArea.width, laneHeaderArea.y, laneHeaderArea.x + laneHeaderArea.width, laneHeaderArea.y + laneHeaderArea.height, stroke, lineWidth)
+      }
+    }
+    layout.lanes.slice(1).forEach((lane) => {
       const rect = this.worldRect(lane.rect)
-      if (vertical) this.appendLine(schema, rect.x, rect.y, rect.x, rect.y + rect.height, stroke, lineWidth)
-      else this.appendLine(schema, rect.x, rect.y, rect.x + rect.width, rect.y, stroke, lineWidth)
+      if (vertical) {
+        this.appendLine(schema, rect.x, rect.y, rect.x, rect.y + rect.height, stroke, lineWidth)
+      }
+      else { this.appendLine(schema, rect.x, rect.y, rect.x + rect.width, rect.y, stroke, lineWidth) }
     })
     this.appendParticipantLabels(schema, element, layout)
   }
@@ -982,8 +1022,10 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
       element.data?.orientation,
     )
     this.appendParticipantLabel(schema, participant)
-    if (!areBpmnParticipantLaneHeadersVisible(element)) return
-    layout.lanes.forEach(lane => {
+    if (!areBpmnParticipantLaneHeadersVisible(element)) {
+      return
+    }
+    layout.lanes.forEach((lane) => {
       const laneLayout = createParticipantRenderLabelLayout(lane.name, this.worldRect(lane.headerRect), element.data?.orientation)
       this.appendParticipantLabel(schema, laneLayout)
     })
@@ -1103,7 +1145,7 @@ interface BpmnBatchRuntimeFinalizeInput {
 export class BpmnBatchRuntime {
   private readonly fillBatch: NovaRectBatch = createEmptyRectBatch()
   private readonly textBatch: NovaTextBatch = createEmptyTextBatch()
-  private readonly slotMap = new Map<string, { fill: Array<number>; text: Array<number> }>()
+  private readonly slotMap = new Map<string, { fill: Array<number>, text: Array<number> }>()
   private readonly slotSignatures: Array<string> = []
   private previousSlotSignatures: Array<string> = []
   private revision = 0
@@ -1117,10 +1159,11 @@ export class BpmnBatchRuntime {
     batchRevision: 0,
     panZoomRenderSkips: 0,
   }
+
   private fillCount = 0
   private textCount = 0
 
-  begin(): { fill: BpmnRecipeFillWriter; text: BpmnRecipeTextWriter } {
+  begin(): { fill: BpmnRecipeFillWriter, text: BpmnRecipeTextWriter } {
     this.fillCount = 0
     this.textCount = 0
     this.slotMap.clear()
@@ -1142,7 +1185,8 @@ export class BpmnBatchRuntime {
       this.revision += 1
       this.previousSlotSignatures = [...this.slotSignatures]
       this.diagnostics.batchRebuilds += 1
-    } else {
+    }
+    else {
       this.diagnostics.panZoomRenderSkips += 1
     }
 
@@ -1182,7 +1226,7 @@ export class BpmnBatchRuntime {
     return this.textBatch
   }
 
-  getSlotMap(): ReadonlyMap<string, { fill: Array<number>; text: Array<number> }> {
+  getSlotMap(): ReadonlyMap<string, { fill: Array<number>, text: Array<number> }> {
     return this.slotMap
   }
 
@@ -1192,7 +1236,9 @@ export class BpmnBatchRuntime {
 
   private writeFill(elementId: string, slotId: string, rect: ModelerRect, color: string, radius = 0): boolean {
     const rgba = parseCssColor(color)
-    if (!rgba) return false
+    if (!rgba) {
+      return false
+    }
     this.ensureFillCapacity(this.fillCount + 1)
     const index = this.fillCount
     const x = this.fillBatch.x as Float32Array
@@ -1217,7 +1263,9 @@ export class BpmnBatchRuntime {
   }
 
   private writeText(elementId: string, slotId: string, text: string, rect: ModelerRect): void {
-    if (text.trim().length === 0 || rect.width <= 1 || rect.height <= 1) return
+    if (text.trim().length === 0 || rect.width <= 1 || rect.height <= 1) {
+      return
+    }
     this.ensureTextCapacity(this.textCount + 1)
     const index = this.textCount
     const x = this.textBatch.x as Float32Array
@@ -1241,7 +1289,9 @@ export class BpmnBatchRuntime {
   }
 
   private ensureFillCapacity(capacity: number): void {
-    if (this.fillBatch.x.length >= capacity) return
+    if (this.fillBatch.x.length >= capacity) {
+      return
+    }
     const nextCapacity = growCapacity(this.fillBatch.x.length, capacity)
     this.fillBatch.x = copyFloat32(this.fillBatch.x, nextCapacity)
     this.fillBatch.y = copyFloat32(this.fillBatch.y, nextCapacity)
@@ -1252,7 +1302,9 @@ export class BpmnBatchRuntime {
   }
 
   private ensureTextCapacity(capacity: number): void {
-    if (this.textBatch.x.length >= capacity) return
+    if (this.textBatch.x.length >= capacity) {
+      return
+    }
     const nextCapacity = growCapacity(this.textBatch.x.length, capacity)
     this.textBatch.x = copyFloat32(this.textBatch.x, nextCapacity)
     this.textBatch.y = copyFloat32(this.textBatch.y, nextCapacity)
@@ -1267,11 +1319,11 @@ export class BpmnBatchRuntime {
 }
 
 interface BpmnRecipeFillWriter {
-  write(elementId: string, slotId: string, rect: ModelerRect, color: string, radius?: number): boolean
+  write: (elementId: string, slotId: string, rect: ModelerRect, color: string, radius?: number) => boolean
 }
 
 interface BpmnRecipeTextWriter {
-  write(elementId: string, slotId: string, text: string, rect: ModelerRect): void
+  write: (elementId: string, slotId: string, text: string, rect: ModelerRect) => void
 }
 
 interface BpmnParticipantRecipeLabelLayout {
@@ -1394,10 +1446,14 @@ function createFillRect(rect: ModelerRect, color: string, radius = 0): NovaSchem
   }
 }
 
-function normalizeRecipeLabelGeometry(value: unknown): { offsetX: number; offsetY: number; width: number; height: number } | null {
-  if (!value || typeof value !== 'object') return null
-  const input = value as { offsetX?: unknown; offsetY?: unknown; width?: unknown; height?: unknown }
-  if (!isFiniteNumber(input.offsetX) || !isFiniteNumber(input.offsetY) || !isFiniteNumber(input.width) || !isFiniteNumber(input.height)) return null
+function normalizeRecipeLabelGeometry(value: unknown): { offsetX: number, offsetY: number, width: number, height: number } | null {
+  if (!value || typeof value !== 'object') {
+    return null
+  }
+  const input = value as { offsetX?: unknown, offsetY?: unknown, width?: unknown, height?: unknown }
+  if (!isFiniteNumber(input.offsetX) || !isFiniteNumber(input.offsetY) || !isFiniteNumber(input.width) || !isFiniteNumber(input.height)) {
+    return null
+  }
   return {
     offsetX: input.offsetX,
     offsetY: input.offsetY,
@@ -1416,13 +1472,19 @@ function createRecipeLabelLines(text: string, rect: ModelerRect): Array<{ text: 
     if (current && next.length * 7 > rect.width) {
       lines.push({ text: current })
       current = word
-      if (lines.length >= maxLines) break
+      if (lines.length >= maxLines) {
+        break
+      }
       continue
     }
     current = next
   }
-  if (current && lines.length < maxLines) lines.push({ text: current })
-  if (lines.length === 0) lines.push({ text })
+  if (current && lines.length < maxLines) {
+    lines.push({ text: current })
+  }
+  if (lines.length === 0) {
+    lines.push({ text })
+  }
   return lines.slice(0, maxLines)
 }
 
@@ -1447,16 +1509,22 @@ function countChangedSlots(previousSlots: ReadonlyArray<string>, nextSlots: Read
   const max = Math.max(previousSlots.length, nextSlots.length)
   let count = 0
   for (let index = 0; index < max; index += 1) {
-    if (previousSlots[index] !== nextSlots[index]) count += 1
+    if (previousSlots[index] !== nextSlots[index]) {
+      count += 1
+    }
   }
   return count
 }
 
 function createDirtyIndices(count: number, dirtySlots: number): Uint32Array {
-  if (count <= 0 || dirtySlots <= 0) return new Uint32Array(0)
+  if (count <= 0 || dirtySlots <= 0) {
+    return new Uint32Array(0)
+  }
   const dirtyCount = Math.min(count, dirtySlots)
   const indices = new Uint32Array(dirtyCount)
-  for (let index = 0; index < dirtyCount; index += 1) indices[index] = index
+  for (let index = 0; index < dirtyCount; index += 1) {
+    indices[index] = index
+  }
   return indices
 }
 
@@ -1475,13 +1543,17 @@ function insetRect(rect: ModelerRect, x: number, y: number): ModelerRect {
 
 function growCapacity(current: number, required: number): number {
   let next = Math.max(16, current)
-  while (next < required) next *= 2
+  while (next < required) {
+    next *= 2
+  }
   return next
 }
 
 function copyFloat32(source: ArrayLike<number>, capacity: number): Float32Array {
   const next = new Float32Array(capacity)
-  for (let index = 0; index < source.length; index += 1) next[index] = source[index] ?? 0
+  for (let index = 0; index < source.length; index += 1) {
+    next[index] = source[index] ?? 0
+  }
   return next
 }
 
@@ -1500,9 +1572,13 @@ function parseCssColor(color: string): [number, number, number, number] | null {
     return [r, g, b, a]
   }
   const rgba = value.match(/^rgba?\(([^)]+)\)$/i)
-  if (!rgba) return null
+  if (!rgba) {
+    return null
+  }
   const parts = rgba[1]!.split(',').map(part => Number(part.trim()))
-  if (parts.length < 3 || parts.some(part => !Number.isFinite(part))) return null
+  if (parts.length < 3 || parts.some(part => !Number.isFinite(part))) {
+    return null
+  }
   return [
     clamp01(parts[0]! / 255),
     clamp01(parts[1]! / 255),
@@ -1512,8 +1588,12 @@ function parseCssColor(color: string): [number, number, number, number] | null {
 }
 
 function clamp01(value: number): number {
-  if (value < 0) return 0
-  if (value > 1) return 1
+  if (value < 0) {
+    return 0
+  }
+  if (value > 1) {
+    return 1
+  }
   return value
 }
 

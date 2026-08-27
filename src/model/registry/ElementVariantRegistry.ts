@@ -12,7 +12,9 @@ export class ElementVariantRegistry {
   register(provider: ModelerElementVariantProvider): () => void {
     this.providers.set(provider.id, provider)
     return () => {
-      if (this.providers.get(provider.id) === provider) this.providers.delete(provider.id)
+      if (this.providers.get(provider.id) === provider) {
+        this.providers.delete(provider.id)
+      }
     }
   }
 

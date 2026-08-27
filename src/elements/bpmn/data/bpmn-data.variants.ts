@@ -2,25 +2,25 @@ import type {
   ModelerElementVariantDescriptor,
   ModelerElementVariantProvider,
 } from '@/domain/types/index'
+import type {
+  BpmnDataObjectElement,
+  BpmnDataObjectType,
+} from '@/elements/bpmn/data/data-object/bpmn-data-object.types'
+import type { BpmnDataStoreElement } from '@/elements/bpmn/data/data-store/bpmn-data-store.types'
 import {
   BPMN_DATA_OBJECT_TYPE,
   createBpmnDataObjectElement,
   normalizeBpmnDataObjectType,
 } from '@/elements/bpmn/data/data-object/bpmn-data-object.factory'
-import type {
-  BpmnDataObjectElement,
-  BpmnDataObjectType,
-} from '@/elements/bpmn/data/data-object/bpmn-data-object.types'
 import {
   BPMN_DATA_STORE_TYPE,
   createBpmnDataStoreElement,
 } from '@/elements/bpmn/data/data-store/bpmn-data-store.factory'
-import type { BpmnDataStoreElement } from '@/elements/bpmn/data/data-store/bpmn-data-store.types'
 
 export type BpmnDataKind = BpmnDataObjectType | 'store'
 export type BpmnDataElement = BpmnDataObjectElement | BpmnDataStoreElement
 
-const DATA_KINDS: Array<{ id: BpmnDataKind; title: string }> = [
+const DATA_KINDS: Array<{ id: BpmnDataKind, title: string }> = [
   { id: 'object', title: 'Data object' },
   { id: 'input', title: 'Data input' },
   { id: 'output', title: 'Data output' },
@@ -28,7 +28,9 @@ const DATA_KINDS: Array<{ id: BpmnDataKind; title: string }> = [
 ]
 
 export function resolveBpmnDataKind(element: BpmnDataElement): BpmnDataKind {
-  if (element.type === BPMN_DATA_STORE_TYPE) return 'store'
+  if (element.type === BPMN_DATA_STORE_TYPE) {
+    return 'store'
+  }
   return normalizeBpmnDataObjectType(element.data?.dataObjectType)
 }
 
@@ -154,6 +156,8 @@ export function normalizeBpmnDataKind(value: unknown): BpmnDataKind {
 
 function resolveBpmnDataName(element: BpmnDataElement, kind: BpmnDataKind): string {
   const name = element.data?.name
-  if (typeof name === 'string' && name.trim().length > 0) return name
+  if (typeof name === 'string' && name.trim().length > 0) {
+    return name
+  }
   return kind === 'store' ? 'Data store' : 'Data object'
 }

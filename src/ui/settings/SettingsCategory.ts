@@ -1,17 +1,14 @@
-import {
-  NovaComponentNode,
-  type NovaApp,
-  type NovaComponentCreateContext,
-  type NovaComponentDescriptor,
-  type NovaComponentNode as NovaComponentNodeType,
-  type NovaComponentSchema,
-  type NovaSurface,
-} from '@endge/nova'
+import type { NovaApp, NovaComponentCreateContext, NovaComponentDescriptor, NovaComponentNode as NovaComponentNodeType, NovaComponentSchema, NovaSurface } from '@endge/nova'
 import type { EventList } from '@endge/utils'
-import { Modeler } from '@/config/schema.config'
 import type {
   ModelerSettingsCategoryProps,
 } from '@/domain/types/index'
+import {
+
+  NovaComponentNode,
+
+} from '@endge/nova'
+import { Modeler } from '@/config/schema.config'
 
 export interface ModelerSettingsCategoryResolvedProps extends Required<ModelerSettingsCategoryProps> {}
 

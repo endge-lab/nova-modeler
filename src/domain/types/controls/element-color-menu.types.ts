@@ -1,8 +1,8 @@
 import type {
   NovaComponentDescriptor,
 } from '@endge/nova'
-import type { ModelerController } from '@/domain/types/plugins/controller.types'
 import type { ModelerPoint } from '@/domain/types/model/geometry.types'
+import type { ModelerController } from '@/domain/types/plugins/controller.types'
 
 export interface ElementColorMenuProps {
   controller?: ModelerController
@@ -31,9 +31,9 @@ export interface ElementColorMenuResolvedProps {
 }
 
 export interface ElementColorMenuApi {
-  close(): void
-  setProps(patch: ElementColorMenuProps): void
-  getProps(): Readonly<ElementColorMenuResolvedProps>
+  close: () => void
+  setProps: (patch: ElementColorMenuProps) => void
+  getProps: () => Readonly<ElementColorMenuResolvedProps>
 }
 
 export type ElementColorMenuDescriptor = NovaComponentDescriptor<

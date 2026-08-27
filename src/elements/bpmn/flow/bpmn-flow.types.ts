@@ -17,8 +17,8 @@ export interface BpmnFlowElementData extends Record<string, unknown> {
 
 export type BpmnFlowElement = ModelerEdgeElement<BpmnFlowElementData>
 
-export type BpmnFlowElementInput =
-  ModelerElementInput<Partial<BpmnFlowElementData>> & {
+export type BpmnFlowElementInput
+  = ModelerElementInput<Partial<BpmnFlowElementData>> & {
     source?: ModelerEdgeEndpoint
     target?: ModelerEdgeEndpoint
     waypoints?: Array<ModelerEdgeWaypoint>

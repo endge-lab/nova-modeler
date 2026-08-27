@@ -12,8 +12,8 @@ export interface BpmnCallActivityElementData extends Record<string, unknown> {
 
 export type BpmnCallActivityElement = ModelerElement<BpmnCallActivityElementData>
 
-export type BpmnCallActivityElementInput =
-  ModelerElementInput<Partial<BpmnCallActivityElementData>> & {
+export type BpmnCallActivityElementInput
+  = ModelerElementInput<Partial<BpmnCallActivityElementData>> & {
     name?: string
     loopType?: BpmnTaskLoopType
     isForCompensation?: boolean

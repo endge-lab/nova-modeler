@@ -13,8 +13,8 @@ export interface BpmnDataObjectElementData extends Record<string, unknown> {
 
 export type BpmnDataObjectElement = ModelerElement<BpmnDataObjectElementData>
 
-export type BpmnDataObjectElementInput =
-  ModelerElementInput<Partial<BpmnDataObjectElementData>> & {
+export type BpmnDataObjectElementInput
+  = ModelerElementInput<Partial<BpmnDataObjectElementData>> & {
     name?: string
     dataObjectType?: BpmnDataObjectType
     isCollection?: boolean

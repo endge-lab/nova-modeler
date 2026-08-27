@@ -1,16 +1,5 @@
-import {
-  NovaComponent,
-  NovaComponentNode,
-  Prop,
-  createNovaDecoratedComponentDescriptor,
-  type NovaApp,
-  type NovaSchema,
-  type NovaSurface,
-} from '@endge/nova'
+import type { NovaApp, NovaSchema, NovaSurface } from '@endge/nova'
 import type { EventList } from '@endge/utils'
-import { NovaUIKit } from '@endge/nova-ui-kit'
-import { Modeler } from '@/config/schema.config'
-import { MODELER_CONTEXT } from '@/config/context.config'
 import type {
   ElementVariantMenuApi,
   ElementVariantMenuDescriptor,
@@ -29,6 +18,17 @@ import type {
   BpmnEventPosition,
   BpmnEventTrigger,
 } from '@/elements/bpmn/event/bpmn-event.types'
+import {
+  createNovaDecoratedComponentDescriptor,
+
+  NovaComponent,
+  NovaComponentNode,
+
+  Prop,
+} from '@endge/nova'
+import { NovaUIKit } from '@endge/nova-ui-kit'
+import { MODELER_CONTEXT } from '@/config/context.config'
+import { Modeler } from '@/config/schema.config'
 
 const MENU_WIDTH = 360
 const MENU_PADDING = 16
@@ -133,16 +133,22 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
   }
 
   override containsPoint(x: number, y: number): boolean {
-    if (!this.props.visible) return false
+    if (!this.props.visible) {
+      return false
+    }
     const state = this.resolveState()
-    if (!state) return false
+    if (!state) {
+      return false
+    }
     const rect = this.resolveMenuRect(state.descriptor.controls)
     return x >= rect.x && x <= rect.x + rect.width && y >= rect.y && y <= rect.y + rect.height
   }
 
   private createSchema(): NovaSchema {
     const state = this.resolveState()
-    if (!this.props.visible || !state) return []
+    if (!this.props.visible || !state) {
+      return []
+    }
     const schema: NovaSchema = []
     const rect = this.resolveMenuRect(state.descriptor.controls)
     schema.push({
@@ -167,7 +173,9 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
     let y = rect.y + 12 + TITLE_HEIGHT + 10
     for (let index = 0; index < state.descriptor.controls.length; index += 1) {
       const control = state.descriptor.controls[index]
-      if (!control) continue
+      if (!control) {
+        continue
+      }
       if (control.kind === 'input') {
         this.appendInputControl(schema, state, control, rect.x + MENU_PADDING, y, rect.width - MENU_PADDING * 2)
         y += this.resolveControlHeight(control)
@@ -202,11 +210,15 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
     rect: ModelerRect,
   ): void {
     const controls = state.descriptor.headerControls ?? []
-    if (controls.length === 0) return
+    if (controls.length === 0) {
+      return
+    }
     let x = rect.x + rect.width - MENU_PADDING - this.resolveHeaderControlsWidth(controls)
     const y = rect.y + 10
     for (const control of controls) {
-      if (control.kind !== 'iconToggle') continue
+      if (control.kind !== 'iconToggle') {
+        continue
+      }
       for (const option of control.options) {
         const selected = option.selected || control.value === option.id
         const hovered = this.hoveredHeaderOptionId === option.id
@@ -319,7 +331,9 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
     const grid = this.resolveChoiceGrid(control, width)
     for (let index = 0; index < control.options.length; index += 1) {
       const option = control.options[index]
-      if (!option) continue
+      if (!option) {
+        continue
+      }
       const selected = option.selected || control.value === option.id
       const hovered = this.hoveredChoiceId === option.id
       const col = index % grid.columns
@@ -376,7 +390,9 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
           label: control.title ?? enabledOption?.title ?? control.id,
           onChange: (next: boolean) => {
             const option = next ? enabledOption : disabledOption
-            if (!option) return
+            if (!option) {
+              return
+            }
             this.applyInlineControl(state, control, option)
           },
         },
@@ -415,7 +431,9 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
     for (let index = startIndex; index < endIndex; index += 1) {
       const option = control.options[index]
       const rowY = y + index * LIST_ROW_HEIGHT - scrollY
-      if (!option || rowY + LIST_ROW_HEIGHT < y || rowY > y + listHeight) continue
+      if (!option || rowY + LIST_ROW_HEIGHT < y || rowY > y + listHeight) {
+        continue
+      }
       this.appendListRow(schema, element, option, x + 4, rowY, width - 8, LIST_ROW_HEIGHT, listClip)
     }
     const maxScroll = this.resolveMaxScroll(control)
@@ -470,7 +488,9 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
     })
     for (let index = startIndex; index < schema.length; index += 1) {
       const item = schema[index]
-      if (item) item.clip = clip
+      if (item) {
+        item.clip = clip
+      }
     }
   }
 
@@ -494,7 +514,7 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
       this.appendTaskPreview(schema, element, option, x, y, size)
       return
     }
-    const data = (option.data ?? element.data) as { eventPosition?: BpmnEventPosition; trigger?: BpmnEventTrigger }
+    const data = (option.data ?? element.data) as { eventPosition?: BpmnEventPosition, trigger?: BpmnEventTrigger }
     const center = { x: x + size / 2, y: y + size / 2 }
     const radius = size * 0.42
     const position = data.eventPosition ?? 'start'
@@ -520,7 +540,9 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
         },
       })
     }
-    if (!option.icon) return
+    if (!option.icon) {
+      return
+    }
     const markerSize = size * 0.46
     schema.push({
       type: 'icon',
@@ -557,7 +579,9 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
         border: { color: '#3f3f46', width: 1.5, radius: 5 },
       },
     })
-    if (!option.icon || data.taskType === 'none') return
+    if (!option.icon || data.taskType === 'none') {
+      return
+    }
     const iconSize = size * 0.3
     schema.push({
       type: 'icon',
@@ -577,7 +601,7 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
     y: number,
     width: number,
     height: number,
-    style: { size: number; weight: '400' | '500' | '600' | '700' | 'normal' | 'bold'; color: string },
+    style: { size: number, weight: '400' | '500' | '600' | '700' | 'normal' | 'bold', color: string },
     options: { align?: 'left' | 'center' | 'right' } = {},
   ): void {
     schema.push({
@@ -608,12 +632,18 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
     descriptor: ReturnType<ModelerElementVariantProvider['getDescriptor']>
   } | null {
     const context = this.props.controller ?? this.injectOptional(MODELER_CONTEXT)
-    if (!context || !this.props.elementId) return null
+    if (!context || !this.props.elementId) {
+      return null
+    }
     const element = context.getModel().elements.find(item => item.id === this.props.elementId)
-    if (!element) return null
+    if (!element) {
+      return null
+    }
     const pluginContext = resolvePluginContext(context)
     const provider = pluginContext.elementVariants.getProvider(element)
-    if (!provider) return null
+    if (!provider) {
+      return null
+    }
     const data = element.data ?? {}
     const draftKey = `${element.id}:${element.type}:${JSON.stringify(data)}`
     if (this.draftKey !== draftKey) {
@@ -648,7 +678,9 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
     y: number,
     size: number,
   ): void {
-    if (!option.icon) return
+    if (!option.icon) {
+      return
+    }
     const iconSize = size * 0.8
     schema.push({
       type: 'icon',
@@ -694,7 +726,9 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
       if (associationType === 'directed' || associationType === 'bidirectional' || associationType === 'data') {
         this.appendOpenArrowPreview(schema, end, start, color, width)
       }
-      if (associationType === 'bidirectional') this.appendOpenArrowPreview(schema, start, end, color, width)
+      if (associationType === 'bidirectional') {
+        this.appendOpenArrowPreview(schema, start, end, color, width)
+      }
       return
     }
     this.appendFilledArrowPreview(schema, end, start, color, width)
@@ -723,7 +757,7 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
     }
   }
 
-  private appendOpenArrowPreview(schema: NovaSchema, point: { x: number; y: number }, previous: { x: number; y: number }, color: string, width: number): void {
+  private appendOpenArrowPreview(schema: NovaSchema, point: { x: number, y: number }, previous: { x: number, y: number }, color: string, width: number): void {
     const angle = Math.atan2(point.y - previous.y, point.x - previous.x)
     const length = 8
     const spread = Math.PI / 7
@@ -745,7 +779,7 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
     })
   }
 
-  private appendFilledArrowPreview(schema: NovaSchema, point: { x: number; y: number }, previous: { x: number; y: number }, color: string, width: number): void {
+  private appendFilledArrowPreview(schema: NovaSchema, point: { x: number, y: number }, previous: { x: number, y: number }, color: string, width: number): void {
     const angle = Math.atan2(point.y - previous.y, point.x - previous.x)
     const length = 9
     const spread = Math.PI / 7
@@ -776,14 +810,20 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
 
   private resolveControlHeight(control: ModelerElementVariantControl): number {
     const label = control.title ? CONTROL_LABEL_HEIGHT : 0
-    if (control.kind === 'input') return label + INPUT_HEIGHT + CONTROL_BOTTOM_GAP
+    if (control.kind === 'input') {
+      return label + INPUT_HEIGHT + CONTROL_BOTTOM_GAP
+    }
     if (control.kind === 'choice') {
       const width = MENU_WIDTH - MENU_PADDING * 2
       const grid = this.resolveChoiceGrid(control, width)
       return label + grid.rows * CHOICE_CARD_HEIGHT + Math.max(0, grid.rows - 1) * CHOICE_ROW_GAP + CONTROL_BOTTOM_GAP
     }
-    if (control.kind === 'toggle') return this.resolveToggleRowHeight()
-    if (control.kind === 'iconToggle') return 0
+    if (control.kind === 'toggle') {
+      return this.resolveToggleRowHeight()
+    }
+    if (control.kind === 'iconToggle') {
+      return 0
+    }
     return label + this.resolveListHeight(control) + CONTROL_BOTTOM_GAP
   }
 
@@ -791,7 +831,9 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
     let height = 0
     for (let index = 0; index < controls.length; index += 1) {
       const control = controls[index]
-      if (!control) continue
+      if (!control) {
+        continue
+      }
       if (control.kind === 'toggle') {
         const toggles = this.collectToggleRow(controls, index)
         height += this.resolveToggleRowHeight()
@@ -814,7 +856,9 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
     const row: Array<ModelerElementVariantControl> = []
     for (let index = startIndex; index < controls.length; index += 1) {
       const control = controls[index]
-      if (!control || control.kind !== 'toggle') break
+      if (!control || control.kind !== 'toggle') {
+        break
+      }
       row.push(control)
     }
     return row
@@ -822,18 +866,22 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
 
   private resolveHeaderControlsWidth(controls: Array<ModelerElementVariantControl>): number {
     const optionCount = controls.reduce((sum, control) => sum + (control.kind === 'iconToggle' ? control.options.length : 0), 0)
-    if (optionCount === 0) return 0
+    if (optionCount === 0) {
+      return 0
+    }
     return optionCount * HEADER_ICON_SIZE + Math.max(0, optionCount - 1) * HEADER_ICON_GAP
   }
 
   private setupEvents(): void {
-    this.on('mousemove', event => {
+    this.on('mousemove', (event) => {
       const hit = this.hitOption(event)
       if (
         hit.headerOptionId === this.hoveredHeaderOptionId
         && hit.choiceId === this.hoveredChoiceId
         && hit.listOptionId === this.hoveredListOptionId
-      ) return
+      ) {
+        return
+      }
       this.hoveredHeaderOptionId = hit.headerOptionId
       this.hoveredChoiceId = hit.choiceId
       this.hoveredListOptionId = hit.listOptionId
@@ -845,10 +893,12 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
       this.hoveredListOptionId = null
       this.dirty({ render: true })
     })
-    this.on('wheel', event => {
+    this.on('wheel', (event) => {
       const state = this.resolveState()
       const list = state ? this.hitListControl(state.descriptor.controls, event) : null
-      if (!list) return false
+      if (!list) {
+        return false
+      }
       event.preventDefault()
       this.setControlScrollY(list, this.resolveControlScrollY(list) + event.deltaY)
       const hit = this.hitOption(event)
@@ -858,9 +908,11 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
       this.dirty({ render: true })
       return false
     })
-    this.on('mousedown', event => {
+    this.on('mousedown', (event) => {
       const state = this.resolveState()
-      if (!state) return false
+      if (!state) {
+        return false
+      }
       const hit = this.hitOption(event)
       if (hit.control && hit.option) {
         if (hit.control.kind === 'choice' || hit.control.kind === 'iconToggle') {
@@ -904,15 +956,21 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
     listOptionId: string | null
   } {
     const state = this.resolveState()
-    if (!state) return { headerOptionId: null, choiceId: null, listOptionId: null }
+    if (!state) {
+      return { headerOptionId: null, choiceId: null, listOptionId: null }
+    }
     const { x, y } = this.events.getCanvasMousePosition(event)
     const rect = this.resolveMenuRect(state.descriptor.controls)
     const headerHit = this.hitHeaderOption(state.descriptor.headerControls ?? [], rect, x, y)
-    if (headerHit) return { ...headerHit, headerOptionId: headerHit.option.id, choiceId: null, listOptionId: null }
+    if (headerHit) {
+      return { ...headerHit, headerOptionId: headerHit.option.id, choiceId: null, listOptionId: null }
+    }
     let rowY = rect.y + 12 + TITLE_HEIGHT + 10
     for (let controlIndex = 0; controlIndex < state.descriptor.controls.length; controlIndex += 1) {
       const control = state.descriptor.controls[controlIndex]
-      if (!control) continue
+      if (!control) {
+        continue
+      }
       if (control.kind === 'input') {
         rowY += this.resolveControlHeight(control)
         continue
@@ -930,7 +988,9 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
         const grid = this.resolveChoiceGrid(control, controlWidth)
         for (let index = 0; index < control.options.length; index += 1) {
           const option = control.options[index]
-          if (!option) continue
+          if (!option) {
+            continue
+          }
           const col = index % grid.columns
           const row = Math.floor(index / grid.columns)
           const cardX = controlX + col * (grid.cardWidth + CHOICE_CARD_GAP)
@@ -948,7 +1008,9 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
       if (x >= rect.x + MENU_PADDING && x <= rect.x + rect.width - MENU_PADDING && y >= listY && y <= listY + listHeight) {
         const index = Math.floor((y - listY + this.resolveControlScrollY(control)) / LIST_ROW_HEIGHT)
         const option = control.options[index]
-        if (option) return { control, option, headerOptionId: null, choiceId: null, listOptionId: option.id }
+        if (option) {
+          return { control, option, headerOptionId: null, choiceId: null, listOptionId: option.id }
+        }
       }
       rowY += listHeight + CONTROL_BOTTOM_GAP
     }
@@ -958,7 +1020,7 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
   private resolveChoiceGrid(
     control: ModelerElementVariantControl,
     width: number,
-  ): { columns: number; rows: number; cardWidth: number } {
+  ): { columns: number, rows: number, cardWidth: number } {
     const columns = Math.max(1, control.options.length > 4 ? 3 : control.options.length)
     const rows = Math.max(1, Math.ceil(control.options.length / columns))
     return {
@@ -973,12 +1035,16 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
     rect: ModelerRect,
     pointerX: number,
     pointerY: number,
-  ): { control: ModelerElementVariantControl; option: ModelerElementVariantOption } | null {
-    if (controls.length === 0) return null
+  ): { control: ModelerElementVariantControl, option: ModelerElementVariantOption } | null {
+    if (controls.length === 0) {
+      return null
+    }
     let x = rect.x + rect.width - MENU_PADDING - this.resolveHeaderControlsWidth(controls)
     const y = rect.y + 10
     for (const control of controls) {
-      if (control.kind !== 'iconToggle') continue
+      if (control.kind !== 'iconToggle') {
+        continue
+      }
       for (const option of control.options) {
         if (pointerX >= x && pointerX <= x + HEADER_ICON_SIZE && pointerY >= y && pointerY <= y + HEADER_ICON_SIZE) {
           return { control, option }
@@ -1069,7 +1135,9 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
     let rowY = rect.y + 12 + TITLE_HEIGHT + 10
     for (let controlIndex = 0; controlIndex < controls.length; controlIndex += 1) {
       const control = controls[controlIndex]
-      if (!control) continue
+      if (!control) {
+        continue
+      }
       if (control.kind === 'input') {
         rowY += this.resolveControlHeight(control)
         continue
@@ -1101,7 +1169,6 @@ export class ElementVariantMenu<E extends EventList = Record<string, any>>
   private close(): void {
     this.props.onClose?.()
   }
-
 }
 
 export const MODELER_ELEMENT_VARIANT_MENU_DESCRIPTOR = createNovaDecoratedComponentDescriptor<

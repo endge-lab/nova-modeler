@@ -1,10 +1,10 @@
 import type { ModelerElementDefinition } from '@/domain/types'
+import type { BpmnTaskElement } from '@/elements/bpmn/task/bpmn-task.types'
 import {
   BpmnActivityVariantProvider,
-  resolveBpmnActivityVariantData as resolveBpmnTaskVariantData,
   resolveBpmnTaskTypeIcon,
+  resolveBpmnActivityVariantData as resolveBpmnTaskVariantData,
 } from '@/elements/bpmn/activity/bpmn-activity.variants'
-import type { BpmnTaskElement } from '@/elements/bpmn/task/bpmn-task.types'
 
 export type { BpmnActivityVariantData as BpmnTaskVariantData } from '@/elements/bpmn/activity/bpmn-activity.variants'
 

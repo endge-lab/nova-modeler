@@ -1,26 +1,27 @@
-import {
-  NovaComponent,
-  NovaComponentNode,
-  Prop,
-  createNovaDecoratedComponentDescriptor,
-  type NovaApp,
-  type NovaComponentDescriptor,
-  type NovaSchema,
-  type NovaSurface,
-} from '@endge/nova'
+import type { NovaApp, NovaComponentDescriptor, NovaSchema, NovaSurface } from '@endge/nova'
 import type { EventList } from '@endge/utils'
-import { Modeler } from '@/config/schema.config'
-import {
-  MODELER_THEME_FALLBACKS,
-  MODELER_THEME_TOKENS,
-  type ModelerThemeTokenKey,
-} from '@/config/theme.config'
+import type { ModelerThemeTokenKey } from '@/config/theme.config'
 import type { ModelerViewport } from '@/domain/types'
-import { resolveBpmnTaskTypeIcon } from '@/elements/bpmn/task/bpmn-task.variants'
 import type {
   BpmnTaskElement,
   BpmnTaskElementData,
 } from '@/elements/bpmn/task/bpmn-task.types'
+import {
+  createNovaDecoratedComponentDescriptor,
+
+  NovaComponent,
+
+  NovaComponentNode,
+
+  Prop,
+} from '@endge/nova'
+import { Modeler } from '@/config/schema.config'
+import {
+  MODELER_THEME_FALLBACKS,
+  MODELER_THEME_TOKENS,
+
+} from '@/config/theme.config'
+import { resolveBpmnTaskTypeIcon } from '@/elements/bpmn/task/bpmn-task.variants'
 
 export interface BpmnTaskViewProps {
   element: BpmnTaskElement
@@ -240,7 +241,9 @@ export class BpmnTaskView<E extends EventList = Record<string, any>>
     }]
 
     this.appendTaskTypeMarker(schema)
-    if (!this.props.hideName) this.appendTaskName(schema, data.name)
+    if (!this.props.hideName) {
+      this.appendTaskName(schema, data.name)
+    }
     this.appendBottomMarkers(schema)
     return schema
   }
@@ -248,7 +251,9 @@ export class BpmnTaskView<E extends EventList = Record<string, any>>
   private appendTaskTypeMarker(schema: NovaSchema): void {
     const data = this.resolveTaskData()
     const icon = resolveBpmnTaskTypeIcon(data.taskType)
-    if (!icon) return
+    if (!icon) {
+      return
+    }
     const size = Math.max(1, Math.min(22, Math.min(this.width, this.height) * 0.24))
     const insetX = this.width * 0.083
     const insetY = this.height * 0.112
@@ -302,18 +307,28 @@ export class BpmnTaskView<E extends EventList = Record<string, any>>
       data.isForCompensation ? 'compensation' : null,
       data.taskType === 'receive' && data.instantiate ? 'instantiate' : null,
     ].filter(Boolean) as Array<string>
-    if (markers.length === 0) return
+    if (markers.length === 0) {
+      return
+    }
     const gap = 6
     const markerWidth = 16
     const totalWidth = markerWidth * markers.length + gap * (markers.length - 1)
     let x = -totalWidth / 2
     const y = this.height / 2 - 15
-    markers.forEach(marker => {
-      if (marker === 'standard') this.appendLoopMarker(schema, x, y)
-      else if (marker === 'multiInstanceParallel') this.appendMultiInstanceMarker(schema, x, y, true)
-      else if (marker === 'multiInstanceSequential') this.appendMultiInstanceMarker(schema, x, y, false)
-      else if (marker === 'compensation') this.appendCompensationMarker(schema, x, y)
-      else this.appendInstantiateMarker(schema, x, y)
+    markers.forEach((marker) => {
+      if (marker === 'standard') {
+        this.appendLoopMarker(schema, x, y)
+      }
+      else if (marker === 'multiInstanceParallel') {
+        this.appendMultiInstanceMarker(schema, x, y, true)
+      }
+      else if (marker === 'multiInstanceSequential') {
+        this.appendMultiInstanceMarker(schema, x, y, false)
+      }
+      else if (marker === 'compensation') {
+        this.appendCompensationMarker(schema, x, y)
+      }
+      else { this.appendInstantiateMarker(schema, x, y) }
       x += markerWidth + gap
     })
   }
@@ -344,7 +359,8 @@ export class BpmnTaskView<E extends EventList = Record<string, any>>
     for (let index = 0; index < 3; index += 1) {
       if (vertical) {
         schema.push({ type: 'line', x1: x + 4 + index * 4, y1: y + 3, x2: x + 4 + index * 4, y2: y + 13, styles: { color, width: 1.7 } })
-      } else {
+      }
+      else {
         schema.push({ type: 'line', x1: x + 3, y1: y + 4 + index * 4, x2: x + 13, y2: y + 4 + index * 4, styles: { color, width: 1.7 } })
       }
     }
@@ -415,15 +431,17 @@ function resolveBpmnTaskNameLineHeight(height: number): number {
 function buildTaskNameSourceLines(
   text: string,
   width: number,
-  style: { fontFamily: string; fontSize: number; fontWeight: string },
+  style: { fontFamily: string, fontSize: number, fontWeight: string },
   limit: number,
-): Array<{ text: string; width: number }> {
-  const lines: Array<{ text: string; width: number }> = []
+): Array<{ text: string, width: number }> {
+  const lines: Array<{ text: string, width: number }> = []
   const paragraphs = normalizeLineEndings(text).split('\n')
   for (const paragraph of paragraphs) {
     const wrapped = wrapTaskNameParagraph(paragraph, width, style)
     lines.push(...wrapped)
-    if (lines.length >= limit) return lines.slice(0, limit)
+    if (lines.length >= limit) {
+      return lines.slice(0, limit)
+    }
   }
   return lines
 }
@@ -431,11 +449,13 @@ function buildTaskNameSourceLines(
 function wrapTaskNameParagraph(
   paragraph: string,
   width: number,
-  style: { fontFamily: string; fontSize: number; fontWeight: string },
-): Array<{ text: string; width: number }> {
+  style: { fontFamily: string, fontSize: number, fontWeight: string },
+): Array<{ text: string, width: number }> {
   const words = paragraph.replace(/[ \t\f\v]+/g, ' ').trim().split(' ').filter(Boolean)
-  if (words.length === 0) return [createTaskNameLine('', style)]
-  const lines: Array<{ text: string; width: number }> = []
+  if (words.length === 0) {
+    return [createTaskNameLine('', style)]
+  }
+  const lines: Array<{ text: string, width: number }> = []
   let current = ''
 
   for (const word of words) {
@@ -461,57 +481,67 @@ function wrapTaskNameParagraph(
       const broken = wrapTaskNameByCharacters(word, width, style)
       lines.push(...broken.slice(0, -1))
       current = broken[broken.length - 1]?.text ?? ''
-    } else {
+    }
+    else {
       current = word
     }
   }
 
-  if (current.length > 0 || lines.length === 0) lines.push(createTaskNameLine(current, style))
+  if (current.length > 0 || lines.length === 0) {
+    lines.push(createTaskNameLine(current, style))
+  }
   return lines
 }
 
 function wrapTaskNameByCharacters(
   text: string,
   width: number,
-  style: { fontFamily: string; fontSize: number; fontWeight: string },
-): Array<{ text: string; width: number }> {
-  const lines: Array<{ text: string; width: number }> = []
+  style: { fontFamily: string, fontSize: number, fontWeight: string },
+): Array<{ text: string, width: number }> {
+  const lines: Array<{ text: string, width: number }> = []
   let current = ''
   for (const char of Array.from(text)) {
     const candidate = `${current}${char}`
     if (current.length > 0 && measureTaskNameText(candidate, style) > width) {
       lines.push(createTaskNameLine(current, style))
       current = char
-    } else {
+    }
+    else {
       current = candidate
     }
   }
-  if (current.length > 0 || lines.length === 0) lines.push(createTaskNameLine(current, style))
+  if (current.length > 0 || lines.length === 0) {
+    lines.push(createTaskNameLine(current, style))
+  }
   return lines
 }
 
 function fitTaskNameWithEllipsis(
   text: string,
   width: number,
-  style: { fontFamily: string; fontSize: number; fontWeight: string },
+  style: { fontFamily: string, fontSize: number, fontWeight: string },
 ): string {
-  if (width <= 0 || measureTaskNameText(TASK_NAME_ELLIPSIS, style) > width) return ''
+  if (width <= 0 || measureTaskNameText(TASK_NAME_ELLIPSIS, style) > width) {
+    return ''
+  }
   const chars = Array.from(text)
   let left = 0
   let right = chars.length
   while (left < right) {
     const middle = Math.ceil((left + right) / 2)
     const candidate = `${chars.slice(0, middle).join('')}${TASK_NAME_ELLIPSIS}`
-    if (measureTaskNameText(candidate, style) <= width) left = middle
-    else right = middle - 1
+    if (measureTaskNameText(candidate, style) <= width) {
+      left = middle
+    }
+    else { right = middle - 1 }
   }
   return `${chars.slice(0, left).join('')}${TASK_NAME_ELLIPSIS}`
 }
 
 function createTaskNameLine(
   text: string,
-  style: { fontFamily: string; fontSize: number; fontWeight: string },
-): { text: string; width: number } {
+  style: { fontFamily: string, fontSize: number, fontWeight: string },
+): { text: string, width: number } {
   return {
     text,
     width: measureTaskNameText(text, style),
@@ -522,12 +552,16 @@ let taskNameMeasureCanvas: HTMLCanvasElement | null = null
 
 function measureTaskNameText(
   text: string,
-  style: { fontFamily: string; fontSize: number; fontWeight: string },
+  style: { fontFamily: string, fontSize: number, fontWeight: string },
 ): number {
-  if (typeof document === 'undefined') return Math.ceil(text.length * style.fontSize * 0.6)
+  if (typeof document === 'undefined') {
+    return Math.ceil(text.length * style.fontSize * 0.6)
+  }
   taskNameMeasureCanvas ??= document.createElement('canvas')
   const context = taskNameMeasureCanvas.getContext('2d')
-  if (!context) return Math.ceil(text.length * style.fontSize * 0.6)
+  if (!context) {
+    return Math.ceil(text.length * style.fontSize * 0.6)
+  }
   context.font = `normal ${style.fontWeight} ${style.fontSize}px ${style.fontFamily}`
   return Math.ceil(context.measureText(text).width)
 }

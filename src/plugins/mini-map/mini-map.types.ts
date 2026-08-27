@@ -2,13 +2,13 @@ import type { ModelerOverlayPlacement } from '@/domain/types/index'
 
 export interface MiniMapController {
   readonly visible: boolean
-  setVisible(visible: boolean): void
-  toggle(): void
-  __bind(adapter: MiniMapControllerAdapter): () => void
+  setVisible: (visible: boolean) => void
+  toggle: () => void
+  __bind: (adapter: MiniMapControllerAdapter) => () => void
 }
 
 export interface MiniMapControllerAdapter {
-  invalidate(): void
+  invalidate: () => void
 }
 
 export interface MiniMapControllerOptions {

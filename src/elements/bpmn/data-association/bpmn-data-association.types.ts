@@ -17,8 +17,8 @@ export interface BpmnDataAssociationElementData extends Record<string, unknown> 
 
 export type BpmnDataAssociationElement = ModelerEdgeElement<BpmnDataAssociationElementData>
 
-export type BpmnDataAssociationElementInput =
-  ModelerElementInput<Partial<BpmnDataAssociationElementData>> & {
+export type BpmnDataAssociationElementInput
+  = ModelerElementInput<Partial<BpmnDataAssociationElementData>> & {
     source?: ModelerEdgeEndpoint
     target?: ModelerEdgeEndpoint
     waypoints?: Array<ModelerEdgeWaypoint>

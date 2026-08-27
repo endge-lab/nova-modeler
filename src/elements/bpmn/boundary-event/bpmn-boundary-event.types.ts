@@ -1,21 +1,21 @@
 import type {
-  BpmnEventDirection,
-  BpmnEventTrigger,
-} from '@/elements/bpmn/event/bpmn-event.types'
-import type {
   ModelerElement,
   ModelerElementInput,
 } from '@/domain/types/index'
+import type {
+  BpmnEventDirection,
+  BpmnEventTrigger,
+} from '@/elements/bpmn/event/bpmn-event.types'
 
-export type BpmnBoundaryEventTrigger =
-  | 'message'
-  | 'timer'
-  | 'error'
-  | 'escalation'
-  | 'cancel'
-  | 'compensation'
-  | 'conditional'
-  | 'signal'
+export type BpmnBoundaryEventTrigger
+  = | 'message'
+    | 'timer'
+    | 'error'
+    | 'escalation'
+    | 'cancel'
+    | 'compensation'
+    | 'conditional'
+    | 'signal'
 
 export interface BpmnBoundaryEventElementData extends Record<string, unknown> {
   attachedToRef: string
@@ -31,8 +31,8 @@ export interface BpmnBoundaryEventElementData extends Record<string, unknown> {
 
 export type BpmnBoundaryEventElement = ModelerElement<BpmnBoundaryEventElementData>
 
-export type BpmnBoundaryEventElementInput =
-  ModelerElementInput<Partial<BpmnBoundaryEventElementData>> & {
+export type BpmnBoundaryEventElementInput
+  = ModelerElementInput<Partial<BpmnBoundaryEventElementData>> & {
     attachedToRef?: string
     trigger?: BpmnEventTrigger | BpmnBoundaryEventTrigger
     direction?: BpmnEventDirection

@@ -1,22 +1,23 @@
-import {
-  NovaComponent,
-  NovaComponentNode,
-  Prop,
-  createNovaDecoratedComponentDescriptor,
-  type NovaApp,
-  type NovaComponentDescriptor,
-  type NovaSchema,
-  type NovaSurface,
-} from '@endge/nova'
+import type { NovaApp, NovaComponentDescriptor, NovaSchema, NovaSurface } from '@endge/nova'
 import type { EventList } from '@endge/utils'
+import type { ModelerThemeTokenKey } from '@/config/theme.config'
+import type { ModelerViewport } from '@/domain/types'
+import type { BpmnGroupElement } from '@/elements/bpmn/artifacts/group/bpmn-group.types'
+import {
+  createNovaDecoratedComponentDescriptor,
+
+  NovaComponent,
+
+  NovaComponentNode,
+
+  Prop,
+} from '@endge/nova'
 import { Modeler } from '@/config/schema.config'
 import {
   MODELER_THEME_FALLBACKS,
   MODELER_THEME_TOKENS,
-  type ModelerThemeTokenKey,
+
 } from '@/config/theme.config'
-import type { ModelerViewport } from '@/domain/types'
-import type { BpmnGroupElement } from '@/elements/bpmn/artifacts/group/bpmn-group.types'
 
 export interface BpmnGroupViewProps {
   element: BpmnGroupElement
@@ -235,10 +236,14 @@ export function resolveBpmnGroupNameLayout(input: {
 let bpmnGroupNameMeasureCanvas: HTMLCanvasElement | null = null
 
 function measureBpmnGroupNameText(text: string, fontSize = BPMN_GROUP_NAME_FONT_SIZE): number {
-  if (typeof document === 'undefined') return Math.ceil(text.length * fontSize * 0.6)
+  if (typeof document === 'undefined') {
+    return Math.ceil(text.length * fontSize * 0.6)
+  }
   bpmnGroupNameMeasureCanvas ??= document.createElement('canvas')
   const context = bpmnGroupNameMeasureCanvas.getContext('2d')
-  if (!context) return Math.ceil(text.length * fontSize * 0.6)
+  if (!context) {
+    return Math.ceil(text.length * fontSize * 0.6)
+  }
   context.font = `normal ${BPMN_GROUP_NAME_FONT_WEIGHT} ${fontSize}px ${BPMN_GROUP_NAME_FONT_FAMILY}`
   return Math.ceil(context.measureText(text).width)
 }

@@ -1,34 +1,34 @@
-import {
-  Nova,
-  Reactive,
-  Store as NovaStore,
-} from '@endge/nova'
 import type {
-  ModelerEdgeElement,
-  ModelerElement,
   BpmnGlobalDefinition,
   BpmnGlobalDefinitionInput,
   ModelerCanvas,
   ModelerCommand,
+  ModelerEdgeElement,
+  ModelerElement,
   ModelerElementPatch,
-  ModelerRect,
-  ModelerStore,
+  ModelerElementRegistry,
   ModelerModel,
   ModelerModelInput,
+  ModelerRect,
+  ModelerStore,
   ModelerViewport,
 } from '@/domain/types'
-import { isModelerEdgeElement } from '@/domain/types'
+import {
+  Nova,
+  Store as NovaStore,
+  Reactive,
+} from '@endge/nova'
 import {
   DEFAULT_MODELER_CANVAS,
   DEFAULT_MODELER_VIEWPORT,
 } from '@/config/model.config'
-import type { ModelerElementRegistry } from '@/domain/types'
-import { createModelerElementRegistry } from '@/model/ElementRegistry'
+import { isModelerEdgeElement } from '@/domain/types'
 import { isBpmnBoundaryEventAttachedTo } from '@/elements/bpmn/boundary-event/bpmn-boundary-event.factory'
 import {
   cloneBpmnGlobalDefinition,
   normalizeBpmnGlobalDefinitions,
 } from '@/model/bpmn-definitions'
+import { createModelerElementRegistry } from '@/model/ElementRegistry'
 
 @NovaStore()
 export class ViewportStore {
@@ -243,9 +243,15 @@ export class Store implements ModelerStore {
 
   setViewport(viewport: Partial<ModelerViewport>): void {
     Nova.batchStore(this, () => {
-      if (viewport.x !== undefined) this.viewport.x = viewport.x
-      if (viewport.y !== undefined) this.viewport.y = viewport.y
-      if (viewport.scale !== undefined) this.viewport.scale = viewport.scale
+      if (viewport.x !== undefined) {
+        this.viewport.x = viewport.x
+      }
+      if (viewport.y !== undefined) {
+        this.viewport.y = viewport.y
+      }
+      if (viewport.scale !== undefined) {
+        this.viewport.scale = viewport.scale
+      }
       this.version += 1
       this.viewportVersion += 1
     })
@@ -281,7 +287,9 @@ export class Store implements ModelerStore {
 
   deleteElements(ids: Array<string>): void {
     const deleteIds = new Set(ids)
-    if (deleteIds.size === 0) return
+    if (deleteIds.size === 0) {
+      return
+    }
     Nova.batchStore(this, () => {
       this.elements.items
         .filter(element => this.shouldDeleteWithConnectedNode(element, deleteIds))
@@ -298,14 +306,18 @@ export class Store implements ModelerStore {
   }
 
   private shouldDeleteWithConnectedNode(element: ModelerElement, deleteIds: Set<string>): boolean {
-    if (!isModelerEdgeElement(element)) return false
+    if (!isModelerEdgeElement(element)) {
+      return false
+    }
     return Boolean(element.source.elementId && deleteIds.has(element.source.elementId))
       || Boolean(element.target.elementId && deleteIds.has(element.target.elementId))
   }
 
   private shouldDeleteWithAttachedNode(element: ModelerElement, deleteIds: Set<string>): boolean {
     for (const id of deleteIds) {
-      if (isBpmnBoundaryEventAttachedTo(element, id)) return true
+      if (isBpmnBoundaryEventAttachedTo(element, id)) {
+        return true
+      }
     }
     return false
   }
@@ -313,8 +325,10 @@ export class Store implements ModelerStore {
   replaceElement(id: string, nextElement: ModelerElement): void {
     Nova.batchStore(this, () => {
       const nextId = nextElement.id
-      this.elements.set(this.elements.items.map(element => {
-        if (element.id !== id) return element
+      this.elements.set(this.elements.items.map((element) => {
+        if (element.id !== id) {
+          return element
+        }
         return this.normalizeElement(nextElement)
       }))
       if (nextId !== id) {
@@ -328,8 +342,10 @@ export class Store implements ModelerStore {
 
   patchElement(id: string, patch: ModelerElementPatch): void {
     Nova.batchStore(this, () => {
-      this.elements.set(this.elements.items.map(element => {
-        if (element.id !== id) return element
+      this.elements.set(this.elements.items.map((element) => {
+        if (element.id !== id) {
+          return element
+        }
         return this.normalizeElement({
           ...element,
           ...patch,
@@ -344,10 +360,14 @@ export class Store implements ModelerStore {
 
   resizeElement(id: string, bounds: Partial<ModelerRect>): void {
     Nova.batchStore(this, () => {
-      this.elements.set(this.elements.items.map(element => {
-        if (element.id !== id) return element
+      this.elements.set(this.elements.items.map((element) => {
+        if (element.id !== id) {
+          return element
+        }
         const resize = this.elementRegistry.get(element.type)?.capabilities?.resizable
-        if (!resize) return element
+        if (!resize) {
+          return element
+        }
         const minWidth = resize ? resize.minWidth ?? 1 : 1
         const minHeight = resize ? resize.minHeight ?? 1 : 1
         return this.normalizeElement({
@@ -449,7 +469,9 @@ export const normalizeModelerModel = Store.normalize
 export const applyModelerCommand = Store.applyCommand
 
 function cloneElement(element: ModelerElement): ModelerElement {
-  if (isModelerEdgeElement(element)) return cloneEdgeElement(element)
+  if (isModelerEdgeElement(element)) {
+    return cloneEdgeElement(element)
+  }
   return {
     ...element,
     data: element.data ? { ...element.data } : {},

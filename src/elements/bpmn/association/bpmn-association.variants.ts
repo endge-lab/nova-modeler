@@ -1,6 +1,9 @@
 import type {
   ModelerElementVariantProvider,
 } from '@/domain/types/index'
+import type {
+  BpmnAssociationElement,
+} from '@/elements/bpmn/association/bpmn-association.types'
 import { BPMN_ASSOCIATION_TYPE } from '@/elements/bpmn/association/bpmn-association.factory'
 import {
   applyBpmnConnectionVariant,
@@ -8,9 +11,6 @@ import {
   getBpmnConnectionVariantDescriptor,
   updateBpmnConnectionVariantDraft,
 } from '@/elements/bpmn/bpmn-connection-variants'
-import type {
-  BpmnAssociationElement,
-} from '@/elements/bpmn/association/bpmn-association.types'
 
 export const BpmnAssociationVariantProvider: ModelerElementVariantProvider<BpmnAssociationElement> = {
   id: 'bpmn.association.variants',

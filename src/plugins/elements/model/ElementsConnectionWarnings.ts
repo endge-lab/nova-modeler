@@ -27,7 +27,9 @@ export class ElementsConnectionWarnings {
   }
 
   clear(): void {
-    if (!this.warning) return
+    if (!this.warning) {
+      return
+    }
     this.warning = null
     this.notify()
   }
@@ -40,6 +42,8 @@ export class ElementsConnectionWarnings {
   }
 
   private notify(): void {
-    for (const listener of this.listeners) listener()
+    for (const listener of this.listeners) {
+      listener()
+    }
   }
 }

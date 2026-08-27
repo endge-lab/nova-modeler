@@ -1,31 +1,29 @@
-import {
-  NovaComponent,
-  NovaComponentNode,
-  createNovaDecoratedComponentDescriptor,
-  type NovaApp,
-  type NovaComponentDescriptor,
-  type NovaSchema,
-  type NovaSurface,
-} from '@endge/nova'
+import type { NovaApp, NovaComponentDescriptor, NovaSchema, NovaSurface } from '@endge/nova'
+import type { NovaUiLayoutConstraints, NovaUiLayoutMeasure, NovaUiLayoutRect, RootApi } from '@endge/nova-ui-kit'
 import type { EventList } from '@endge/utils'
+import type { ModelerController, ModelerValidationResult } from '@/domain/types/index'
 import {
-  NOVA_UI_LAYOUT_TARGET,
+  createNovaDecoratedComponentDescriptor,
+
+  NovaComponent,
+
+  NovaComponentNode,
+
+} from '@endge/nova'
+import {
   findNovaUiRoot,
-  type NovaUiLayoutConstraints,
-  type NovaUiLayoutMeasure,
-  type NovaUiLayoutRect,
-  type RootApi,
+  NOVA_UI_LAYOUT_TARGET,
+
 } from '@endge/nova-ui-kit'
 import { MODELER_ASSETS } from '@/assets/modeler-assets'
 import { Modeler } from '@/config/schema.config'
 import {
-  MODELER_BPMN_VALIDATION_DIALOG_TYPE,
   MODELER_BPMN_VALIDATION_DIALOG_HEIGHT,
   MODELER_BPMN_VALIDATION_DIALOG_MIN_HEIGHT,
   MODELER_BPMN_VALIDATION_DIALOG_MIN_WIDTH,
+  MODELER_BPMN_VALIDATION_DIALOG_TYPE,
   MODELER_BPMN_VALIDATION_DIALOG_WIDTH,
-  type ModelerController,
-  type ModelerValidationResult,
+
 } from '@/domain/types/index'
 import { BPMN_VALIDATION_RESULT_KEY } from '@/plugins/bpmn-validation/BpmnValidationPlugin'
 
@@ -136,7 +134,9 @@ export class BpmnValidationBadge<E extends EventList = Record<string, any>>
       interactive: this.props.visible,
       zIndex: this.props.zIndex,
     })
-    if (changed) this.dirty({ matrix: true, render: true })
+    if (changed) {
+      this.dirty({ matrix: true, render: true })
+    }
     return changed
   }
 
@@ -229,9 +229,11 @@ export class BpmnValidationBadge<E extends EventList = Record<string, any>>
     this.on('mouseenter', () => this.syncCursor())
     this.on('mousemove', () => this.syncCursor())
     this.on('mouseleave', () => this.setCursor(null))
-    this.on('mousedown', event => {
+    this.on('mousedown', (event) => {
       const result = this.resolveResult()
-      if (result.status !== 'invalid') return false
+      if (result.status !== 'invalid') {
+        return false
+      }
       this.resolveRootApi()?.openDialog({
         id: this.props.dialogId,
         type: this.props.dialogType,

@@ -38,7 +38,9 @@ export class ElementRegistry implements ModelerElementRegistry {
    */
   require(type: string): ModelerElementDefinition {
     const definition = this.get(type)
-    if (!definition) throw new Error(`[ElementRegistry] Element definition "${type}" is not registered.`)
+    if (!definition) {
+      throw new Error(`[ElementRegistry] Element definition "${type}" is not registered.`)
+    }
     return definition
   }
 

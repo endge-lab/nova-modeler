@@ -1,9 +1,13 @@
-import { Modeler } from '@/config/schema.config'
 import type {
   ModelerElementDefinition,
   ModelerElementRenderContext,
   ModelerPoint,
 } from '@/domain/types/index'
+import type {
+  BpmnTextAnnotationElement,
+  BpmnTextAnnotationElementInput,
+} from '@/elements/bpmn/artifacts/text-annotation/bpmn-text-annotation.types'
+import { Modeler } from '@/config/schema.config'
 import {
   BPMN_TEXT_ANNOTATION_DEFAULT_HEIGHT,
   BPMN_TEXT_ANNOTATION_DEFAULT_WIDTH,
@@ -14,10 +18,6 @@ import {
 } from '@/elements/bpmn/artifacts/text-annotation/bpmn-text-annotation.factory'
 import { createBpmnTextAnnotationPorts } from '@/elements/bpmn/artifacts/text-annotation/bpmn-text-annotation.ports'
 import { BpmnTextAnnotationVariantProvider } from '@/elements/bpmn/artifacts/text-annotation/bpmn-text-annotation.variants'
-import type {
-  BpmnTextAnnotationElement,
-  BpmnTextAnnotationElementInput,
-} from '@/elements/bpmn/artifacts/text-annotation/bpmn-text-annotation.types'
 
 export const BpmnTextAnnotationDefinition: ModelerElementDefinition<BpmnTextAnnotationElement> = {
   type: BPMN_TEXT_ANNOTATION_TYPE,

@@ -11,7 +11,9 @@ export class ActionRegistry {
   register(definition: ModelerActionDefinition): () => void {
     this.items.set(definition.id, definition)
     return () => {
-      if (this.items.get(definition.id) === definition) this.items.delete(definition.id)
+      if (this.items.get(definition.id) === definition) {
+        this.items.delete(definition.id)
+      }
     }
   }
 
@@ -25,7 +27,9 @@ export class ActionRegistry {
 
   run(id: string): boolean {
     const definition = this.items.get(id)
-    if (!definition) return false
+    if (!definition) {
+      return false
+    }
     definition.run(this.getContext())
     return true
   }

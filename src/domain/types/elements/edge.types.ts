@@ -1,5 +1,5 @@
-import type { ModelerPoint } from '@/domain/types/model/geometry.types'
 import type { ModelerElement } from '@/domain/types/elements/element.types'
+import type { ModelerPoint } from '@/domain/types/model/geometry.types'
 
 export interface ModelerEdgeEndpoint {
   elementId?: string

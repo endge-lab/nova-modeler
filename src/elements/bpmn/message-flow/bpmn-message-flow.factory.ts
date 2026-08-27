@@ -4,6 +4,11 @@ import type {
   ModelerElement,
   ModelerPoint,
 } from '@/domain/types/index'
+import type {
+  BpmnMessageFlowElement,
+  BpmnMessageFlowElementInput,
+} from '@/elements/bpmn/message-flow/bpmn-message-flow.types'
+import type { BpmnParticipantElement } from '@/elements/bpmn/participant/bpmn-participant.types'
 import { BPMN_BOUNDARY_EVENT_TYPE } from '@/elements/bpmn/boundary-event/bpmn-boundary-event.factory'
 import { BPMN_CALL_ACTIVITY_TYPE } from '@/elements/bpmn/call-activity/bpmn-call-activity.factory'
 import { BPMN_EVENT_TYPE } from '@/elements/bpmn/event/bpmn-event.factory'
@@ -11,13 +16,8 @@ import {
   BPMN_PARTICIPANT_TYPE,
   isElementInsideBpmnParticipantContent,
 } from '@/elements/bpmn/participant/bpmn-participant.factory'
-import type { BpmnParticipantElement } from '@/elements/bpmn/participant/bpmn-participant.types'
 import { BPMN_SUB_PROCESS_TYPE } from '@/elements/bpmn/sub-process/bpmn-sub-process.factory'
 import { BPMN_TASK_TYPE } from '@/elements/bpmn/task/bpmn-task.factory'
-import type {
-  BpmnMessageFlowElement,
-  BpmnMessageFlowElementInput,
-} from '@/elements/bpmn/message-flow/bpmn-message-flow.types'
 import { normalizeExternalLabelGeometry } from '@/tools/external-label-geometry'
 
 export const BPMN_MESSAGE_FLOW_TYPE = 'bpmn.messageFlow'
@@ -48,8 +48,12 @@ export function createBpmnMessageFlowElement(input: BpmnMessageFlowElementInput)
 }
 
 export function canConnectBpmnMessageFlow(elements: Array<ModelerElement>, source: ModelerElement, target: ModelerElement): boolean {
-  if (source.id === target.id) return false
-  if (!isBpmnMessageFlowNode(source) || !isBpmnMessageFlowNode(target)) return false
+  if (source.id === target.id) {
+    return false
+  }
+  if (!isBpmnMessageFlowNode(source) || !isBpmnMessageFlowNode(target)) {
+    return false
+  }
   const sourceParticipantId = resolveBpmnMessageFlowParticipantId(elements, source)
   const targetParticipantId = resolveBpmnMessageFlowParticipantId(elements, target)
   return Boolean(sourceParticipantId && targetParticipantId && sourceParticipantId !== targetParticipantId)
@@ -65,7 +69,9 @@ export function isBpmnMessageFlowNode(element: ModelerElement): boolean {
 }
 
 export function resolveBpmnMessageFlowParticipantId(elements: Array<ModelerElement>, element: ModelerElement): string | undefined {
-  if (element.type === BPMN_PARTICIPANT_TYPE) return element.id
+  if (element.type === BPMN_PARTICIPANT_TYPE) {
+    return element.id
+  }
   const participants = elements.filter((item): item is BpmnParticipantElement => item.type === BPMN_PARTICIPANT_TYPE)
   return participants.find(participant => isElementInsideBpmnParticipantContent(element, participant))?.id
 }

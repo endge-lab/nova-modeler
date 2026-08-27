@@ -22,9 +22,13 @@ export class PluginRuntime implements ModelerPluginRuntime {
    * Добавляет plugin в runtime.
    */
   use(plugin: ModelerPlugin): this {
-    if (this.plugins.includes(plugin)) return this
+    if (this.plugins.includes(plugin)) {
+      return this
+    }
     this.plugins.push(plugin)
-    if (this.context) this.setupPlugin(plugin)
+    if (this.context) {
+      this.setupPlugin(plugin)
+    }
     return this
   }
 
@@ -35,10 +39,14 @@ export class PluginRuntime implements ModelerPluginRuntime {
     const plugin = typeof pluginOrId === 'string'
       ? this.plugins.find(item => item.id === pluginOrId)
       : pluginOrId
-    if (!plugin) return this
+    if (!plugin) {
+      return this
+    }
     this.disposePlugin(plugin)
     const index = this.plugins.indexOf(plugin)
-    if (index >= 0) this.plugins.splice(index, 1)
+    if (index >= 0) {
+      this.plugins.splice(index, 1)
+    }
     return this
   }
 
@@ -46,7 +54,9 @@ export class PluginRuntime implements ModelerPluginRuntime {
    * Подключает runtime к Root host-контексту.
    */
   bindRoot(context: ModelerPluginContext): void {
-    if (this.context === context) return
+    if (this.context === context) {
+      return
+    }
     this.unbindRoot()
     this.context = context
     this.plugins.forEach(plugin => this.setupPlugin(plugin))
@@ -73,17 +83,23 @@ export class PluginRuntime implements ModelerPluginRuntime {
    * Подключает один plugin к текущему контексту.
    */
   private setupPlugin(plugin: ModelerPlugin): void {
-    if (!this.context || this.activePlugins.has(plugin)) return
+    if (!this.context || this.activePlugins.has(plugin)) {
+      return
+    }
     const dispose = plugin.setup(this.context)
     this.activePlugins.add(plugin)
-    if (dispose) this.pluginDisposers.set(plugin, dispose)
+    if (dispose) {
+      this.pluginDisposers.set(plugin, dispose)
+    }
   }
 
   /**
    * Отключает один plugin.
    */
   private disposePlugin(plugin: ModelerPlugin): void {
-    if (!this.activePlugins.has(plugin)) return
+    if (!this.activePlugins.has(plugin)) {
+      return
+    }
     this.pluginDisposers.get(plugin)?.()
     this.pluginDisposers.delete(plugin)
     plugin.dispose?.()

@@ -4,6 +4,11 @@ import type {
   ModelerElement,
   ModelerPoint,
 } from '@/domain/types/index'
+import type {
+  BpmnDataAssociationElement,
+  BpmnDataAssociationElementInput,
+  BpmnDataAssociationType,
+} from '@/elements/bpmn/data-association/bpmn-data-association.types'
 import {
   BPMN_CALL_ACTIVITY_TYPE,
 } from '@/elements/bpmn/call-activity/bpmn-call-activity.factory'
@@ -19,11 +24,6 @@ import {
 import {
   BPMN_TASK_TYPE,
 } from '@/elements/bpmn/task/bpmn-task.factory'
-import type {
-  BpmnDataAssociationElement,
-  BpmnDataAssociationElementInput,
-  BpmnDataAssociationType,
-} from '@/elements/bpmn/data-association/bpmn-data-association.types'
 import { normalizeExternalLabelGeometry } from '@/tools/external-label-geometry'
 
 export const BPMN_DATA_ASSOCIATION_TYPE = 'bpmn.dataAssociation'
@@ -72,8 +72,12 @@ export function resolveBpmnDataAssociationType(
   fallback: unknown = 'input',
 ): BpmnDataAssociationType {
   if (source && target) {
-    if (isBpmnDataAssociationDataElement(source) && isBpmnDataAssociationActivityElement(target)) return 'input'
-    if (isBpmnDataAssociationActivityElement(source) && isBpmnDataAssociationDataElement(target)) return 'output'
+    if (isBpmnDataAssociationDataElement(source) && isBpmnDataAssociationActivityElement(target)) {
+      return 'input'
+    }
+    if (isBpmnDataAssociationActivityElement(source) && isBpmnDataAssociationDataElement(target)) {
+      return 'output'
+    }
   }
   return normalizeBpmnDataAssociationType(fallback)
 }

@@ -9,7 +9,7 @@ export interface BpmnDataStoreElementData extends Record<string, unknown> {
 
 export type BpmnDataStoreElement = ModelerElement<BpmnDataStoreElementData>
 
-export type BpmnDataStoreElementInput =
-  ModelerElementInput<Partial<BpmnDataStoreElementData>> & {
+export type BpmnDataStoreElementInput
+  = ModelerElementInput<Partial<BpmnDataStoreElementData>> & {
     name?: string
   }

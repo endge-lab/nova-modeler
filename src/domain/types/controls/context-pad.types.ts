@@ -42,8 +42,8 @@ export interface ContextPadSlotProps {
   context: ModelerController | ModelerPluginContext
   entries: Array<ContextPadEntry>
   position: ContextPadPosition
-  run(entry: ContextPadEntry): void
-  close(): void
+  run: (entry: ContextPadEntry) => void
+  close: () => void
 }
 
 export interface ContextPadLayoutSlotProps extends ContextPadSlotProps {
@@ -67,10 +67,10 @@ export interface ContextPadResolvedProps {
 }
 
 export interface ContextPadApi {
-  close(): void
-  closeMenus(): void
-  setProps(patch: ContextPadProps): void
-  getProps(): Readonly<ContextPadResolvedProps>
+  close: () => void
+  closeMenus: () => void
+  setProps: (patch: ContextPadProps) => void
+  getProps: () => Readonly<ContextPadResolvedProps>
 }
 
 export type ContextPadDescriptor = NovaComponentDescriptor<

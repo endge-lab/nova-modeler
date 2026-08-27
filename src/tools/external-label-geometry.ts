@@ -1,7 +1,9 @@
 import type { ModelerExternalLabelGeometry } from '@/domain/types/index'
 
 export function normalizeExternalLabelGeometry(value: unknown): ModelerExternalLabelGeometry | undefined {
-  if (!value || typeof value !== 'object') return undefined
+  if (!value || typeof value !== 'object') {
+    return undefined
+  }
   const input = value as Partial<ModelerExternalLabelGeometry>
   if (!isFiniteNumber(input.offsetX) || !isFiniteNumber(input.offsetY) || !isFiniteNumber(input.width) || !isFiniteNumber(input.height)) {
     return undefined

@@ -1,15 +1,15 @@
-import { MODELER_ASSETS } from '@/assets/modeler-assets'
 import type {
   ModelerElementVariantProvider,
 } from '@/domain/types'
+import type {
+  BpmnBoundaryEventElement,
+} from '@/elements/bpmn/boundary-event/bpmn-boundary-event.types'
+import { MODELER_ASSETS } from '@/assets/modeler-assets'
 import {
   BPMN_BOUNDARY_EVENT_TRIGGERS,
   BPMN_BOUNDARY_EVENT_TYPE,
   normalizeBpmnBoundaryEventTrigger,
 } from '@/elements/bpmn/boundary-event/bpmn-boundary-event.factory'
-import type {
-  BpmnBoundaryEventElement,
-} from '@/elements/bpmn/boundary-event/bpmn-boundary-event.types'
 import {
   applyBpmnEventDefinitionRefControl,
   createBpmnEventDefinitionRefControls,

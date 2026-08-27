@@ -1,7 +1,7 @@
+import type { ModelerSettingsControllerOptions, ModelerSettingsDialogPayload } from '@/domain/types/index'
 import {
   MODELER_SETTINGS_DIALOG_TYPE,
-  type ModelerSettingsControllerOptions,
-  type ModelerSettingsDialogPayload,
+
 } from '@/domain/types/index'
 
 /**
@@ -55,7 +55,9 @@ export class ModelerSettingsController {
    * Обновляет payload открытого диалога без пересоздания definition.
    */
   update(payload: ModelerSettingsDialogPayload): void {
-    if (!this.isOpen()) return
+    if (!this.isOpen()) {
+      return
+    }
     this.rootResolver()?.updateDialog(this.id, payload)
   }
 

@@ -1,9 +1,9 @@
 import type { ModelerElement } from '@/domain/types/elements/element.types'
+import type { ModelerResizeHandle } from '@/domain/types/interaction/resize.types'
 import type {
   ModelerPoint,
   ModelerRect,
 } from '@/domain/types/model/geometry.types'
-import type { ModelerResizeHandle } from '@/domain/types/interaction/resize.types'
 
 export type ModelerSnapDisableModifier = 'alt' | 'meta' | 'shift' | 'ctrl' | 'none'
 
@@ -19,12 +19,12 @@ export interface ModelerSnapResizeInput {
   handle: ModelerResizeHandle
   gridSize: number
   element: ModelerElement
-  minSize: { minWidth: number; minHeight: number }
+  minSize: { minWidth: number, minHeight: number }
 }
 
 export interface ModelerSnapStrategy {
-  snapPoint(input: ModelerSnapPointInput): ModelerPoint
-  snapResize(input: ModelerSnapResizeInput): ModelerRect
+  snapPoint: (input: ModelerSnapPointInput) => ModelerPoint
+  snapResize: (input: ModelerSnapResizeInput) => ModelerRect
 }
 
 export interface ModelerSnapOptions {
@@ -43,6 +43,6 @@ export interface ModelerSnapRuntimeResizeInput {
   element: ModelerElement
   handle: ModelerResizeHandle
   rawBounds: ModelerRect
-  minSize: { minWidth: number; minHeight: number }
+  minSize: { minWidth: number, minHeight: number }
   event?: MouseEvent
 }

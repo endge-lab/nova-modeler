@@ -1,8 +1,8 @@
 import type {
   NovaComponentDescriptor,
 } from '@endge/nova'
-import type { ModelerController } from '@/domain/types/plugins/controller.types'
 import type { ModelerPoint } from '@/domain/types/model/geometry.types'
+import type { ModelerController } from '@/domain/types/plugins/controller.types'
 
 export interface ElementVariantMenuProps {
   controller?: ModelerController
@@ -23,9 +23,9 @@ export interface ElementVariantMenuResolvedProps {
 }
 
 export interface ElementVariantMenuApi {
-  close(): void
-  setProps(patch: ElementVariantMenuProps): void
-  getProps(): Readonly<ElementVariantMenuResolvedProps>
+  close: () => void
+  setProps: (patch: ElementVariantMenuProps) => void
+  getProps: () => Readonly<ElementVariantMenuResolvedProps>
 }
 
 export type ElementVariantMenuDescriptor = NovaComponentDescriptor<

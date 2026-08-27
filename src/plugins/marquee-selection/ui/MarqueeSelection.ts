@@ -1,24 +1,24 @@
-import {
-  NovaComponent,
-  NovaComponentNode,
-  Prop,
-  createNovaDecoratedComponentDescriptor,
-  type NovaApp,
-  type NovaComponentDescriptor,
-  type NovaSchema,
-  type NovaSurface,
-} from '@endge/nova'
+import type { NovaApp, NovaComponentDescriptor, NovaSchema, NovaSurface } from '@endge/nova'
 import type { EventList } from '@endge/utils'
-import { Modeler } from '@/config/schema.config'
-import { MODELER_CONTEXT } from '@/config/context.config'
 import type {
   ModelerElement,
   ModelerPoint,
   ModelerRect,
 } from '@/domain/types/index'
+import {
+  createNovaDecoratedComponentDescriptor,
+
+  NovaComponent,
+
+  NovaComponentNode,
+
+  Prop,
+} from '@endge/nova'
+import { MODELER_CONTEXT } from '@/config/context.config'
+import { Modeler } from '@/config/schema.config'
 import { SelectionRuntime } from '@/model/selection/SelectionRuntime'
-import { eventPoint } from '@/tools/event-point'
 import { createMarqueeSchema } from '@/plugins/marquee-selection/marquee-selection-schema'
+import { eventPoint } from '@/tools/event-point'
 
 export interface MarqueeSelectionProps {
   enabled?: boolean
@@ -53,7 +53,7 @@ export class MarqueeSelection<E extends EventList = Record<string, any>>
   @Prop.boolean({ default: true })
   declare enabled: boolean
 
-  private draft: { start: ModelerPoint; current: ModelerPoint } | null = null
+  private draft: { start: ModelerPoint, current: ModelerPoint } | null = null
   private disposeGesture: (() => void) | undefined
 
   constructor(
@@ -105,14 +105,20 @@ export class MarqueeSelection<E extends EventList = Record<string, any>>
 
   private registerGesture(): void {
     const context = this.inject(MODELER_CONTEXT)
-    if (!context) return
+    if (!context) {
+      return
+    }
     this.disposeGesture = context.gestures.add({
       id: `${this.componentId}:gesture`,
       priority: 80,
       hitTest: (ctx, event, target) => {
-        if (!this.props.enabled || event.button !== 0) return false
+        if (!this.props.enabled || event.button !== 0) {
+          return false
+        }
         const marqueeActive = ctx.tools.getActiveId() === 'marqueeSelection'
-        if (marqueeActive) return true
+        if (marqueeActive) {
+          return true
+        }
         return target.type === 'canvas'
           && SelectionRuntime.shouldStartMarquee(event, ctx.getOptions().interaction?.selection)
       },
@@ -123,13 +129,17 @@ export class MarqueeSelection<E extends EventList = Record<string, any>>
         return false
       },
       onPointerMove: (_ctx, event) => {
-        if (!this.draft) return
+        if (!this.draft) {
+          return
+        }
         this.draft = { ...this.draft, current: eventPoint(event) }
         this.dirty({ render: true })
         return false
       },
       onPointerUp: (ctx, event) => {
-        if (!this.draft) return
+        if (!this.draft) {
+          return
+        }
         const rect = resolveRect(this.draft.start, this.draft.current)
         this.draft = null
         const hitIds = rect.width >= this.props.minDragPx || rect.height >= this.props.minDragPx
@@ -145,7 +155,9 @@ export class MarqueeSelection<E extends EventList = Record<string, any>>
           options: ctx.getOptions().interaction?.selection,
         })
         ctx.applyCommand({ type: 'select', ids })
-        if (ctx.tools.getActiveId() === 'marqueeSelection') ctx.tools.deactivate('marqueeSelection')
+        if (ctx.tools.getActiveId() === 'marqueeSelection') {
+          ctx.tools.deactivate('marqueeSelection')
+        }
         this.props.onSelectionComplete?.(ids)
         this.dirty({ render: true })
         return false

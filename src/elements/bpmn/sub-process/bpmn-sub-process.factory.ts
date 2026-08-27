@@ -1,9 +1,9 @@
-import { normalizeBpmnTaskLoopType } from '@/elements/bpmn/task/bpmn-task.factory'
 import type {
   BpmnSubProcessElement,
   BpmnSubProcessElementInput,
   BpmnSubProcessType,
 } from '@/elements/bpmn/sub-process/bpmn-sub-process.types'
+import { normalizeBpmnTaskLoopType } from '@/elements/bpmn/task/bpmn-task.factory'
 
 export const BPMN_SUB_PROCESS_TYPE = 'bpmn.subProcess'
 export const BPMN_SUB_PROCESS_DEFAULT_WIDTH = 160

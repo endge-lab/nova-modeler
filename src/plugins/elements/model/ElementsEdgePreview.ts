@@ -14,7 +14,9 @@ export class ElementsEdgePreview {
   }
 
   clear(): void {
-    if (!this.element) return
+    if (!this.element) {
+      return
+    }
     this.element = null
     this.notify()
   }
@@ -25,7 +27,9 @@ export class ElementsEdgePreview {
   }
 
   private notify(): void {
-    for (const listener of this.listeners) listener()
+    for (const listener of this.listeners) {
+      listener()
+    }
   }
 }
 

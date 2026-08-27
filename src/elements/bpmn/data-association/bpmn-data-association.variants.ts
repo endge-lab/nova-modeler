@@ -1,17 +1,17 @@
 import type {
   ModelerElementVariantProvider,
 } from '@/domain/types/index'
+import type {
+  BpmnDataAssociationElement,
+  BpmnDataAssociationType,
+} from '@/elements/bpmn/data-association/bpmn-data-association.types'
 import {
   BPMN_DATA_ASSOCIATION_TYPE,
   createBpmnDataAssociationElement,
   normalizeBpmnDataAssociationType,
 } from '@/elements/bpmn/data-association/bpmn-data-association.factory'
-import type {
-  BpmnDataAssociationElement,
-  BpmnDataAssociationType,
-} from '@/elements/bpmn/data-association/bpmn-data-association.types'
 
-const DATA_ASSOCIATION_TYPES: Array<{ id: BpmnDataAssociationType; title: string }> = [
+const DATA_ASSOCIATION_TYPES: Array<{ id: BpmnDataAssociationType, title: string }> = [
   { id: 'input', title: 'Input association' },
   { id: 'output', title: 'Output association' },
 ]

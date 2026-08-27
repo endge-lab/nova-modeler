@@ -1,25 +1,26 @@
-import {
-  NovaComponent,
-  NovaComponentNode,
-  Prop,
-  createNovaDecoratedComponentDescriptor,
-  type NovaApp,
-  type NovaComponentDescriptor,
-  type NovaSchema,
-  type NovaSurface,
-} from '@endge/nova'
+import type { NovaApp, NovaComponentDescriptor, NovaSchema, NovaSurface } from '@endge/nova'
 import type { EventList } from '@endge/utils'
-import { Modeler } from '@/config/schema.config'
-import {
-  MODELER_THEME_FALLBACKS,
-  MODELER_THEME_TOKENS,
-  type ModelerThemeTokenKey,
-} from '@/config/theme.config'
+import type { ModelerThemeTokenKey } from '@/config/theme.config'
 import type {
   ModelerPoint,
   ModelerViewport,
 } from '@/domain/types/index'
 import type { BpmnMessageFlowElement } from '@/elements/bpmn/message-flow/bpmn-message-flow.types'
+import {
+  createNovaDecoratedComponentDescriptor,
+
+  NovaComponent,
+
+  NovaComponentNode,
+
+  Prop,
+} from '@endge/nova'
+import { Modeler } from '@/config/schema.config'
+import {
+  MODELER_THEME_FALLBACKS,
+  MODELER_THEME_TOKENS,
+
+} from '@/config/theme.config'
 
 export interface BpmnMessageFlowViewProps {
   element: BpmnMessageFlowElement
@@ -94,7 +95,9 @@ export class BpmnMessageFlowView<E extends EventList = Record<string, any>>
   override setProps(patch: Partial<BpmnMessageFlowViewResolvedProps>): this {
     const changedKeys = (Object.keys(patch) as Array<keyof BpmnMessageFlowViewResolvedProps>)
       .filter(key => patch[key] !== undefined && this.props[key] !== patch[key])
-    if (changedKeys.length === 0) return this
+    if (changedKeys.length === 0) {
+      return this
+    }
     if (changedKeys.every(key => key === 'viewport')) {
       this.props.viewport = patch.viewport ?? this.props.viewport
       this.syncViewportTransform()
@@ -114,7 +117,9 @@ export class BpmnMessageFlowView<E extends EventList = Record<string, any>>
     const color = this.resolveStroke()
     const width = this.resolveStrokeWidth()
     const path = this.props.path
-    if (path.length < 2) return []
+    if (path.length < 2) {
+      return []
+    }
     const opacity = Number(this.props.element.style?.opacity ?? this.resolveThemeNumber('elementOpacity'))
     const schema: NovaSchema = []
     for (let index = 0; index < path.length - 1; index += 1) {
@@ -141,7 +146,7 @@ export class BpmnMessageFlowView<E extends EventList = Record<string, any>>
         type: 'circle',
         x: start.x,
         y: start.y,
-          radius: 4.5,
+        radius: 4.5,
         styles: {
           background: '#ffffff',
           border: { color, width },
@@ -151,7 +156,9 @@ export class BpmnMessageFlowView<E extends EventList = Record<string, any>>
     }
     const end = path[path.length - 1]!
     const previous = this.findPreviousDistinctPoint(path, path.length - 2, end)
-    if (previous) this.appendOpenArrow(schema, end, previous, color, width, opacity)
+    if (previous) {
+      this.appendOpenArrow(schema, end, previous, color, width, opacity)
+    }
   }
 
   private appendOpenArrow(
@@ -186,7 +193,9 @@ export class BpmnMessageFlowView<E extends EventList = Record<string, any>>
   private findPreviousDistinctPoint(path: Array<ModelerPoint>, from: number, point: ModelerPoint): ModelerPoint | null {
     for (let index = from; index >= 0; index -= 1) {
       const candidate = path[index]!
-      if (candidate.x !== point.x || candidate.y !== point.y) return candidate
+      if (candidate.x !== point.x || candidate.y !== point.y) {
+        return candidate
+      }
     }
     return null
   }
@@ -194,7 +203,9 @@ export class BpmnMessageFlowView<E extends EventList = Record<string, any>>
   private findNextDistinctPoint(path: Array<ModelerPoint>, from: number, point: ModelerPoint): ModelerPoint | null {
     for (let index = from; index < path.length; index += 1) {
       const candidate = path[index]!
-      if (candidate.x !== point.x || candidate.y !== point.y) return candidate
+      if (candidate.x !== point.x || candidate.y !== point.y) {
+        return candidate
+      }
     }
     return null
   }
@@ -214,8 +225,12 @@ export class BpmnMessageFlowView<E extends EventList = Record<string, any>>
 
   private resolveStroke(): string {
     const style = this.props.element.style ?? {}
-    if (this.props.preview) return String(style.stroke ?? this.resolveThemeColor('bpmnFlowPreviewStroke'))
-    if (this.props.selected) return String(style.selectedStroke ?? this.resolveThemeColor('bpmnFlowSelectedStroke'))
+    if (this.props.preview) {
+      return String(style.stroke ?? this.resolveThemeColor('bpmnFlowPreviewStroke'))
+    }
+    if (this.props.selected) {
+      return String(style.selectedStroke ?? this.resolveThemeColor('bpmnFlowSelectedStroke'))
+    }
     return String(style.stroke ?? this.resolveThemeColor('bpmnFlowStroke'))
   }
 

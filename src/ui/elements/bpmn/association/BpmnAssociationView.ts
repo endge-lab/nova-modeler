@@ -1,26 +1,27 @@
-import {
-  NovaComponent,
-  NovaComponentNode,
-  Prop,
-  createNovaDecoratedComponentDescriptor,
-  type NovaApp,
-  type NovaComponentDescriptor,
-  type NovaSchema,
-  type NovaSurface,
-} from '@endge/nova'
+import type { NovaApp, NovaComponentDescriptor, NovaSchema, NovaSurface } from '@endge/nova'
 import type { EventList } from '@endge/utils'
-import { Modeler } from '@/config/schema.config'
-import {
-  MODELER_THEME_FALLBACKS,
-  MODELER_THEME_TOKENS,
-  type ModelerThemeTokenKey,
-} from '@/config/theme.config'
+import type { ModelerThemeTokenKey } from '@/config/theme.config'
 import type {
   ModelerPoint,
   ModelerViewport,
 } from '@/domain/types/index'
-import { normalizeBpmnAssociationType } from '@/elements/bpmn/association/bpmn-association.factory'
 import type { BpmnAssociationElement } from '@/elements/bpmn/association/bpmn-association.types'
+import {
+  createNovaDecoratedComponentDescriptor,
+
+  NovaComponent,
+
+  NovaComponentNode,
+
+  Prop,
+} from '@endge/nova'
+import { Modeler } from '@/config/schema.config'
+import {
+  MODELER_THEME_FALLBACKS,
+  MODELER_THEME_TOKENS,
+
+} from '@/config/theme.config'
+import { normalizeBpmnAssociationType } from '@/elements/bpmn/association/bpmn-association.factory'
 
 export interface BpmnAssociationViewProps {
   element: BpmnAssociationElement
@@ -95,7 +96,9 @@ export class BpmnAssociationView<E extends EventList = Record<string, any>>
   override setProps(patch: Partial<BpmnAssociationViewResolvedProps>): this {
     const changedKeys = (Object.keys(patch) as Array<keyof BpmnAssociationViewResolvedProps>)
       .filter(key => patch[key] !== undefined && this.props[key] !== patch[key])
-    if (changedKeys.length === 0) return this
+    if (changedKeys.length === 0) {
+      return this
+    }
     if (changedKeys.every(key => key === 'viewport')) {
       this.props.viewport = patch.viewport ?? this.props.viewport
       this.syncViewportTransform()
@@ -115,7 +118,9 @@ export class BpmnAssociationView<E extends EventList = Record<string, any>>
     const color = this.resolveStroke()
     const width = this.resolveStrokeWidth()
     const path = this.props.path
-    if (path.length < 2) return []
+    if (path.length < 2) {
+      return []
+    }
     const opacity = Number(this.props.element.style?.opacity ?? this.resolveThemeNumber('elementOpacity'))
     const schema: NovaSchema = []
     for (let index = 0; index < path.length - 1; index += 1) {
@@ -136,14 +141,22 @@ export class BpmnAssociationView<E extends EventList = Record<string, any>>
 
   private appendMarkers(schema: NovaSchema, path: Array<ModelerPoint>, color: string, width: number, opacity: number): void {
     const type = normalizeBpmnAssociationType(this.props.element.data?.associationType)
-    if (type === 'undirected') return
+    if (type === 'undirected') {
+      return
+    }
     const end = path[path.length - 1]!
     const previous = this.findPreviousDistinctPoint(path, path.length - 2, end)
-    if (previous) this.appendOpenArrow(schema, end, previous, color, width, opacity)
-    if (type !== 'bidirectional') return
+    if (previous) {
+      this.appendOpenArrow(schema, end, previous, color, width, opacity)
+    }
+    if (type !== 'bidirectional') {
+      return
+    }
     const start = path[0]!
     const next = this.findNextDistinctPoint(path, 1, start)
-    if (next) this.appendOpenArrow(schema, start, next, color, width, opacity)
+    if (next) {
+      this.appendOpenArrow(schema, start, next, color, width, opacity)
+    }
   }
 
   private appendOpenArrow(
@@ -178,7 +191,9 @@ export class BpmnAssociationView<E extends EventList = Record<string, any>>
   private findPreviousDistinctPoint(path: Array<ModelerPoint>, from: number, point: ModelerPoint): ModelerPoint | null {
     for (let index = from; index >= 0; index -= 1) {
       const candidate = path[index]!
-      if (candidate.x !== point.x || candidate.y !== point.y) return candidate
+      if (candidate.x !== point.x || candidate.y !== point.y) {
+        return candidate
+      }
     }
     return null
   }
@@ -186,7 +201,9 @@ export class BpmnAssociationView<E extends EventList = Record<string, any>>
   private findNextDistinctPoint(path: Array<ModelerPoint>, from: number, point: ModelerPoint): ModelerPoint | null {
     for (let index = from; index < path.length; index += 1) {
       const candidate = path[index]!
-      if (candidate.x !== point.x || candidate.y !== point.y) return candidate
+      if (candidate.x !== point.x || candidate.y !== point.y) {
+        return candidate
+      }
     }
     return null
   }
@@ -206,8 +223,12 @@ export class BpmnAssociationView<E extends EventList = Record<string, any>>
 
   private resolveStroke(): string {
     const style = this.props.element.style ?? {}
-    if (this.props.preview) return String(style.stroke ?? this.resolveThemeColor('bpmnFlowPreviewStroke'))
-    if (this.props.selected) return String(style.selectedStroke ?? this.resolveThemeColor('bpmnFlowSelectedStroke'))
+    if (this.props.preview) {
+      return String(style.stroke ?? this.resolveThemeColor('bpmnFlowPreviewStroke'))
+    }
+    if (this.props.selected) {
+      return String(style.selectedStroke ?? this.resolveThemeColor('bpmnFlowSelectedStroke'))
+    }
     return String(style.stroke ?? this.resolveThemeColor('bpmnFlowStroke'))
   }
 

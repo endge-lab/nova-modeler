@@ -1,22 +1,22 @@
-import {
-  NovaComponent,
-  NovaComponentNode,
-  createNovaDecoratedComponentDescriptor,
-  type NovaApp,
-  type NovaComponentDescriptor,
-  type NovaSchema,
-  type NovaSurface,
-} from '@endge/nova'
+import type { NovaApp, NovaComponentDescriptor, NovaSchema, NovaSurface } from '@endge/nova'
 import type { EventList } from '@endge/utils'
+import type {
+  ModelerBackgroundProps as BackgroundProps,
+  ModelerBackgroundResolvedProps as BackgroundResolvedProps,
+} from '@/domain/types/index'
+import {
+  createNovaDecoratedComponentDescriptor,
+
+  NovaComponent,
+
+  NovaComponentNode,
+
+} from '@endge/nova'
 import { Modeler } from '@/config/schema.config'
 import {
   MODELER_THEME_FALLBACKS,
   MODELER_THEME_TOKENS,
 } from '@/config/theme.config'
-import type {
-  ModelerBackgroundProps as BackgroundProps,
-  ModelerBackgroundResolvedProps as BackgroundResolvedProps,
-} from '@/domain/types/index'
 
 export type BackgroundDescriptor = NovaComponentDescriptor<
   BackgroundResolvedProps,

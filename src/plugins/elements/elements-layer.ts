@@ -1,6 +1,4 @@
 import type { NovaApp, NovaTemplateChildSchema } from '@endge/nova'
-import { NovaUIKit } from '@endge/nova-ui-kit'
-import { Modeler } from '@/config/schema.config'
 import type {
   ModelerEdgeElement,
   ModelerElement,
@@ -10,9 +8,11 @@ import type {
   ModelerRenderBand,
   ModelerViewport,
 } from '@/domain/types/index'
+import type { ElementsRuntime } from '@/plugins/elements/model/ElementsRuntime'
+import { NovaUIKit } from '@endge/nova-ui-kit'
+import { Modeler } from '@/config/schema.config'
 import { isModelerEdgeElement } from '@/domain/types/index'
 import { MODELER_PORT_RADIUS } from '@/plugins/elements/elements.constants'
-import type { ElementsRuntime } from '@/plugins/elements/model/ElementsRuntime'
 import {
   isBpmnRecipeNodeType,
   isBpmnRecipeRenderableNode,
@@ -73,13 +73,17 @@ export class ElementsLayer {
     const connection = this.runtime.connection.get()
     const connectionTargetId = connection?.targetElementId
     const forcedRecipeNodeIds = new Set<string>()
-    if (connection?.sourceElementId) forcedRecipeNodeIds.add(connection.sourceElementId)
+    if (connection?.sourceElementId) {
+      forcedRecipeNodeIds.add(connection.sourceElementId)
+    }
     const segmentHover = this.runtime.edgeSegmentHover.get()
     const useBpmnRecipes = shouldUseBpmnRecipeRendering(options, viewport)
     if (options.interaction?.dragShadow !== false) {
       for (const element of this.runtime.dragShadow.getElements()) {
         const definition = this.context.getElementRegistry().get(element.type)
-        if (!definition) continue
+        if (!definition) {
+          continue
+        }
         interactionSchemas.push(this.createShadowSchema(definition.render({
           ...this.context,
           selected: false,
@@ -98,9 +102,9 @@ export class ElementsLayer {
       recipeCulling: recipeOptions.culling,
       resolveExternalLabelBounds: element => this.context.externalLabels.resolveBounds(this.context, element),
       classifier: {
-        isEdge: (element) => this.runtime.edges.isEdge(element),
+        isEdge: element => this.runtime.edges.isEdge(element),
         isRecipeNodeType: isBpmnRecipeNodeType,
-        isRecipeRenderable: (element) => isBpmnRecipeRenderableNode(element),
+        isRecipeRenderable: element => isBpmnRecipeRenderableNode(element),
       },
     })
     const edges = visible.edges
@@ -204,25 +208,42 @@ export class ElementsLayer {
         this.patchComponentViewport(componentId, viewport, app)
       }
     }
-    if (app) app.raph.kernel.transaction(patch)
-    else patch()
+    if (app) {
+      app.raph.kernel.transaction(patch)
+    }
+    else { patch() }
   }
 
   private canUseViewportFastPath(viewport: ModelerViewport): boolean {
-    if (!this.viewportFastPathWindow) return false
-    if (this.runtime.dragShadow.getElements().length > 0) return false
-    if (this.runtime.edgePreview.get()) return false
-    if (this.runtime.connection.get()) return false
-    if (this.runtime.connectionWarnings.get()) return false
-    if (createViewportScaleBucket(viewport.scale) !== this.viewportFastPathScaleBucket) return false
-    if (shouldUseBpmnRecipeRendering(this.context.getOptions(), viewport) !== this.viewportFastPathUseBpmnRecipes) return false
+    if (!this.viewportFastPathWindow) {
+      return false
+    }
+    if (this.runtime.dragShadow.getElements().length > 0) {
+      return false
+    }
+    if (this.runtime.edgePreview.get()) {
+      return false
+    }
+    if (this.runtime.connection.get()) {
+      return false
+    }
+    if (this.runtime.connectionWarnings.get()) {
+      return false
+    }
+    if (createViewportScaleBucket(viewport.scale) !== this.viewportFastPathScaleBucket) {
+      return false
+    }
+    if (shouldUseBpmnRecipeRendering(this.context.getOptions(), viewport) !== this.viewportFastPathUseBpmnRecipes) {
+      return false
+    }
     return containsRect(this.viewportFastPathWindow, createViewportWorldRect(viewport, this.context.getLayout()))
   }
 
   private resolveNovaApp(): NovaApp | null {
     try {
       return this.context.layers.get('interaction')?.nova ?? null
-    } catch {
+    }
+    catch {
       return null
     }
   }
@@ -238,7 +259,9 @@ export class ElementsLayer {
       : this.stableBpmnNodeRecipeElements
     if (kind === 'containers') {
       const nextSignature = createContainerRecipeSignature(elements)
-      if (nextSignature === this.stableBpmnContainerRecipeSignature) return stable
+      if (nextSignature === this.stableBpmnContainerRecipeSignature) {
+        return stable
+      }
       const next = [...elements]
       this.stableBpmnContainerRecipeElements = next
       this.stableBpmnContainerRecipeSignature = nextSignature
@@ -273,7 +296,9 @@ export class ElementsLayer {
     selected: Set<string>,
   ): void {
     const definition = this.context.getElementRegistry().get(element.type)
-    if (!definition) return
+    if (!definition) {
+      return
+    }
     schemas.push(definition.render({ ...this.context, selected: selected.has(element.id) }, element))
   }
 
@@ -283,7 +308,9 @@ export class ElementsLayer {
     selected: Set<string>,
     overlayIds: Set<string>,
   ): void {
-    if (!selected.has(element.id) || !isModelerEdgeElement(element)) return
+    if (!selected.has(element.id) || !isModelerEdgeElement(element)) {
+      return
+    }
     const segmentHover = this.runtime.edgeSegmentHover.get()
     if (segmentHover?.elementId === element.id) {
       overlayIds.add(`${element.id}:segment:${segmentHover.segmentIndex}`)
@@ -312,10 +339,14 @@ export class ElementsLayer {
     overlayIds?: Set<string>,
   ): void {
     const definition = this.context.getElementRegistry().get(element.type)
-    if (!definition) return
+    if (!definition) {
+      return
+    }
     const isSelected = selected.has(element.id)
     schemas.push(definition.render({ ...this.context, selected: isSelected || connectionTargetId === element.id }, element))
-    if (!isSelected) return
+    if (!isSelected) {
+      return
+    }
     const rotateHandle = this.runtime.handles.createRotateHandle(element, definition)
     if (rotateHandle) {
       overlayIds?.add(`${element.id}:rotate`)
@@ -333,7 +364,9 @@ export class ElementsLayer {
         props: { handle, viewport: this.context.getViewport() },
       })
     }
-    if (definition.capabilities?.ports === false) return
+    if (definition.capabilities?.ports === false) {
+      return
+    }
     for (const port of this.runtime.ports.createElementPorts(element, definition.getPorts?.(this.context, element) ?? [])) {
       overlayIds?.add(`${element.id}:port:${port.id}`)
       overlaySchemas.push({
@@ -350,10 +383,16 @@ export class ElementsLayer {
     renderedIds: Set<string>,
   ): void {
     const definition = this.context.getElementRegistry().get(element.type)
-    if (!definition?.externalLabel) return
+    if (!definition?.externalLabel) {
+      return
+    }
     const layout = this.context.externalLabels.resolve(this.context, element)
-    if (!layout) return
-    if (!layout.text && !this.context.externalLabels.isSelected(element.id)) return
+    if (!layout) {
+      return
+    }
+    if (!layout.text && !this.context.externalLabels.isSelected(element.id)) {
+      return
+    }
     renderedIds.add(element.id)
     schemas.push({
       type: Modeler.ExternalLabelView,
@@ -368,7 +407,9 @@ export class ElementsLayer {
 
   private resolveElementRenderBand(element: ModelerElement): ModelerRenderBand {
     const definition = this.context.getElementRegistry().get(element.type)
-    if (!definition) return 'nodes'
+    if (!definition) {
+      return 'nodes'
+    }
     return resolveElementRenderBand(this.context, definition, element)
   }
 
@@ -507,8 +548,10 @@ export class ElementsLayer {
   }
 
   private rekeySchema(schema: NovaTemplateChildSchema, segment: string): NovaTemplateChildSchema {
-    const next = { ...schema } as NovaTemplateChildSchema & { id?: string; children?: Array<NovaTemplateChildSchema> }
-    if (typeof next.id === 'string') next.id = `${next.id}:${segment}`
+    const next = { ...schema } as NovaTemplateChildSchema & { id?: string, children?: Array<NovaTemplateChildSchema> }
+    if (typeof next.id === 'string') {
+      next.id = `${next.id}:${segment}`
+    }
     if (Array.isArray(next.children)) {
       next.children = next.children.map(child => this.rekeySchema(child, segment))
     }
@@ -518,12 +561,14 @@ export class ElementsLayer {
 
 function compareNodeRenderOrder(a: ModelerElement, b: ModelerElement): number {
   const zIndexDelta = (a.zIndex ?? 0) - (b.zIndex ?? 0)
-  if (zIndexDelta !== 0) return zIndexDelta
+  if (zIndexDelta !== 0) {
+    return zIndexDelta
+  }
   return 0
 }
 
 function createContainerRecipeSignature(elements: Array<ModelerElement>): string {
-  return elements.map(element => {
+  return elements.map((element) => {
     const data = element.data as Record<string, any> | undefined
     const style = element.style as Record<string, any> | undefined
     const lanes = Array.isArray(data?.lanes)
@@ -555,7 +600,7 @@ function createContainerRecipeSignature(elements: Array<ModelerElement>): string
   }).join('||')
 }
 
-function createViewportWorldRect(viewport: ModelerViewport, layout: { width: number; height: number }): ModelerRect {
+function createViewportWorldRect(viewport: ModelerViewport, layout: { width: number, height: number }): ModelerRect {
   const scale = Math.max(0.0001, viewport.scale)
   return {
     x: -viewport.x / scale,
@@ -565,7 +610,7 @@ function createViewportWorldRect(viewport: ModelerViewport, layout: { width: num
   }
 }
 
-function createViewportOverscanWindow(viewport: ModelerViewport, layout: { width: number; height: number }): ModelerRect {
+function createViewportOverscanWindow(viewport: ModelerViewport, layout: { width: number, height: number }): ModelerRect {
   const rect = createViewportWorldRect(viewport, layout)
   return {
     x: rect.x - rect.width,
@@ -594,6 +639,8 @@ function resolveElementRenderBand(
   const band = typeof definition.renderBand === 'function'
     ? definition.renderBand(context, element)
     : definition.renderBand
-  if (band) return band
+  if (band) {
+    return band
+  }
   return definition.kind === 'edge' ? 'links' : 'nodes'
 }
