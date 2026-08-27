@@ -59,7 +59,7 @@ export class Grid<E extends EventList = Record<string, any>>
     return {
       visible: props.visible ?? true,
       variant: 'dots',
-      gridSize: Grid.finiteOptionalNumber(props.gridSize),
+      gridSize: Grid._finiteOptionalNumber(props.gridSize),
       color: props.color,
     }
   }
@@ -92,30 +92,30 @@ export class Grid<E extends EventList = Record<string, any>>
       viewportX: viewport.x,
       viewportY: viewport.y,
     })
-    const schema = [Grid.createPatternSchema(plan, gridSize, viewport.scale, this.resolveDotColor())] as unknown as NovaSchema
+    const schema = [Grid.createPatternSchema(plan, gridSize, viewport.scale, this._resolveDotColor())] as unknown as NovaSchema
     this.renderer.schema(schema)
   }
 
   static createRenderPlan(input: GridRenderPlanInput): GridRenderPlan {
-    const minScreenSpacing = input.minScreenSpacing ?? Grid.resolveMinScreenSpacing(input.scale)
+    const minScreenSpacing = input.minScreenSpacing ?? Grid._resolveMinScreenSpacing(input.scale)
     const maxDots = input.maxDots ?? MODELER_GRID_RENDER_CONFIG.maxDots
     let spacing = Math.max(1, input.gridSize * input.scale)
     while (spacing < minScreenSpacing) {
       spacing *= 2
     }
-    let columns = Grid.countAxis(input.width, spacing)
-    let rows = Grid.countAxis(input.height, spacing)
+    let columns = Grid._countAxis(input.width, spacing)
+    let rows = Grid._countAxis(input.height, spacing)
     while (columns * rows > maxDots) {
       spacing *= 2
-      columns = Grid.countAxis(input.width, spacing)
-      rows = Grid.countAxis(input.height, spacing)
+      columns = Grid._countAxis(input.width, spacing)
+      rows = Grid._countAxis(input.height, spacing)
     }
     return {
       width: input.width,
       height: input.height,
       spacing,
-      offsetX: Grid.positiveModulo(input.viewportX, spacing),
-      offsetY: Grid.positiveModulo(input.viewportY, spacing),
+      offsetX: Grid._positiveModulo(input.viewportX, spacing),
+      offsetY: Grid._positiveModulo(input.viewportY, spacing),
       radius: clamp(
         input.scale * MODELER_GRID_RENDER_CONFIG.dotRadiusScale,
         MODELER_GRID_RENDER_CONFIG.minDotRadius,
@@ -169,27 +169,27 @@ export class Grid<E extends EventList = Record<string, any>>
     }
   }
 
-  private resolveDotColor(): string {
+  private _resolveDotColor(): string {
     return this.props.color ?? this.nova.theme.resolve(
       MODELER_THEME_TOKENS.canvasDotColor,
       MODELER_THEME_FALLBACKS.canvasDotColor,
     ) ?? MODELER_THEME_FALLBACKS.canvasDotColor
   }
 
-  private static finiteOptionalNumber(value: unknown): number | undefined {
+  private static _finiteOptionalNumber(value: unknown): number | undefined {
     return typeof value === 'number' && Number.isFinite(value) ? value : undefined
   }
 
-  private static countAxis(size: number, spacing: number): number {
+  private static _countAxis(size: number, spacing: number): number {
     return Math.max(1, Math.ceil(size / spacing) + 1)
   }
 
-  private static resolveMinScreenSpacing(scale: number): number {
+  private static _resolveMinScreenSpacing(scale: number): number {
     const lod = MODELER_GRID_RENDER_CONFIG.minScreenSpacingLod.find(level => scale <= level.maxScale)
     return lod?.minScreenSpacing ?? MODELER_GRID_RENDER_CONFIG.minScreenSpacing
   }
 
-  private static positiveModulo(value: number, divisor: number): number {
+  private static _positiveModulo(value: number, divisor: number): number {
     return ((value % divisor) + divisor) % divisor
   }
 }

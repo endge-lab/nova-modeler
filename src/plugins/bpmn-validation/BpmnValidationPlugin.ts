@@ -21,18 +21,18 @@ export class BpmnValidationPlugin implements ModelerPlugin {
 
   readonly id = BpmnValidationPlugin.ID
 
-  private context?: ModelerPluginContext
-  private disposeModelSubscription?: () => void
-  private disposeResult?: () => void
-  private debounceTimer: ReturnType<typeof setTimeout> | undefined
-  private lastElementsVersion = Number.NaN
-  private lastModelId = ''
-  private readonly debounceMs: number
-  private readonly validateModel: (model: ModelerModel) => ModelerValidationResult
+  private _context?: ModelerPluginContext
+  private _disposeModelSubscription?: () => void
+  private _disposeResult?: () => void
+  private _debounceTimer: ReturnType<typeof setTimeout> | undefined
+  private _lastElementsVersion = Number.NaN
+  private _lastModelId = ''
+  private readonly _debounceMs: number
+  private readonly _validateModel: (model: ModelerModel) => ModelerValidationResult
 
   constructor(options: BpmnValidationPluginOptions = {}) {
-    this.debounceMs = Math.max(0, options.debounceMs ?? 150)
-    this.validateModel = options.validate ?? BpmnValidationRuntime.validate
+    this._debounceMs = Math.max(0, options.debounceMs ?? 150)
+    this._validateModel = options.validate ?? BpmnValidationRuntime.validate
   }
 
   static create(options: BpmnValidationPluginOptions = {}): BpmnValidationPlugin {
@@ -40,54 +40,54 @@ export class BpmnValidationPlugin implements ModelerPlugin {
   }
 
   setup(context: ModelerPluginContext): void {
-    this.context = context
+    this._context = context
     const model = context.getModel()
-    this.lastModelId = model.id
-    this.lastElementsVersion = model.elementsVersion
-    this.publish(this.validateModel(model))
-    this.disposeModelSubscription = context.model.subscribe((nextModel) => {
-      if (nextModel.id === this.lastModelId && nextModel.elementsVersion === this.lastElementsVersion) {
+    this._lastModelId = model.id
+    this._lastElementsVersion = model.elementsVersion
+    this._publish(this._validateModel(model))
+    this._disposeModelSubscription = context.model.subscribe((nextModel) => {
+      if (nextModel.id === this._lastModelId && nextModel.elementsVersion === this._lastElementsVersion) {
         return
       }
-      this.lastModelId = nextModel.id
-      this.lastElementsVersion = nextModel.elementsVersion
-      this.schedule(nextModel)
+      this._lastModelId = nextModel.id
+      this._lastElementsVersion = nextModel.elementsVersion
+      this._schedule(nextModel)
     }, {
       includeViewport: false,
     })
   }
 
   dispose(): void {
-    this.disposeModelSubscription?.()
-    this.disposeModelSubscription = undefined
-    this.disposeResult?.()
-    this.disposeResult = undefined
-    this.context = undefined
-    this.clearTimer()
+    this._disposeModelSubscription?.()
+    this._disposeModelSubscription = undefined
+    this._disposeResult?.()
+    this._disposeResult = undefined
+    this._context = undefined
+    this._clearTimer()
   }
 
-  private schedule(model: ModelerModel): void {
-    this.clearTimer()
-    this.debounceTimer = setTimeout(() => {
-      this.debounceTimer = undefined
-      this.publish(this.validateModel(model))
-    }, this.debounceMs)
+  private _schedule(model: ModelerModel): void {
+    this._clearTimer()
+    this._debounceTimer = setTimeout(() => {
+      this._debounceTimer = undefined
+      this._publish(this._validateModel(model))
+    }, this._debounceMs)
   }
 
-  private publish(result: ModelerValidationResult): void {
-    if (!this.context) {
+  private _publish(result: ModelerValidationResult): void {
+    if (!this._context) {
       return
     }
-    this.disposeResult?.()
-    this.disposeResult = this.context.store.provide(BPMN_VALIDATION_RESULT_KEY, result)
-    this.context.invalidate('render')
+    this._disposeResult?.()
+    this._disposeResult = this._context.store.provide(BPMN_VALIDATION_RESULT_KEY, result)
+    this._context.invalidate('render')
   }
 
-  private clearTimer(): void {
-    if (!this.debounceTimer) {
+  private _clearTimer(): void {
+    if (!this._debounceTimer) {
       return
     }
-    clearTimeout(this.debounceTimer)
-    this.debounceTimer = undefined
+    clearTimeout(this._debounceTimer)
+    this._debounceTimer = undefined
   }
 }

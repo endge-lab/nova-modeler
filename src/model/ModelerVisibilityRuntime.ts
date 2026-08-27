@@ -19,38 +19,38 @@ const MIN_VIEWPORT_PADDING = 96
 const EDGE_ROUTE_PADDING = 160
 
 export class ModelerVisibilityRuntime implements ModelerVisibilityApi {
-  private readonly nodeIndex = new NovaHitIndex<ModelerElement>({
-    getBounds: element => this.resolveNodeBounds(element),
+  private readonly _nodeIndex = new NovaHitIndex<ModelerElement>({
+    getBounds: element => this._resolveNodeBounds(element),
   })
 
-  private readonly edgeIndex = new NovaHitIndex<ModelerElement>({
-    getBounds: element => this.resolveEdgeBounds(element),
+  private readonly _edgeIndex = new NovaHitIndex<ModelerElement>({
+    getBounds: element => this._resolveEdgeBounds(element),
   })
 
-  private readonly elementsById = new Map<string, ModelerElement>()
-  private indexedModelId: string | null = null
-  private indexedElementsVersion = -1
-  private indexedNodes: Array<ModelerElement> = []
-  private indexedEdges: Array<ModelerElement> = []
-  private resolveExternalLabelBoundsInput: ((element: ModelerElement) => ModelerRect | null) | undefined
-  private revision = 0
-  private signature = ''
-  private indexRebuilds = 0
-  private snapshot: ModelerVisibleElementsSnapshot = createEmptySnapshot()
-  private diagnostics: ModelerVisibilityDiagnostics = createEmptyDiagnostics()
+  private readonly _elementsById = new Map<string, ModelerElement>()
+  private _indexedModelId: string | null = null
+  private _indexedElementsVersion = -1
+  private _indexedNodes: Array<ModelerElement> = []
+  private _indexedEdges: Array<ModelerElement> = []
+  private _resolveExternalLabelBoundsInput: ((element: ModelerElement) => ModelerRect | null) | undefined
+  private _revision = 0
+  private _signature = ''
+  private _indexRebuilds = 0
+  private _snapshot: ModelerVisibleElementsSnapshot = createEmptySnapshot()
+  private _diagnostics: ModelerVisibilityDiagnostics = createEmptyDiagnostics()
 
   resolve(input: ModelerVisibilityResolveInput): ModelerVisibleElementsSnapshot {
-    this.ensureIndexes(input)
+    this._ensureIndexes(input)
 
     const queryStartedAt = performanceNow()
     const worldRect = createModelerVisibleWorldRect(input.viewport, input.layout)
     const nodeCandidates = input.recipeCulling
-      ? this.nodeIndex.queryBounds(worldRect)
-      : this.indexedNodes
+      ? this._nodeIndex.queryBounds(worldRect)
+      : this._indexedNodes
     const edgeCandidates = input.recipeCulling
-      ? this.edgeIndex.queryBounds(worldRect)
-      : this.indexedEdges
-    const forcedIds = this.resolveForcedIds(input)
+      ? this._edgeIndex.queryBounds(worldRect)
+      : this._indexedEdges
+    const forcedIds = this._resolveForcedIds(input)
     const nodeMap = new Map<string, ModelerElement>()
     const edgeMap = new Map<string, ModelerElement>()
     const forcedNodeMap = new Map<string, ModelerElement>()
@@ -64,7 +64,7 @@ export class ModelerVisibilityRuntime implements ModelerVisibilityApi {
     }
 
     for (const id of forcedIds) {
-      const element = this.elementsById.get(id)
+      const element = this._elementsById.get(id)
       if (!element) {
         continue
       }
@@ -106,7 +106,7 @@ export class ModelerVisibilityRuntime implements ModelerVisibilityApi {
 
     const visibleRecipeIds = new Set(recipeNodes.map(element => element.id))
     let totalRecipeCandidates = 0
-    for (const element of this.indexedNodes) {
+    for (const element of this._indexedNodes) {
       if (!input.classifier.isRecipeRenderable(element)) {
         continue
       }
@@ -126,24 +126,24 @@ export class ModelerVisibilityRuntime implements ModelerVisibilityApi {
       visibleIds.add(element.id)
     }
     const nextSignature = createVisibilitySignature(nodes, edges, recipeNodes, schemaNodes, forcedIds)
-    if (nextSignature !== this.signature) {
-      this.signature = nextSignature
-      this.revision += 1
+    if (nextSignature !== this._signature) {
+      this._signature = nextSignature
+      this._revision += 1
     }
 
     const queryMs = performanceNow() - queryStartedAt
-    this.diagnostics = {
+    this._diagnostics = {
       elementsVersion: input.model.elementsVersion,
       viewportVersion: input.model.viewportVersion,
-      signature: this.signature,
-      indexRebuilds: this.indexRebuilds,
-      indexedNodes: this.nodeIndex.indexedNodeCount,
-      indexedEdges: this.edgeIndex.indexedNodeCount,
-      queryNodeCandidates: input.recipeCulling ? this.nodeIndex.lastQueryCandidateCount : nodeCandidates.length,
-      queryEdgeCandidates: input.recipeCulling ? this.edgeIndex.lastQueryCandidateCount : edgeCandidates.length,
+      signature: this._signature,
+      indexRebuilds: this._indexRebuilds,
+      indexedNodes: this._nodeIndex.indexedNodeCount,
+      indexedEdges: this._edgeIndex.indexedNodeCount,
+      queryNodeCandidates: input.recipeCulling ? this._nodeIndex.lastQueryCandidateCount : nodeCandidates.length,
+      queryEdgeCandidates: input.recipeCulling ? this._edgeIndex.lastQueryCandidateCount : edgeCandidates.length,
       totalElements: input.model.elements.length,
-      totalNodes: this.indexedNodes.length,
-      totalEdges: this.indexedEdges.length,
+      totalNodes: this._indexedNodes.length,
+      totalEdges: this._indexedEdges.length,
       visibleElements: visibleIds.size,
       visibleNodes: nodes.length,
       visibleEdges: edges.length,
@@ -153,12 +153,12 @@ export class ModelerVisibilityRuntime implements ModelerVisibilityApi {
       forcedElements: forcedNodeMap.size + forcedEdgeMap.size,
       queryMs,
     }
-    this.snapshot = {
-      revision: this.revision,
+    this._snapshot = {
+      revision: this._revision,
       elementsVersion: input.model.elementsVersion,
       viewportVersion: input.model.viewportVersion,
       selectionVersion: input.model.selectionVersion,
-      signature: this.signature,
+      signature: this._signature,
       worldRect,
       nodes,
       edges,
@@ -172,48 +172,48 @@ export class ModelerVisibilityRuntime implements ModelerVisibilityApi {
       totalElements: input.model.elements.length,
       culledRecipeElements,
       schemaFallbacks,
-      diagnostics: this.diagnostics,
+      diagnostics: this._diagnostics,
     }
-    return this.snapshot
+    return this._snapshot
   }
 
   getSnapshot(): ModelerVisibleElementsSnapshot {
-    return this.snapshot
+    return this._snapshot
   }
 
   getDiagnostics(): ModelerVisibilityDiagnostics {
-    return this.diagnostics
+    return this._diagnostics
   }
 
-  private ensureIndexes(input: ModelerVisibilityResolveInput): void {
+  private _ensureIndexes(input: ModelerVisibilityResolveInput): void {
     if (
-      this.indexedModelId === input.model.id
-      && this.indexedElementsVersion === input.model.elementsVersion
+      this._indexedModelId === input.model.id
+      && this._indexedElementsVersion === input.model.elementsVersion
     ) {
       return
     }
 
-    this.indexedModelId = input.model.id
-    this.indexedElementsVersion = input.model.elementsVersion
-    this.resolveExternalLabelBoundsInput = input.resolveExternalLabelBounds
-    this.elementsById.clear()
-    this.indexedNodes = []
-    this.indexedEdges = []
+    this._indexedModelId = input.model.id
+    this._indexedElementsVersion = input.model.elementsVersion
+    this._resolveExternalLabelBoundsInput = input.resolveExternalLabelBounds
+    this._elementsById.clear()
+    this._indexedNodes = []
+    this._indexedEdges = []
 
     for (const element of input.model.elements) {
-      this.elementsById.set(element.id, element)
+      this._elementsById.set(element.id, element)
       if (input.classifier.isEdge(element)) {
-        this.indexedEdges.push(element)
+        this._indexedEdges.push(element)
       }
-      else { this.indexedNodes.push(element) }
+      else { this._indexedNodes.push(element) }
     }
 
-    this.nodeIndex.rebuild(this.indexedNodes)
-    this.edgeIndex.rebuild(this.indexedEdges)
-    this.indexRebuilds += 1
+    this._nodeIndex.rebuild(this._indexedNodes)
+    this._edgeIndex.rebuild(this._indexedEdges)
+    this._indexRebuilds += 1
   }
 
-  private resolveForcedIds(input: ModelerVisibilityResolveInput): Set<string> {
+  private _resolveForcedIds(input: ModelerVisibilityResolveInput): Set<string> {
     const forcedIds = new Set<string>()
     for (const id of input.selectedIds ?? []) {
       forcedIds.add(id)
@@ -235,23 +235,23 @@ export class ModelerVisibilityRuntime implements ModelerVisibilityApi {
     return forcedIds
   }
 
-  private resolveNodeBounds(element: ModelerElement): NovaBounds {
+  private _resolveNodeBounds(element: ModelerElement): NovaBounds {
     const bounds = {
       x: element.x,
       y: element.y,
       width: Math.max(1, element.width),
       height: Math.max(1, element.height),
     }
-    return unionBounds(bounds, this.resolveExternalLabelBoundsInput?.(element))
+    return unionBounds(bounds, this._resolveExternalLabelBoundsInput?.(element))
   }
 
-  private resolveEdgeBounds(element: ModelerElement): NovaBounds {
+  private _resolveEdgeBounds(element: ModelerElement): NovaBounds {
     if (!isModelerEdgeElement(element)) {
-      return this.resolveNodeBounds(element)
+      return this._resolveNodeBounds(element)
     }
     const points = resolveEdgeRoutePoints(element)
     if (points.length === 0) {
-      return this.resolveNodeBounds(element)
+      return this._resolveNodeBounds(element)
     }
     let minX = Number.POSITIVE_INFINITY
     let minY = Number.POSITIVE_INFINITY
@@ -275,7 +275,7 @@ export class ModelerVisibilityRuntime implements ModelerVisibilityApi {
       width: Math.max(1, maxX - minX + EDGE_ROUTE_PADDING * 2),
       height: Math.max(1, maxY - minY + EDGE_ROUTE_PADDING * 2),
     }
-    return unionBounds(bounds, this.resolveExternalLabelBoundsInput?.(element))
+    return unionBounds(bounds, this._resolveExternalLabelBoundsInput?.(element))
   }
 }
 

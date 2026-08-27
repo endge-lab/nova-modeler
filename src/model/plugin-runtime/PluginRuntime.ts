@@ -9,10 +9,10 @@ import type {
  * Управляет жизненным циклом plugin-расширений вокруг Modeler.Root.
  */
 export class PluginRuntime implements ModelerPluginRuntime {
-  private readonly plugins: Array<ModelerPlugin> = []
-  private readonly activePlugins = new Set<ModelerPlugin>()
-  private readonly pluginDisposers = new Map<ModelerPlugin, () => void>()
-  private context: ModelerPluginContext | null = null
+  private readonly _plugins: Array<ModelerPlugin> = []
+  private readonly _activePlugins = new Set<ModelerPlugin>()
+  private readonly _pluginDisposers = new Map<ModelerPlugin, () => void>()
+  private _context: ModelerPluginContext | null = null
 
   constructor(options: PluginRuntimeOptions = {}) {
     options.plugins?.forEach(plugin => this.use(plugin))
@@ -22,12 +22,12 @@ export class PluginRuntime implements ModelerPluginRuntime {
    * Добавляет plugin в runtime.
    */
   use(plugin: ModelerPlugin): this {
-    if (this.plugins.includes(plugin)) {
+    if (this._plugins.includes(plugin)) {
       return this
     }
-    this.plugins.push(plugin)
-    if (this.context) {
-      this.setupPlugin(plugin)
+    this._plugins.push(plugin)
+    if (this._context) {
+      this._setupPlugin(plugin)
     }
     return this
   }
@@ -37,15 +37,15 @@ export class PluginRuntime implements ModelerPluginRuntime {
    */
   unuse(pluginOrId: ModelerPlugin | string): this {
     const plugin = typeof pluginOrId === 'string'
-      ? this.plugins.find(item => item.id === pluginOrId)
+      ? this._plugins.find(item => item.id === pluginOrId)
       : pluginOrId
     if (!plugin) {
       return this
     }
-    this.disposePlugin(plugin)
-    const index = this.plugins.indexOf(plugin)
+    this._disposePlugin(plugin)
+    const index = this._plugins.indexOf(plugin)
     if (index >= 0) {
-      this.plugins.splice(index, 1)
+      this._plugins.splice(index, 1)
     }
     return this
   }
@@ -54,56 +54,56 @@ export class PluginRuntime implements ModelerPluginRuntime {
    * Подключает runtime к Root host-контексту.
    */
   bindRoot(context: ModelerPluginContext): void {
-    if (this.context === context) {
+    if (this._context === context) {
       return
     }
     this.unbindRoot()
-    this.context = context
-    this.plugins.forEach(plugin => this.setupPlugin(plugin))
+    this._context = context
+    this._plugins.forEach(plugin => this._setupPlugin(plugin))
   }
 
   /**
    * Отключает runtime от Root host-контекста.
    */
   unbindRoot(): void {
-    for (const plugin of [...this.activePlugins]) {
-      this.disposePlugin(plugin)
+    for (const plugin of [...this._activePlugins]) {
+      this._disposePlugin(plugin)
     }
-    this.context = null
+    this._context = null
   }
 
   /**
    * Возвращает подключенные plugins.
    */
   getPlugins(): ReadonlyArray<ModelerPlugin> {
-    return this.plugins
+    return this._plugins
   }
 
   /**
    * Подключает один plugin к текущему контексту.
    */
-  private setupPlugin(plugin: ModelerPlugin): void {
-    if (!this.context || this.activePlugins.has(plugin)) {
+  private _setupPlugin(plugin: ModelerPlugin): void {
+    if (!this._context || this._activePlugins.has(plugin)) {
       return
     }
-    const dispose = plugin.setup(this.context)
-    this.activePlugins.add(plugin)
+    const dispose = plugin.setup(this._context)
+    this._activePlugins.add(plugin)
     if (dispose) {
-      this.pluginDisposers.set(plugin, dispose)
+      this._pluginDisposers.set(plugin, dispose)
     }
   }
 
   /**
    * Отключает один plugin.
    */
-  private disposePlugin(plugin: ModelerPlugin): void {
-    if (!this.activePlugins.has(plugin)) {
+  private _disposePlugin(plugin: ModelerPlugin): void {
+    if (!this._activePlugins.has(plugin)) {
       return
     }
-    this.pluginDisposers.get(plugin)?.()
-    this.pluginDisposers.delete(plugin)
+    this._pluginDisposers.get(plugin)?.()
+    this._pluginDisposers.delete(plugin)
     plugin.dispose?.()
-    this.activePlugins.delete(plugin)
+    this._activePlugins.delete(plugin)
   }
 }
 

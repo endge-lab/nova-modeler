@@ -112,7 +112,7 @@ export class BpmnParticipantView<E extends EventList = Record<string, any>>
   ) {
     super(app, surface, descriptor, props, options)
     this.options({ width: props.element.width, height: props.element.height, interactive: false })
-    this.syncViewportTransform()
+    this._syncViewportTransform()
   }
 
   static normalizeProps(props: BpmnParticipantViewProps): BpmnParticipantViewResolvedProps {
@@ -144,7 +144,7 @@ export class BpmnParticipantView<E extends EventList = Record<string, any>>
       const viewportChanged = this.props.viewport !== nextViewport
       this.props.element = nextElement
       this.props.viewport = nextViewport
-      this.syncViewportTransform()
+      this._syncViewportTransform()
       if (elementChanged) {
         this.notifySyncPortChanged('element', this.props.element)
       }
@@ -160,10 +160,10 @@ export class BpmnParticipantView<E extends EventList = Record<string, any>>
 
   update(): void {
     super.update()
-    this.syncViewportTransform()
+    this._syncViewportTransform()
   }
 
-  private syncViewportTransform(): void {
+  private _syncViewportTransform(): void {
     const element = this.props.element
     const viewport = this.props.viewport
     const scale = viewport.scale
@@ -187,43 +187,43 @@ export class BpmnParticipantView<E extends EventList = Record<string, any>>
 
   render(): void {
     super.render()
-    this.renderer.schema(this.createSchema())
+    this.renderer.schema(this._createSchema())
   }
 
-  private createSchema(): NovaSchema {
+  private _createSchema(): NovaSchema {
     const element = this.props.element
     const style = element.style ?? {}
     const selected = this.props.selected
     const borderColor = selected
-      ? String(style.selectedStroke ?? this.resolveThemeColor('elementSelectedStroke'))
-      : String(style.stroke ?? this.resolveThemeColor('elementStroke'))
-    const strokeWidth = this.resolveStyleNumber(style.strokeWidth, 'elementStrokeWidth')
-    const layout = this.createLocalLayout()
+      ? String(style.selectedStroke ?? this._resolveThemeColor('elementSelectedStroke'))
+      : String(style.stroke ?? this._resolveThemeColor('elementStroke'))
+    const strokeWidth = this._resolveStyleNumber(style.strokeWidth, 'elementStrokeWidth')
+    const layout = this._createLocalLayout()
     const schema: NovaSchema = [{
       type: 'rect',
       ...layout.bounds,
       styles: {
-        background: String(style.fill ?? this.resolveThemeColor('elementFill')),
+        background: String(style.fill ?? this._resolveThemeColor('elementFill')),
         border: {
           color: borderColor,
           width: strokeWidth,
           radius: Number(style.radius ?? 4),
         },
-        opacity: this.resolveStyleNumber(style.opacity, 'elementOpacity'),
+        opacity: this._resolveStyleNumber(style.opacity, 'elementOpacity'),
       },
     }]
 
     const laneHeadersVisible = areBpmnParticipantLaneHeadersVisible(element)
-    this.appendLaneBackgrounds(schema, layout.lanes, laneHeadersVisible)
-    this.appendHeaders(schema, layout.participantHeaderRect, layout.laneHeaderAreaRect, laneHeadersVisible, strokeWidth)
-    this.appendLaneLines(schema, layout.lanes, strokeWidth)
+    this._appendLaneBackgrounds(schema, layout.lanes, laneHeadersVisible)
+    this._appendHeaders(schema, layout.participantHeaderRect, layout.laneHeaderAreaRect, laneHeadersVisible, strokeWidth)
+    this._appendLaneLines(schema, layout.lanes, strokeWidth)
     if (!this.props.hideName) {
-      this.appendLabels(schema)
+      this._appendLabels(schema)
     }
     return schema
   }
 
-  private appendLaneBackgrounds(schema: NovaSchema, lanes: Array<BpmnParticipantLayoutLane>, laneHeadersVisible: boolean): void {
+  private _appendLaneBackgrounds(schema: NovaSchema, lanes: Array<BpmnParticipantLayoutLane>, laneHeadersVisible: boolean): void {
     const headerFill = 'rgba(248, 250, 252, 0.66)'
     lanes.forEach((lane) => {
       const fill = typeof lane.style?.fill === 'string' ? lane.style.fill : undefined
@@ -245,7 +245,7 @@ export class BpmnParticipantView<E extends EventList = Record<string, any>>
     })
   }
 
-  private appendHeaders(
+  private _appendHeaders(
     schema: NovaSchema,
     participantHeader: ModelerRect,
     laneHeaderArea: ModelerRect,
@@ -253,7 +253,7 @@ export class BpmnParticipantView<E extends EventList = Record<string, any>>
     strokeWidth: number,
   ): void {
     const headerFill = 'rgba(248, 250, 252, 0.66)'
-    const color = this.resolveThemeColor('elementStroke')
+    const color = this._resolveThemeColor('elementStroke')
     schema.push({
       type: 'rect',
       ...participantHeader,
@@ -274,8 +274,8 @@ export class BpmnParticipantView<E extends EventList = Record<string, any>>
     }
   }
 
-  private appendLaneLines(schema: NovaSchema, lanes: Array<BpmnParticipantLayoutLane>, strokeWidth: number): void {
-    const color = this.resolveThemeColor('elementStroke')
+  private _appendLaneLines(schema: NovaSchema, lanes: Array<BpmnParticipantLayoutLane>, strokeWidth: number): void {
+    const color = this._resolveThemeColor('elementStroke')
     const orientation = normalizeBpmnParticipantOrientation(this.props.element.data?.orientation)
     lanes.slice(1).forEach((lane) => {
       const rect = lane.rect
@@ -288,25 +288,25 @@ export class BpmnParticipantView<E extends EventList = Record<string, any>>
     })
   }
 
-  private appendLabels(schema: NovaSchema): void {
+  private _appendLabels(schema: NovaSchema): void {
     const element = this.props.element
-    const layout = this.createLocalLayout()
+    const layout = this._createLocalLayout()
     const participant = createRenderLabelLayout(
       element.data?.name ?? 'Participant',
       layout.participantHeaderRect,
       element.data?.orientation,
     )
-    this.appendLabel(schema, participant)
+    this._appendLabel(schema, participant)
     if (areBpmnParticipantLaneHeadersVisible(element)) {
       layout.lanes.forEach((lane) => {
         const laneLayout = createRenderLabelLayout(lane.name, lane.headerRect, element.data?.orientation)
-        this.appendLabel(schema, laneLayout)
+        this._appendLabel(schema, laneLayout)
       })
     }
   }
 
-  private appendLabel(schema: NovaSchema, layout: BpmnParticipantLabelLayout): void {
-    const color = this.resolveThemeColor('bpmnTaskTextColor')
+  private _appendLabel(schema: NovaSchema, layout: BpmnParticipantLabelLayout): void {
+    const color = this._resolveThemeColor('bpmnTaskTextColor')
     for (const line of layout.lines) {
       schema.push({
         type: 'text',
@@ -332,23 +332,23 @@ export class BpmnParticipantView<E extends EventList = Record<string, any>>
     }
   }
 
-  private createLocalLayout(): BpmnParticipantLayout {
+  private _createLocalLayout(): BpmnParticipantLayout {
     const world = createBpmnParticipantLayout(this.props.element)
     return {
-      bounds: this.toLocalRect(world.bounds),
-      participantHeaderRect: this.toLocalRect(world.participantHeaderRect),
-      laneHeaderAreaRect: this.toLocalRect(world.laneHeaderAreaRect),
-      contentRect: this.toLocalRect(world.contentRect),
+      bounds: this._toLocalRect(world.bounds),
+      participantHeaderRect: this._toLocalRect(world.participantHeaderRect),
+      laneHeaderAreaRect: this._toLocalRect(world.laneHeaderAreaRect),
+      contentRect: this._toLocalRect(world.contentRect),
       lanes: world.lanes.map(lane => ({
         ...lane,
-        rect: this.toLocalRect(lane.rect),
-        headerRect: this.toLocalRect(lane.headerRect),
-        contentRect: this.toLocalRect(lane.contentRect),
+        rect: this._toLocalRect(lane.rect),
+        headerRect: this._toLocalRect(lane.headerRect),
+        contentRect: this._toLocalRect(lane.contentRect),
       })),
     }
   }
 
-  private toLocalRect(rect: ModelerRect): ModelerRect {
+  private _toLocalRect(rect: ModelerRect): ModelerRect {
     const element = this.props.element
     return {
       x: rect.x - element.x - element.width / 2,
@@ -358,17 +358,17 @@ export class BpmnParticipantView<E extends EventList = Record<string, any>>
     }
   }
 
-  private resolveStyleNumber(value: unknown, token: ModelerThemeTokenKey): number {
+  private _resolveStyleNumber(value: unknown, token: ModelerThemeTokenKey): number {
     const parsed = typeof value === 'number' ? value : Number(value)
-    return Number.isFinite(parsed) ? parsed : this.resolveThemeNumber(token)
+    return Number.isFinite(parsed) ? parsed : this._resolveThemeNumber(token)
   }
 
-  private resolveThemeColor(token: ModelerThemeTokenKey): string {
+  private _resolveThemeColor(token: ModelerThemeTokenKey): string {
     const fallback = String(MODELER_THEME_FALLBACKS[token])
     return this.nova.theme.resolve(MODELER_THEME_TOKENS[token], fallback) ?? fallback
   }
 
-  private resolveThemeNumber(token: ModelerThemeTokenKey): number {
+  private _resolveThemeNumber(token: ModelerThemeTokenKey): number {
     const fallback = Number(MODELER_THEME_FALLBACKS[token])
     const raw = this.nova.theme.resolve(MODELER_THEME_TOKENS[token], String(fallback)) ?? fallback
     const value = typeof raw === 'number' ? raw : Number(raw)

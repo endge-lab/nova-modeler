@@ -1,19 +1,19 @@
 import type { ModelerEdgeSegmentHandleDescriptor } from '@/domain/types/index'
 
 export class ElementsEdgeSegmentHover {
-  private handle: ModelerEdgeSegmentHandleDescriptor | null = null
-  private readonly listeners = new Set<() => void>()
+  private _handle: ModelerEdgeSegmentHandleDescriptor | null = null
+  private readonly _listeners = new Set<() => void>()
 
   get(): ModelerEdgeSegmentHandleDescriptor | null {
-    return this.handle ? { ...this.handle } : null
+    return this._handle ? { ...this._handle } : null
   }
 
   set(handle: ModelerEdgeSegmentHandleDescriptor | null): void {
-    if (this.isSameHandle(handle)) {
+    if (this._isSameHandle(handle)) {
       return
     }
-    this.handle = handle ? { ...handle } : null
-    this.notify()
+    this._handle = handle ? { ...handle } : null
+    this._notify()
   }
 
   clear(): void {
@@ -21,25 +21,25 @@ export class ElementsEdgeSegmentHover {
   }
 
   subscribe(listener: () => void): () => void {
-    this.listeners.add(listener)
-    return () => this.listeners.delete(listener)
+    this._listeners.add(listener)
+    return () => this._listeners.delete(listener)
   }
 
-  private isSameHandle(next: ModelerEdgeSegmentHandleDescriptor | null): boolean {
-    if (!this.handle && !next) {
+  private _isSameHandle(next: ModelerEdgeSegmentHandleDescriptor | null): boolean {
+    if (!this._handle && !next) {
       return true
     }
-    if (!this.handle || !next) {
+    if (!this._handle || !next) {
       return false
     }
-    return this.handle.elementId === next.elementId
-      && this.handle.segmentIndex === next.segmentIndex
-      && this.handle.x === next.x
-      && this.handle.y === next.y
+    return this._handle.elementId === next.elementId
+      && this._handle.segmentIndex === next.segmentIndex
+      && this._handle.x === next.x
+      && this._handle.y === next.y
   }
 
-  private notify(): void {
-    for (const listener of this.listeners) {
+  private _notify(): void {
+    for (const listener of this._listeners) {
       listener()
     }
   }

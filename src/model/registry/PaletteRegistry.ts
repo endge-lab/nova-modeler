@@ -4,32 +4,32 @@ import type {
 } from '@/domain/types/index'
 
 export class PaletteRegistry {
-  private readonly items = new Map<string, ModelerPaletteItemDefinition>()
+  private readonly _items = new Map<string, ModelerPaletteItemDefinition>()
 
-  constructor(private readonly getOptions: () => ModelerPaletteOptions | undefined) {}
+  constructor(private readonly _getOptions: () => ModelerPaletteOptions | undefined) {}
 
   register(definition: ModelerPaletteItemDefinition): () => void {
-    this.items.set(definition.id, definition)
+    this._items.set(definition.id, definition)
     return () => {
-      if (this.items.get(definition.id) === definition) {
-        this.items.delete(definition.id)
+      if (this._items.get(definition.id) === definition) {
+        this._items.delete(definition.id)
       }
     }
   }
 
   get(id: string): ModelerPaletteItemDefinition | undefined {
-    return this.items.get(id)
+    return this._items.get(id)
   }
 
   getAll(): ReadonlyArray<ModelerPaletteItemDefinition> {
-    return [...this.items.values()]
+    return [...this._items.values()]
   }
 
   getItems(): Array<ModelerPaletteItemDefinition> {
-    const options = this.getOptions()
+    const options = this._getOptions()
     const visible = options?.visibleItemIds ? new Set(options.visibleItemIds) : null
     const order = new Map((options?.order ?? []).map((id, index) => [id, index]))
-    return [...this.items.values()]
+    return [...this._items.values()]
       .filter(item => !visible || visible.has(item.id))
       .sort((a, b) => {
         const orderA = order.has(a.id) ? order.get(a.id) ?? 0 : Number.POSITIVE_INFINITY

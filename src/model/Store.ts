@@ -177,13 +177,13 @@ export class Store implements ModelerStore {
   @Reactive({ phase: 'render' })
   selectionVersion = 0
 
-  private readonly elementRegistry: ModelerElementRegistry
+  private readonly _elementRegistry: ModelerElementRegistry
 
   constructor(
     input: ModelerModel | ModelerModelInput = {},
     options: { elementRegistry?: ModelerElementRegistry } = {},
   ) {
-    this.elementRegistry = options.elementRegistry ?? createModelerElementRegistry()
+    this._elementRegistry = options.elementRegistry ?? createModelerElementRegistry()
     this.load(input)
   }
 
@@ -267,7 +267,7 @@ export class Store implements ModelerStore {
 
   addElement(element: ModelerElement): void {
     Nova.batchStore(this, () => {
-      this.elements.set([...this.elements.items, this.normalizeElement(element)])
+      this.elements.set([...this.elements.items, this._normalizeElement(element)])
       this.version += 1
       this.elementsVersion += 1
     })
@@ -292,10 +292,10 @@ export class Store implements ModelerStore {
     }
     Nova.batchStore(this, () => {
       this.elements.items
-        .filter(element => this.shouldDeleteWithConnectedNode(element, deleteIds))
+        .filter(element => this._shouldDeleteWithConnectedNode(element, deleteIds))
         .forEach(element => deleteIds.add(element.id))
       this.elements.items
-        .filter(element => this.shouldDeleteWithAttachedNode(element, deleteIds))
+        .filter(element => this._shouldDeleteWithAttachedNode(element, deleteIds))
         .forEach(element => deleteIds.add(element.id))
       this.elements.set(this.elements.items.filter(element => !deleteIds.has(element.id)))
       this.selection.set(this.selection.ids.filter(selectionId => !deleteIds.has(selectionId)))
@@ -305,7 +305,7 @@ export class Store implements ModelerStore {
     })
   }
 
-  private shouldDeleteWithConnectedNode(element: ModelerElement, deleteIds: Set<string>): boolean {
+  private _shouldDeleteWithConnectedNode(element: ModelerElement, deleteIds: Set<string>): boolean {
     if (!isModelerEdgeElement(element)) {
       return false
     }
@@ -313,7 +313,7 @@ export class Store implements ModelerStore {
       || Boolean(element.target.elementId && deleteIds.has(element.target.elementId))
   }
 
-  private shouldDeleteWithAttachedNode(element: ModelerElement, deleteIds: Set<string>): boolean {
+  private _shouldDeleteWithAttachedNode(element: ModelerElement, deleteIds: Set<string>): boolean {
     for (const id of deleteIds) {
       if (isBpmnBoundaryEventAttachedTo(element, id)) {
         return true
@@ -329,7 +329,7 @@ export class Store implements ModelerStore {
         if (element.id !== id) {
           return element
         }
-        return this.normalizeElement(nextElement)
+        return this._normalizeElement(nextElement)
       }))
       if (nextId !== id) {
         this.selection.set(this.selection.ids.map(selectionId => selectionId === id ? nextId : selectionId))
@@ -346,7 +346,7 @@ export class Store implements ModelerStore {
         if (element.id !== id) {
           return element
         }
-        return this.normalizeElement({
+        return this._normalizeElement({
           ...element,
           ...patch,
           data: patch.data ? { ...element.data, ...patch.data } : element.data,
@@ -364,13 +364,13 @@ export class Store implements ModelerStore {
         if (element.id !== id) {
           return element
         }
-        const resize = this.elementRegistry.get(element.type)?.capabilities?.resizable
+        const resize = this._elementRegistry.get(element.type)?.capabilities?.resizable
         if (!resize) {
           return element
         }
         const minWidth = resize ? resize.minWidth ?? 1 : 1
         const minHeight = resize ? resize.minHeight ?? 1 : 1
-        return this.normalizeElement({
+        return this._normalizeElement({
           ...element,
           x: bounds.x ?? element.x,
           y: bounds.y ?? element.y,
@@ -386,7 +386,7 @@ export class Store implements ModelerStore {
   moveElement(id: string, dx: number, dy: number): void {
     Nova.batchStore(this, () => {
       this.elements.set(this.elements.items.map(element => element.id === id
-        ? this.normalizeElement({ ...element, x: element.x + dx, y: element.y + dy })
+        ? this._normalizeElement({ ...element, x: element.x + dx, y: element.y + dy })
         : element))
       this.version += 1
       this.elementsVersion += 1
@@ -396,7 +396,7 @@ export class Store implements ModelerStore {
   rotateElement(id: string, rotation: number): void {
     Nova.batchStore(this, () => {
       this.elements.set(this.elements.items.map(element => element.id === id
-        ? this.normalizeElement({ ...element, rotation })
+        ? this._normalizeElement({ ...element, rotation })
         : element))
       this.version += 1
       this.elementsVersion += 1
@@ -410,7 +410,7 @@ export class Store implements ModelerStore {
       this.viewport.load(input.viewport)
       this.canvas.load(input.canvas)
       this.bpmnDefinitions.load(input.bpmnDefinitions)
-      this.elements.load((input.elements ?? []).map(element => this.normalizeElement(element)))
+      this.elements.load((input.elements ?? []).map(element => this._normalizeElement(element)))
       this.selection.set(input.selection ?? [])
       this.version = maybeModel.version ?? 0
       this.viewportVersion = maybeModel.viewportVersion ?? 0
@@ -449,8 +449,8 @@ export class Store implements ModelerStore {
     return store.apply(command)
   }
 
-  private normalizeElement(element: ModelerElement): ModelerElement {
-    const definition = this.elementRegistry.get(element.type)
+  private _normalizeElement(element: ModelerElement): ModelerElement {
+    const definition = this._elementRegistry.get(element.type)
     const normalized = definition?.normalize?.(cloneElement(element)) ?? cloneElement(element)
     return {
       ...normalized,

@@ -12,7 +12,7 @@ import { BPMN_SUB_PROCESS_TYPE } from '@/elements/bpmn/sub-process/bpmn-sub-proc
 import { BPMN_TASK_TYPE } from '@/elements/bpmn/task/bpmn-task.factory'
 
 export class ConnectionAnchorResolver {
-  constructor(private readonly geometry: ElementsGeometry) {}
+  constructor(private readonly _geometry: ElementsGeometry) {}
 
   isVirtualAnchorElement(element: ModelerElement): boolean {
     return element.type === BPMN_EVENT_TYPE
@@ -31,23 +31,23 @@ export class ConnectionAnchorResolver {
   }
 
   resolveElementAnchor(element: ModelerElement, reference: ModelerPoint | undefined): ModelerPoint {
-    const center = this.geometry.elementCenter(element)
+    const center = this._geometry.elementCenter(element)
     const localReference = reference
-      ? this.geometry.unrotatePoint(element, reference)
+      ? this._geometry.unrotatePoint(element, reference)
       : {
           x: center.x + Math.max(1, element.width / 2),
           y: center.y,
         }
     const localAnchor = element.type === BPMN_EVENT_TYPE
-      ? this.resolveEllipseAnchor(element, localReference)
+      ? this._resolveEllipseAnchor(element, localReference)
       : element.type === BPMN_GATEWAY_TYPE
-        ? this.resolveDiamondAnchor(element, localReference)
-        : this.resolveRectAnchor(element, localReference)
-    return this.geometry.rotatePoint(element, localAnchor)
+        ? this._resolveDiamondAnchor(element, localReference)
+        : this._resolveRectAnchor(element, localReference)
+    return this._geometry.rotatePoint(element, localAnchor)
   }
 
-  private resolveRectAnchor(element: ModelerElement, reference: ModelerPoint): ModelerPoint {
-    const center = this.geometry.elementCenter(element)
+  private _resolveRectAnchor(element: ModelerElement, reference: ModelerPoint): ModelerPoint {
+    const center = this._geometry.elementCenter(element)
     const dx = reference.x - center.x
     const dy = reference.y - center.y
     if (dx === 0 && dy === 0) {
@@ -65,8 +65,8 @@ export class ConnectionAnchorResolver {
     }
   }
 
-  private resolveEllipseAnchor(element: ModelerElement, reference: ModelerPoint): ModelerPoint {
-    const center = this.geometry.elementCenter(element)
+  private _resolveEllipseAnchor(element: ModelerElement, reference: ModelerPoint): ModelerPoint {
+    const center = this._geometry.elementCenter(element)
     const dx = reference.x - center.x
     const dy = reference.y - center.y
     if (dx === 0 && dy === 0) {
@@ -81,8 +81,8 @@ export class ConnectionAnchorResolver {
     }
   }
 
-  private resolveDiamondAnchor(element: ModelerElement, reference: ModelerPoint): ModelerPoint {
-    const center = this.geometry.elementCenter(element)
+  private _resolveDiamondAnchor(element: ModelerElement, reference: ModelerPoint): ModelerPoint {
+    const center = this._geometry.elementCenter(element)
     const dx = reference.x - center.x
     const dy = reference.y - center.y
     if (dx === 0 && dy === 0) {

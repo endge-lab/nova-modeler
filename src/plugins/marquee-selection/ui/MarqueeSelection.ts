@@ -53,8 +53,8 @@ export class MarqueeSelection<E extends EventList = Record<string, any>>
   @Prop.boolean({ default: true })
   declare enabled: boolean
 
-  private draft: { start: ModelerPoint, current: ModelerPoint } | null = null
-  private disposeGesture: (() => void) | undefined
+  private _draft: { start: ModelerPoint, current: ModelerPoint } | null = null
+  private _disposeGesture: (() => void) | undefined
 
   constructor(
     app: NovaApp<E>,
@@ -77,13 +77,13 @@ export class MarqueeSelection<E extends EventList = Record<string, any>>
 
   protected override onMount(): void {
     super.onMount()
-    this.registerGesture()
+    this._registerGesture()
   }
 
   protected override onUnmount(): void {
-    this.disposeGesture?.()
-    this.disposeGesture = undefined
-    this.draft = null
+    this._disposeGesture?.()
+    this._disposeGesture = undefined
+    this._draft = null
     super.onUnmount()
   }
 
@@ -98,17 +98,17 @@ export class MarqueeSelection<E extends EventList = Record<string, any>>
 
   render(): void {
     super.render()
-    this.renderer.schema(this.draft
-      ? [createMarqueeSchema(resolveRect(this.draft.start, this.draft.current))] as NovaSchema
+    this.renderer.schema(this._draft
+      ? [createMarqueeSchema(resolveRect(this._draft.start, this._draft.current))] as NovaSchema
       : [] as unknown as NovaSchema)
   }
 
-  private registerGesture(): void {
+  private _registerGesture(): void {
     const context = this.inject(MODELER_CONTEXT)
     if (!context) {
       return
     }
-    this.disposeGesture = context.gestures.add({
+    this._disposeGesture = context.gestures.add({
       id: `${this.componentId}:gesture`,
       priority: 80,
       hitTest: (ctx, event, target) => {
@@ -124,24 +124,24 @@ export class MarqueeSelection<E extends EventList = Record<string, any>>
       },
       onPointerDown: (_ctx, event) => {
         const point = eventPoint(event)
-        this.draft = { start: point, current: point }
+        this._draft = { start: point, current: point }
         this.dirty({ render: true })
         return false
       },
       onPointerMove: (_ctx, event) => {
-        if (!this.draft) {
+        if (!this._draft) {
           return
         }
-        this.draft = { ...this.draft, current: eventPoint(event) }
+        this._draft = { ...this._draft, current: eventPoint(event) }
         this.dirty({ render: true })
         return false
       },
       onPointerUp: (ctx, event) => {
-        if (!this.draft) {
+        if (!this._draft) {
           return
         }
-        const rect = resolveRect(this.draft.start, this.draft.current)
-        this.draft = null
+        const rect = resolveRect(this._draft.start, this._draft.current)
+        this._draft = null
         const hitIds = rect.width >= this.props.minDragPx || rect.height >= this.props.minDragPx
           ? resolveElementIdsInRect(ctx.getModel().elements, resolveWorldRect(ctx.screenToWorld(rect), ctx.screenToWorld({
               x: rect.x + rect.width,
@@ -163,7 +163,7 @@ export class MarqueeSelection<E extends EventList = Record<string, any>>
         return false
       },
       onCancel: () => {
-        this.draft = null
+        this._draft = null
         this.dirty({ render: true })
       },
     })

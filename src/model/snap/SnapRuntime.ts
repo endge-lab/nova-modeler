@@ -13,21 +13,21 @@ import { NoopSnapStrategy } from '@/model/snap/NoopSnapStrategy'
  * Применяет пользовательскую snap-стратегию к интеракциям элементов.
  */
 export class SnapRuntime {
-  private readonly gridStrategy = new GridSnapStrategy()
-  private readonly noopStrategy = new NoopSnapStrategy()
+  private readonly _gridStrategy = new GridSnapStrategy()
+  private readonly _noopStrategy = new NoopSnapStrategy()
 
-  constructor(private readonly context: ModelerPluginContext) {}
+  constructor(private readonly _context: ModelerPluginContext) {}
 
   /**
    * Привязывает абсолютную позицию элемента.
    */
   moveElement(input: ModelerSnapMoveInput): { x: number, y: number } {
-    if (!this.isEnabled(input.event)) {
+    if (!this._isEnabled(input.event)) {
       return input.raw
     }
-    return this.resolveStrategy().snapPoint({
+    return this._resolveStrategy().snapPoint({
       point: input.raw,
-      gridSize: this.resolveGridSize(),
+      gridSize: this._resolveGridSize(),
       element: input.element,
     })
   }
@@ -36,14 +36,14 @@ export class SnapRuntime {
    * Привязывает bounds resize-операции.
    */
   resizeElement(input: ModelerSnapRuntimeResizeInput): { x: number, y: number, width: number, height: number } {
-    if (!this.isEnabled(input.event)) {
+    if (!this._isEnabled(input.event)) {
       return input.rawBounds
     }
-    return this.resolveStrategy().snapResize({
+    return this._resolveStrategy().snapResize({
       bounds: input.rawBounds,
       source: input.element,
       handle: input.handle,
-      gridSize: this.resolveGridSize(),
+      gridSize: this._resolveGridSize(),
       element: input.element,
       minSize: input.minSize,
     })
@@ -52,47 +52,47 @@ export class SnapRuntime {
   /**
    * Проверяет, активен ли snap для текущего события.
    */
-  private isEnabled(event?: MouseEvent): boolean {
-    const options = this.resolveOptions()
+  private _isEnabled(event?: MouseEvent): boolean {
+    const options = this._resolveOptions()
     if (options === false) {
       return false
     }
     if (options.enabled === false) {
       return false
     }
-    return !this.isDisabledByModifier(event, options.disableModifier ?? 'alt')
+    return !this._isDisabledByModifier(event, options.disableModifier ?? 'alt')
   }
 
   /**
    * Возвращает пользовательскую стратегию или grid-snap по умолчанию.
    */
-  private resolveStrategy(): ModelerSnapStrategy {
-    const options = this.resolveOptions()
+  private _resolveStrategy(): ModelerSnapStrategy {
+    const options = this._resolveOptions()
     if (options === false) {
-      return this.noopStrategy
+      return this._noopStrategy
     }
-    return options.strategy ?? this.gridStrategy
+    return options.strategy ?? this._gridStrategy
   }
 
   /**
    * Возвращает snap-настройки из interaction options.
    */
-  private resolveOptions(): false | ModelerSnapOptions {
-    return this.context.getOptions().interaction?.snap ?? { enabled: true, disableModifier: 'alt' }
+  private _resolveOptions(): false | ModelerSnapOptions {
+    return this._context.getOptions().interaction?.snap ?? { enabled: true, disableModifier: 'alt' }
   }
 
   /**
    * Возвращает world-grid size независимо от render LOD сетки.
    */
-  private resolveGridSize(): number {
-    return this.context.getOptions().interaction?.gridSize
-      ?? this.context.getModel().canvas.gridSize
+  private _resolveGridSize(): number {
+    return this._context.getOptions().interaction?.gridSize
+      ?? this._context.getModel().canvas.gridSize
   }
 
   /**
    * Проверяет временное отключение snap через modifier key.
    */
-  private isDisabledByModifier(event: MouseEvent | undefined, modifier: ModelerSnapDisableModifier): boolean {
+  private _isDisabledByModifier(event: MouseEvent | undefined, modifier: ModelerSnapDisableModifier): boolean {
     if (!event || modifier === 'none') {
       return false
     }

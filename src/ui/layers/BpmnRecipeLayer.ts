@@ -172,7 +172,7 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
   @Prop.number({ default: 0 })
   declare schemaFallbacks: number
 
-  private readonly batchRuntime = new BpmnBatchRuntime()
+  private readonly _batchRuntime = new BpmnBatchRuntime()
 
   constructor(
     app: NovaApp<E>,
@@ -183,7 +183,7 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
   ) {
     super(app, surface, descriptor, props, options)
     this.options({ width: surface.width, height: surface.height, interactive: false })
-    this.syncViewportTransform()
+    this._syncViewportTransform()
   }
 
   static normalizeProps(props: BpmnRecipeLayerViewProps): BpmnRecipeLayerViewResolvedProps {
@@ -199,7 +199,7 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
 
   update(): void {
     super.update()
-    this.syncViewportTransform()
+    this._syncViewportTransform()
   }
 
   override setProps(patch: Partial<BpmnRecipeLayerViewResolvedProps>): this {
@@ -211,9 +211,9 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
 
     const nextViewport = patch.viewport ?? this.props.viewport
     const viewportOnly = changedKeys.every(key => key === 'viewport')
-    if (viewportOnly && this.canApplyViewportWithoutResize(nextViewport)) {
+    if (viewportOnly && this._canApplyViewportWithoutResize(nextViewport)) {
       this.props.viewport = nextViewport
-      this.syncViewportTransform()
+      this._syncViewportTransform()
       this.notifySyncPortChanged('viewport', this.props.viewport)
       this.dirty({ matrix: true })
       return this
@@ -222,13 +222,13 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     return super.setProps(patch)
   }
 
-  private canApplyViewportWithoutResize(viewport: ModelerViewport): boolean {
+  private _canApplyViewportWithoutResize(viewport: ModelerViewport): boolean {
     const scale = normalizePositiveNumber(viewport.scale, 1)
     return Math.ceil(this.surface.width / scale) <= this.width
       && Math.ceil(this.surface.height / scale) <= this.height
   }
 
-  private syncViewportTransform(): void {
+  private _syncViewportTransform(): void {
     const scale = normalizePositiveNumber(this.props.viewport.scale, 1)
     const requiredWidth = Math.ceil(this.surface.width / scale)
     const requiredHeight = Math.ceil(this.surface.height / scale)
@@ -246,24 +246,24 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
   render(): void {
     super.render()
     const schema: NovaSchema = [] as unknown as NovaSchema
-    const writers = this.batchRuntime.begin()
-    const textWriter = this.createTextWriter(schema, writers.text)
+    const writers = this._batchRuntime.begin()
+    const textWriter = this._createTextWriter(schema, writers.text)
 
     for (const element of this.props.elements) {
-      this.appendElementRecipe(schema, writers.fill, textWriter, element)
+      this._appendElementRecipe(schema, writers.fill, textWriter, element)
     }
 
-    this.batchRuntime.finalize({
+    this._batchRuntime.finalize({
       recipeElements: this.props.elements.length,
       visibleElements: this.props.visibleElements,
       culledElements: this.props.culledElements,
       schemaFallbacks: this.props.schemaFallbacks,
       schemaItems: schema.length,
       textEnabled: this.props.textMode === 'batch',
-      textColor: this.resolveThemeColor('bpmnTaskTextColor'),
+      textColor: this._resolveThemeColor('bpmnTaskTextColor'),
     })
-    const fillBatch = this.batchRuntime.getFillBatch()
-    const textBatch = this.batchRuntime.getTextBatch()
+    const fillBatch = this._batchRuntime.getFillBatch()
+    const textBatch = this._batchRuntime.getTextBatch()
     if (fillBatch.count > 0) {
       this.renderer.rects(fillBatch)
     }
@@ -275,7 +275,7 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     }
   }
 
-  private createTextWriter(schema: NovaSchema, batchWriter: BpmnRecipeTextWriter): BpmnRecipeTextWriter {
+  private _createTextWriter(schema: NovaSchema, batchWriter: BpmnRecipeTextWriter): BpmnRecipeTextWriter {
     if (this.props.textMode === 'batch') {
       return batchWriter
     }
@@ -296,7 +296,7 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
           height: rect.height,
           clip: true,
           styles: {
-            color: this.resolveThemeColor('bpmnTaskTextColor'),
+            color: this._resolveThemeColor('bpmnTaskTextColor'),
             font: {
               family: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
               size: 12,
@@ -309,59 +309,59 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     }
   }
 
-  private appendElementRecipe(
+  private _appendElementRecipe(
     schema: NovaSchema,
     fillWriter: BpmnRecipeFillWriter,
     textWriter: BpmnRecipeTextWriter,
     element: ModelerElement,
   ): void {
     if (element.type === 'bpmn.participant') {
-      this.appendParticipantRecipe(schema, fillWriter, element as BpmnParticipantElement)
+      this._appendParticipantRecipe(schema, fillWriter, element as BpmnParticipantElement)
       return
     }
     if (element.type === BPMN_TASK_TYPE || element.type === BPMN_SUB_PROCESS_TYPE || element.type === BPMN_CALL_ACTIVITY_TYPE) {
-      this.appendActivityRecipe(schema, fillWriter, textWriter, element)
+      this._appendActivityRecipe(schema, fillWriter, textWriter, element)
       return
     }
     if (element.type === BPMN_EVENT_TYPE || element.type === BPMN_BOUNDARY_EVENT_TYPE) {
-      this.appendEventRecipe(schema, textWriter, element)
+      this._appendEventRecipe(schema, textWriter, element)
       return
     }
     if (element.type === BPMN_GATEWAY_TYPE) {
-      this.appendGatewayRecipe(schema, textWriter, element)
+      this._appendGatewayRecipe(schema, textWriter, element)
       return
     }
     if (element.type === BPMN_DATA_OBJECT_TYPE) {
-      this.appendDataObjectRecipe(schema, textWriter, element)
+      this._appendDataObjectRecipe(schema, textWriter, element)
       return
     }
     if (element.type === BPMN_DATA_STORE_TYPE) {
-      this.appendDataStoreRecipe(schema, textWriter, element)
+      this._appendDataStoreRecipe(schema, textWriter, element)
       return
     }
     if (element.type === BPMN_GROUP_TYPE) {
-      this.appendGroupRecipe(schema, textWriter, element)
+      this._appendGroupRecipe(schema, textWriter, element)
       return
     }
     if (element.type === BPMN_TEXT_ANNOTATION_TYPE) {
-      this.appendTextAnnotationRecipe(schema, textWriter, element)
+      this._appendTextAnnotationRecipe(schema, textWriter, element)
     }
   }
 
-  private appendActivityRecipe(
+  private _appendActivityRecipe(
     schema: NovaSchema,
     fillWriter: BpmnRecipeFillWriter,
     textWriter: BpmnRecipeTextWriter,
     element: ModelerElement,
   ): void {
-    const rect = this.elementRectToWorld(element)
-    const fill = this.resolveElementFill(element, 'bpmnTaskFill', 'elementFill')
-    const stroke = this.resolveElementStroke(element, 'bpmnTaskStroke', 'elementStroke')
-    const radius = this.resolveElementRadius(element, 'bpmnTaskRadius')
+    const rect = this._elementRectToWorld(element)
+    const fill = this._resolveElementFill(element, 'bpmnTaskFill', 'elementFill')
+    const stroke = this._resolveElementStroke(element, 'bpmnTaskStroke', 'elementStroke')
+    const radius = this._resolveElementRadius(element, 'bpmnTaskRadius')
     if (!fillWriter.write(element.id, 'activity-fill', rect, fill, radius)) {
       schema.push(createFillRect(rect, fill, radius))
     }
-    const borderWidth = this.resolveElementStrokeWidth(element, 'bpmnTaskStrokeWidth', 'elementStrokeWidth')
+    const borderWidth = this._resolveElementStrokeWidth(element, 'bpmnTaskStrokeWidth', 'elementStrokeWidth')
       * (element.type === BPMN_CALL_ACTIVITY_TYPE ? 1.6 : 1)
     schema.push({
       type: 'rect',
@@ -379,12 +379,12 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
       },
     })
     if (element.type === BPMN_SUB_PROCESS_TYPE || element.type === BPMN_CALL_ACTIVITY_TYPE) {
-      this.appendTinyPlusMarker(schema, rect, stroke)
+      this._appendTinyPlusMarker(schema, rect, stroke)
     }
-    this.appendActivityLabel(textWriter, element, rect)
+    this._appendActivityLabel(textWriter, element, rect)
   }
 
-  private appendActivityLabel(textWriter: BpmnRecipeTextWriter, element: ModelerElement, rect: ModelerRect): void {
+  private _appendActivityLabel(textWriter: BpmnRecipeTextWriter, element: ModelerElement, rect: ModelerRect): void {
     const name = typeof element.data?.name === 'string' ? element.data.name : 'Task'
     const data = element.data as Partial<BpmnTaskElementData> | undefined
     const layout = element.type === BPMN_TASK_TYPE
@@ -414,16 +414,16 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     })
   }
 
-  private appendEventRecipe(schema: NovaSchema, textWriter: BpmnRecipeTextWriter, element: ModelerElement): void {
-    const rect = this.elementRectToWorld(element)
+  private _appendEventRecipe(schema: NovaSchema, textWriter: BpmnRecipeTextWriter, element: ModelerElement): void {
+    const rect = this._elementRectToWorld(element)
     const position = element.type === BPMN_BOUNDARY_EVENT_TYPE ? 'intermediate' : element.data?.eventPosition
     const radius = Math.max(1, Math.min(rect.width, rect.height) / 2)
     const center = { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }
-    const stroke = this.resolveElementStroke(element, 'bpmnEventStroke', 'elementStroke')
-    const fill = this.resolveElementFill(element, 'bpmnEventFill', 'elementFill')
+    const stroke = this._resolveElementStroke(element, 'bpmnEventStroke', 'elementStroke')
+    const fill = this._resolveElementFill(element, 'bpmnEventFill', 'elementFill')
     const baseWidth = position === 'end'
       ? 3
-      : this.resolveElementStrokeWidth(element, 'bpmnEventStrokeWidth', 'elementStrokeWidth')
+      : this._resolveElementStrokeWidth(element, 'bpmnEventStrokeWidth', 'elementStrokeWidth')
     schema.push({
       type: 'circle',
       x: center.x,
@@ -449,9 +449,9 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
         styles: { background: 'rgba(0,0,0,0)', border: { color: stroke, width: 1 } },
       })
     }
-    this.appendEventTriggerMarker(schema, element, center, Math.min(rect.width, rect.height) * 0.48)
+    this._appendEventTriggerMarker(schema, element, center, Math.min(rect.width, rect.height) * 0.48)
     if (element.type === BPMN_EVENT_TYPE) {
-      if (this.appendExternalGeometryLabel(textWriter, element, 'event-label', center)) {
+      if (this._appendExternalGeometryLabel(textWriter, element, 'event-label', center)) {
         return
       }
       const layout = resolveBpmnEventNameLayout({
@@ -470,7 +470,7 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     }
   }
 
-  private appendEventTriggerMarker(schema: NovaSchema, element: ModelerElement, center: { x: number, y: number }, size: number): void {
+  private _appendEventTriggerMarker(schema: NovaSchema, element: ModelerElement, center: { x: number, y: number }, size: number): void {
     const data = element.data ?? {}
     const trigger = normalizeBpmnEventTrigger(data.trigger)
     if (trigger === 'none') {
@@ -478,12 +478,12 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     }
     const position = normalizeBpmnEventPosition(data.eventPosition)
     const direction = normalizeBpmnEventDirection(data.direction, defaultBpmnEventDirection(position))
-    const color = String(element.style?.markerColor ?? this.resolveThemeColor('bpmnEventStroke', 'elementStroke'))
+    const color = String(element.style?.markerColor ?? this._resolveThemeColor('bpmnEventStroke', 'elementStroke'))
     const filled = trigger === 'terminate' || direction === 'throw'
-    this.appendEventMarkerByTrigger(schema, trigger, direction, center, Math.max(1, size), color, filled)
+    this._appendEventMarkerByTrigger(schema, trigger, direction, center, Math.max(1, size), color, filled)
   }
 
-  private appendEventMarkerByTrigger(
+  private _appendEventMarkerByTrigger(
     schema: NovaSchema,
     trigger: BpmnEventTrigger,
     direction: BpmnEventDirection,
@@ -493,69 +493,69 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     filled: boolean,
   ): void {
     if (trigger === 'message') {
-      this.appendMessageMarker(schema, center, size, color, filled)
+      this._appendMessageMarker(schema, center, size, color, filled)
       return
     }
     if (trigger === 'timer') {
-      this.appendTimerMarker(schema, center, size, color, filled)
+      this._appendTimerMarker(schema, center, size, color, filled)
       return
     }
     if (trigger === 'error') {
-      this.appendErrorMarker(schema, center, size, color, filled)
+      this._appendErrorMarker(schema, center, size, color, filled)
       return
     }
     if (trigger === 'escalation' || trigger === 'signal') {
-      this.appendTriangleMarker(schema, center, size, color, filled)
+      this._appendTriangleMarker(schema, center, size, color, filled)
       return
     }
     if (trigger === 'cancel') {
-      this.appendCancelMarker(schema, center, size, color, filled)
+      this._appendCancelMarker(schema, center, size, color, filled)
       return
     }
     if (trigger === 'compensation') {
-      this.appendCompensationMarker(schema, center, size, color, filled)
+      this._appendCompensationMarker(schema, center, size, color, filled)
       return
     }
     if (trigger === 'conditional') {
-      this.appendConditionalMarker(schema, center, size, color, filled)
+      this._appendConditionalMarker(schema, center, size, color, filled)
       return
     }
     if (trigger === 'link') {
-      this.appendLinkMarker(schema, center, size, color, filled)
+      this._appendLinkMarker(schema, center, size, color, filled)
       return
     }
     if (trigger === 'terminate') {
-      this.appendCircleMarker(schema, center, size * 0.34, color, true)
+      this._appendCircleMarker(schema, center, size * 0.34, color, true)
       return
     }
     if (trigger === 'parallelMultiple') {
-      this.appendParallelMultipleMarker(schema, center, size, color, filled)
+      this._appendParallelMultipleMarker(schema, center, size, color, filled)
       return
     }
-    this.appendMultipleMarker(schema, center, size, color, filled || direction === 'throw')
+    this._appendMultipleMarker(schema, center, size, color, filled || direction === 'throw')
   }
 
-  private appendMessageMarker(schema: NovaSchema, center: { x: number, y: number }, size: number, color: string, filled: boolean): void {
+  private _appendMessageMarker(schema: NovaSchema, center: { x: number, y: number }, size: number, color: string, filled: boolean): void {
     const width = size * 0.78
     const height = size * 0.48
     const x = center.x - width / 2
     const y = center.y - height / 2
-    this.appendRectMarker(schema, x, y, width, height, color, filled)
+    this._appendRectMarker(schema, x, y, width, height, color, filled)
     const lineColor = filled ? '#ffffff' : color
     schema.push({ type: 'line', x1: x, y1: y, x2: center.x, y2: y + height * 0.56, styles: { color: lineColor, width: 1.6 } })
     schema.push({ type: 'line', x1: x + width, y1: y, x2: center.x, y2: y + height * 0.56, styles: { color: lineColor, width: 1.6 } })
   }
 
-  private appendTimerMarker(schema: NovaSchema, center: { x: number, y: number }, size: number, color: string, filled: boolean): void {
+  private _appendTimerMarker(schema: NovaSchema, center: { x: number, y: number }, size: number, color: string, filled: boolean): void {
     const radius = size * 0.32
-    this.appendCircleMarker(schema, center, radius, color, filled)
+    this._appendCircleMarker(schema, center, radius, color, filled)
     const lineColor = filled ? '#ffffff' : color
     schema.push({ type: 'line', x1: center.x, y1: center.y, x2: center.x, y2: center.y - radius * 0.55, styles: { color: lineColor, width: 1.6 } })
     schema.push({ type: 'line', x1: center.x, y1: center.y, x2: center.x + radius * 0.42, y2: center.y + radius * 0.2, styles: { color: lineColor, width: 1.6 } })
   }
 
-  private appendErrorMarker(schema: NovaSchema, center: { x: number, y: number }, size: number, color: string, filled: boolean): void {
-    this.appendPolygonMarker(schema, center, [
+  private _appendErrorMarker(schema: NovaSchema, center: { x: number, y: number }, size: number, color: string, filled: boolean): void {
+    this._appendPolygonMarker(schema, center, [
       { x: -size * 0.12, y: -size * 0.42 },
       { x: size * 0.2, y: -size * 0.06 },
       { x: size * 0.04, y: -size * 0.06 },
@@ -565,41 +565,41 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     ], color, filled)
   }
 
-  private appendTriangleMarker(schema: NovaSchema, center: { x: number, y: number }, size: number, color: string, filled: boolean): void {
-    this.appendPolygonMarker(schema, center, [
+  private _appendTriangleMarker(schema: NovaSchema, center: { x: number, y: number }, size: number, color: string, filled: boolean): void {
+    this._appendPolygonMarker(schema, center, [
       { x: 0, y: -size * 0.4 },
       { x: size * 0.4, y: size * 0.32 },
       { x: -size * 0.4, y: size * 0.32 },
     ], color, filled)
   }
 
-  private appendCancelMarker(schema: NovaSchema, center: { x: number, y: number }, size: number, color: string, filled: boolean): void {
+  private _appendCancelMarker(schema: NovaSchema, center: { x: number, y: number }, size: number, color: string, filled: boolean): void {
     const lineWidth = filled ? 2.4 : 2
     if (filled) {
-      this.appendCircleMarker(schema, center, size * 0.36, color, true)
+      this._appendCircleMarker(schema, center, size * 0.36, color, true)
     }
     const lineColor = filled ? '#ffffff' : color
     schema.push({ type: 'line', x1: center.x - size * 0.24, y1: center.y - size * 0.24, x2: center.x + size * 0.24, y2: center.y + size * 0.24, styles: { color: lineColor, width: lineWidth } })
     schema.push({ type: 'line', x1: center.x + size * 0.24, y1: center.y - size * 0.24, x2: center.x - size * 0.24, y2: center.y + size * 0.24, styles: { color: lineColor, width: lineWidth } })
   }
 
-  private appendCompensationMarker(schema: NovaSchema, center: { x: number, y: number }, size: number, color: string, filled: boolean): void {
+  private _appendCompensationMarker(schema: NovaSchema, center: { x: number, y: number }, size: number, color: string, filled: boolean): void {
     const pointsA = [
       { x: -size * 0.38, y: 0 },
       { x: -size * 0.04, y: -size * 0.3 },
       { x: -size * 0.04, y: size * 0.3 },
     ]
     const pointsB = pointsA.map(point => ({ x: point.x + size * 0.34, y: point.y }))
-    this.appendPolygonMarker(schema, center, pointsA, color, filled)
-    this.appendPolygonMarker(schema, center, pointsB, color, filled)
+    this._appendPolygonMarker(schema, center, pointsA, color, filled)
+    this._appendPolygonMarker(schema, center, pointsB, color, filled)
   }
 
-  private appendConditionalMarker(schema: NovaSchema, center: { x: number, y: number }, size: number, color: string, filled: boolean): void {
+  private _appendConditionalMarker(schema: NovaSchema, center: { x: number, y: number }, size: number, color: string, filled: boolean): void {
     const width = size * 0.58
     const height = size * 0.7
     const x = center.x - width / 2
     const y = center.y - height / 2
-    this.appendRectMarker(schema, x, y, width, height, color, filled)
+    this._appendRectMarker(schema, x, y, width, height, color, filled)
     const lineColor = filled ? '#ffffff' : color
     for (let index = 0; index < 3; index += 1) {
       const lineY = y + height * (0.28 + index * 0.22)
@@ -607,8 +607,8 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     }
   }
 
-  private appendLinkMarker(schema: NovaSchema, center: { x: number, y: number }, size: number, color: string, filled: boolean): void {
-    this.appendPolygonMarker(schema, center, [
+  private _appendLinkMarker(schema: NovaSchema, center: { x: number, y: number }, size: number, color: string, filled: boolean): void {
+    this._appendPolygonMarker(schema, center, [
       { x: -size * 0.42, y: -size * 0.22 },
       { x: size * 0.06, y: -size * 0.22 },
       { x: size * 0.06, y: -size * 0.38 },
@@ -619,9 +619,9 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     ], color, filled)
   }
 
-  private appendParallelMultipleMarker(schema: NovaSchema, center: { x: number, y: number }, size: number, color: string, filled: boolean): void {
+  private _appendParallelMultipleMarker(schema: NovaSchema, center: { x: number, y: number }, size: number, color: string, filled: boolean): void {
     if (filled) {
-      this.appendCircleMarker(schema, center, size * 0.36, color, true)
+      this._appendCircleMarker(schema, center, size * 0.36, color, true)
     }
     const lineColor = filled ? '#ffffff' : color
     const width = filled ? 2.4 : 2
@@ -629,7 +629,7 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     schema.push({ type: 'line', x1: center.x, y1: center.y - size * 0.3, x2: center.x, y2: center.y + size * 0.3, styles: { color: lineColor, width } })
   }
 
-  private appendMultipleMarker(schema: NovaSchema, center: { x: number, y: number }, size: number, color: string, filled: boolean): void {
+  private _appendMultipleMarker(schema: NovaSchema, center: { x: number, y: number }, size: number, color: string, filled: boolean): void {
     const points = Array.from({ length: 5 }, (_, index) => {
       const angle = -Math.PI / 2 + index * (Math.PI * 2 / 5)
       return {
@@ -637,10 +637,10 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
         y: Math.sin(angle) * size * 0.36,
       }
     })
-    this.appendPolygonMarker(schema, center, points, color, filled)
+    this._appendPolygonMarker(schema, center, points, color, filled)
   }
 
-  private appendCircleMarker(schema: NovaSchema, center: { x: number, y: number }, radius: number, color: string, filled: boolean): void {
+  private _appendCircleMarker(schema: NovaSchema, center: { x: number, y: number }, radius: number, color: string, filled: boolean): void {
     schema.push({
       type: 'circle',
       x: center.x,
@@ -653,7 +653,7 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     })
   }
 
-  private appendRectMarker(schema: NovaSchema, x: number, y: number, width: number, height: number, color: string, filled: boolean): void {
+  private _appendRectMarker(schema: NovaSchema, x: number, y: number, width: number, height: number, color: string, filled: boolean): void {
     schema.push({
       type: 'rect',
       x,
@@ -667,7 +667,7 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     })
   }
 
-  private appendPolygonMarker(schema: NovaSchema, center: { x: number, y: number }, points: Array<{ x: number, y: number }>, color: string, filled: boolean): void {
+  private _appendPolygonMarker(schema: NovaSchema, center: { x: number, y: number }, points: Array<{ x: number, y: number }>, color: string, filled: boolean): void {
     schema.push({
       type: 'polygon',
       points: points.map(point => ({ x: center.x + point.x, y: center.y + point.y })),
@@ -679,10 +679,10 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     })
   }
 
-  private appendGatewayRecipe(schema: NovaSchema, textWriter: BpmnRecipeTextWriter, element: ModelerElement): void {
-    const rect = this.elementRectToWorld(element)
-    const stroke = this.resolveElementStroke(element, 'bpmnGatewayStroke', 'elementStroke')
-    const fill = this.resolveElementFill(element, 'bpmnGatewayFill', 'elementFill')
+  private _appendGatewayRecipe(schema: NovaSchema, textWriter: BpmnRecipeTextWriter, element: ModelerElement): void {
+    const rect = this._elementRectToWorld(element)
+    const stroke = this._resolveElementStroke(element, 'bpmnGatewayStroke', 'elementStroke')
+    const fill = this._resolveElementFill(element, 'bpmnGatewayFill', 'elementFill')
     const cx = rect.x + rect.width / 2
     const cy = rect.y + rect.height / 2
     schema.push({
@@ -696,19 +696,19 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
       styles: {
         background: fill,
         stroke,
-        lineWidth: this.resolveElementStrokeWidth(element, 'bpmnGatewayStrokeWidth', 'elementStrokeWidth'),
+        lineWidth: this._resolveElementStrokeWidth(element, 'bpmnGatewayStrokeWidth', 'elementStrokeWidth'),
       },
     })
-    this.appendGatewayMarker(schema, rect, normalizeBpmnGatewayType(element.data?.gatewayType))
-    this.appendGatewayLabel(textWriter, element, rect)
+    this._appendGatewayMarker(schema, rect, normalizeBpmnGatewayType(element.data?.gatewayType))
+    this._appendGatewayLabel(textWriter, element, rect)
   }
 
-  private appendGatewayLabel(textWriter: BpmnRecipeTextWriter, element: ModelerElement, rect: ModelerRect): void {
+  private _appendGatewayLabel(textWriter: BpmnRecipeTextWriter, element: ModelerElement, rect: ModelerRect): void {
     const center = {
       x: rect.x + rect.width / 2,
       y: rect.y + rect.height / 2,
     }
-    if (this.appendExternalGeometryLabel(textWriter, element, 'gateway-label', center)) {
+    if (this._appendExternalGeometryLabel(textWriter, element, 'gateway-label', center)) {
       return
     }
     const layout = resolveBpmnGatewayNameLayout({
@@ -729,7 +729,7 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     })
   }
 
-  private appendExternalGeometryLabel(
+  private _appendExternalGeometryLabel(
     textWriter: BpmnRecipeTextWriter,
     element: ModelerElement,
     slotPrefix: string,
@@ -758,58 +758,58 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     return true
   }
 
-  private appendGatewayMarker(schema: NovaSchema, rect: ModelerRect, gatewayType: BpmnGatewayType): void {
+  private _appendGatewayMarker(schema: NovaSchema, rect: ModelerRect, gatewayType: BpmnGatewayType): void {
     const center = { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }
     const size = Math.min(rect.width, rect.height)
-    const color = this.resolveThemeColor('bpmnGatewayMarkerStroke')
-    const width = this.resolveThemeNumber('bpmnGatewayMarkerStrokeWidth')
+    const color = this._resolveThemeColor('bpmnGatewayMarkerStroke')
+    const width = this._resolveThemeNumber('bpmnGatewayMarkerStrokeWidth')
     if (gatewayType === 'parallel') {
-      this.appendGatewayPlusMarker(schema, center, size * 0.27, color, width)
+      this._appendGatewayPlusMarker(schema, center, size * 0.27, color, width)
       return
     }
     if (gatewayType === 'inclusive') {
-      this.appendGatewayCircleMarker(schema, center, size * 0.2, color, width)
+      this._appendGatewayCircleMarker(schema, center, size * 0.2, color, width)
       return
     }
     if (gatewayType === 'complex') {
-      this.appendGatewayAsteriskMarker(schema, center, size * 0.24, color, width)
+      this._appendGatewayAsteriskMarker(schema, center, size * 0.24, color, width)
       return
     }
     if (gatewayType === 'eventBased' || gatewayType === 'parallelEventBased') {
       const radius = size * 0.21
-      this.appendGatewayCircleMarker(schema, center, radius, color, width)
-      this.appendGatewayPentagonMarker(schema, center, radius * 0.72, color, width * 0.8)
+      this._appendGatewayCircleMarker(schema, center, radius, color, width)
+      this._appendGatewayPentagonMarker(schema, center, radius * 0.72, color, width * 0.8)
       if (gatewayType === 'parallelEventBased') {
-        this.appendGatewayPlusMarker(schema, center, radius * 0.45, color, width)
+        this._appendGatewayPlusMarker(schema, center, radius * 0.45, color, width)
       }
       return
     }
-    this.appendGatewayXMarker(schema, center, size * 0.18, color, width)
+    this._appendGatewayXMarker(schema, center, size * 0.18, color, width)
   }
 
-  private appendGatewayXMarker(
+  private _appendGatewayXMarker(
     schema: NovaSchema,
     center: { x: number, y: number },
     size: number,
     color: string,
     width: number,
   ): void {
-    this.appendLine(schema, center.x - size, center.y - size, center.x + size, center.y + size, color, width)
-    this.appendLine(schema, center.x - size, center.y + size, center.x + size, center.y - size, color, width)
+    this._appendLine(schema, center.x - size, center.y - size, center.x + size, center.y + size, color, width)
+    this._appendLine(schema, center.x - size, center.y + size, center.x + size, center.y - size, color, width)
   }
 
-  private appendGatewayPlusMarker(
+  private _appendGatewayPlusMarker(
     schema: NovaSchema,
     center: { x: number, y: number },
     size: number,
     color: string,
     width: number,
   ): void {
-    this.appendLine(schema, center.x, center.y - size, center.x, center.y + size, color, width)
-    this.appendLine(schema, center.x - size, center.y, center.x + size, center.y, color, width)
+    this._appendLine(schema, center.x, center.y - size, center.x, center.y + size, color, width)
+    this._appendLine(schema, center.x - size, center.y, center.x + size, center.y, color, width)
   }
 
-  private appendGatewayCircleMarker(
+  private _appendGatewayCircleMarker(
     schema: NovaSchema,
     center: { x: number, y: number },
     radius: number,
@@ -828,18 +828,18 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     })
   }
 
-  private appendGatewayAsteriskMarker(
+  private _appendGatewayAsteriskMarker(
     schema: NovaSchema,
     center: { x: number, y: number },
     size: number,
     color: string,
     width: number,
   ): void {
-    this.appendGatewayPlusMarker(schema, center, size, color, width)
-    this.appendGatewayXMarker(schema, center, size * 0.78, color, width)
+    this._appendGatewayPlusMarker(schema, center, size, color, width)
+    this._appendGatewayXMarker(schema, center, size * 0.78, color, width)
   }
 
-  private appendGatewayPentagonMarker(
+  private _appendGatewayPentagonMarker(
     schema: NovaSchema,
     center: { x: number, y: number },
     radius: number,
@@ -864,11 +864,11 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     })
   }
 
-  private appendDataObjectRecipe(schema: NovaSchema, textWriter: BpmnRecipeTextWriter, element: ModelerElement): void {
-    const rect = this.elementRectToWorld(element)
+  private _appendDataObjectRecipe(schema: NovaSchema, textWriter: BpmnRecipeTextWriter, element: ModelerElement): void {
+    const rect = this._elementRectToWorld(element)
     const fold = Math.max(1, rect.width * 0.22)
-    const stroke = this.resolveElementStroke(element, 'elementStroke')
-    const fill = this.resolveElementFill(element, 'elementFill')
+    const stroke = this._resolveElementStroke(element, 'elementStroke')
+    const fill = this._resolveElementFill(element, 'elementFill')
     schema.push({
       type: 'polygon',
       points: [
@@ -878,7 +878,7 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
         { x: rect.x + rect.width, y: rect.y + rect.height },
         { x: rect.x, y: rect.y + rect.height },
       ],
-      styles: { background: fill, stroke, lineWidth: this.resolveElementStrokeWidth(element, 'elementStrokeWidth') },
+      styles: { background: fill, stroke, lineWidth: this._resolveElementStrokeWidth(element, 'elementStrokeWidth') },
     })
     const name = typeof element.data?.name === 'string' ? element.data.name : 'Data object'
     textWriter.write(element.id, 'data-object-label', name, {
@@ -889,25 +889,25 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     })
   }
 
-  private appendDataStoreRecipe(schema: NovaSchema, textWriter: BpmnRecipeTextWriter, element: ModelerElement): void {
-    const rect = this.elementRectToWorld(element)
-    const stroke = this.resolveElementStroke(element, 'elementStroke')
-    const fill = this.resolveElementFill(element, 'elementFill')
+  private _appendDataStoreRecipe(schema: NovaSchema, textWriter: BpmnRecipeTextWriter, element: ModelerElement): void {
+    const rect = this._elementRectToWorld(element)
+    const stroke = this._resolveElementStroke(element, 'elementStroke')
+    const fill = this._resolveElementFill(element, 'elementFill')
     schema.push({
       type: 'rect',
       ...rect,
       styles: {
         background: fill,
-        border: { color: stroke, width: this.resolveElementStrokeWidth(element, 'elementStrokeWidth'), radius: 8 },
+        border: { color: stroke, width: this._resolveElementStrokeWidth(element, 'elementStrokeWidth'), radius: 8 },
       },
     })
     const name = typeof element.data?.name === 'string' ? element.data.name : 'Data store'
     textWriter.write(element.id, 'data-store-label', name, insetRect(rect, 6, 4))
   }
 
-  private appendGroupRecipe(schema: NovaSchema, textWriter: BpmnRecipeTextWriter, element: ModelerElement): void {
-    const rect = this.elementRectToWorld(element)
-    const stroke = this.resolveElementStroke(element, 'elementStroke')
+  private _appendGroupRecipe(schema: NovaSchema, textWriter: BpmnRecipeTextWriter, element: ModelerElement): void {
+    const rect = this._elementRectToWorld(element)
+    const stroke = this._resolveElementStroke(element, 'elementStroke')
     schema.push({
       type: 'rect',
       ...rect,
@@ -915,7 +915,7 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
         background: 'rgba(0,0,0,0)',
         border: {
           color: stroke,
-          width: this.resolveElementStrokeWidth(element, 'elementStrokeWidth'),
+          width: this._resolveElementStrokeWidth(element, 'elementStrokeWidth'),
           radius: 8,
           dashPattern: [6, 4],
         },
@@ -930,13 +930,13 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     })
   }
 
-  private appendTextAnnotationRecipe(schema: NovaSchema, textWriter: BpmnRecipeTextWriter, element: ModelerElement): void {
-    const rect = this.elementRectToWorld(element)
-    const stroke = this.resolveElementStroke(element, 'elementStroke')
+  private _appendTextAnnotationRecipe(schema: NovaSchema, textWriter: BpmnRecipeTextWriter, element: ModelerElement): void {
+    const rect = this._elementRectToWorld(element)
+    const stroke = this._resolveElementStroke(element, 'elementStroke')
     const side = normalizeBpmnTextAnnotationBracketSide(element.data?.bracketSide)
     const x = side === 'left' ? rect.x : rect.x + rect.width
     const innerX = side === 'left' ? x + rect.width * 0.12 : x - rect.width * 0.12
-    const width = this.resolveElementStrokeWidth(element, 'elementStrokeWidth')
+    const width = this._resolveElementStrokeWidth(element, 'elementStrokeWidth')
     schema.push({ type: 'line', x1: x, y1: rect.y, x2: x, y2: rect.y + rect.height, styles: { color: stroke, width } })
     schema.push({ type: 'line', x1: x, y1: rect.y, x2: innerX, y2: rect.y, styles: { color: stroke, width } })
     schema.push({ type: 'line', x1: x, y1: rect.y + rect.height, x2: innerX, y2: rect.y + rect.height, styles: { color: stroke, width } })
@@ -944,12 +944,12 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     textWriter.write(element.id, 'text-annotation-label', text, insetRect(rect, 14, 4))
   }
 
-  private appendParticipantRecipe(schema: NovaSchema, fillWriter: BpmnRecipeFillWriter, element: BpmnParticipantElement): void {
+  private _appendParticipantRecipe(schema: NovaSchema, fillWriter: BpmnRecipeFillWriter, element: BpmnParticipantElement): void {
     const layout = createBpmnParticipantLayout(element)
-    const bounds = this.worldRect(layout.bounds)
-    const stroke = this.resolveElementStroke(element, 'elementStroke')
-    const fill = this.resolveElementFill(element, 'elementFill')
-    const lineWidth = this.resolveElementStrokeWidth(element, 'elementStrokeWidth')
+    const bounds = this._worldRect(layout.bounds)
+    const stroke = this._resolveElementStroke(element, 'elementStroke')
+    const fill = this._resolveElementFill(element, 'elementFill')
+    const lineWidth = this._resolveElementStrokeWidth(element, 'elementStrokeWidth')
     const radius = Number(element.style?.radius ?? 4)
     if (!fillWriter.write(element.id, 'participant-fill', bounds, fill, radius)) {
       schema.push({
@@ -969,20 +969,20 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
         border: { color: stroke, width: lineWidth, radius },
       },
     })
-    const participantHeader = this.worldRect(layout.participantHeaderRect)
-    const laneHeaderArea = this.worldRect(layout.laneHeaderAreaRect)
+    const participantHeader = this._worldRect(layout.participantHeaderRect)
+    const laneHeaderArea = this._worldRect(layout.laneHeaderAreaRect)
     const laneHeadersVisible = areBpmnParticipantLaneHeadersVisible(element)
     const headerFill = 'rgba(248, 250, 252, 0.66)'
     layout.lanes.forEach((lane) => {
       const fill = typeof lane.style?.fill === 'string' ? lane.style.fill : undefined
       if (fill) {
-        const rect = this.worldRect(lane.contentRect)
+        const rect = this._worldRect(lane.contentRect)
         if (!fillWriter.write(element.id, `lane-content:${lane.id}`, rect, fill, 0)) {
           schema.push({ type: 'rect', ...rect, styles: { background: fill } })
         }
       }
       if (laneHeadersVisible) {
-        const rect = this.worldRect(lane.headerRect)
+        const rect = this._worldRect(lane.headerRect)
         const laneFill = fill ?? headerFill
         if (!fillWriter.write(element.id, `lane-header:${lane.id}`, rect, laneFill, 0)) {
           schema.push({ type: 'rect', ...rect, styles: { background: laneFill } })
@@ -994,45 +994,45 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     }
     const vertical = normalizeBpmnParticipantOrientation(element.data?.orientation) === 'vertical'
     if (vertical) {
-      this.appendLine(schema, participantHeader.x, participantHeader.y + participantHeader.height, participantHeader.x + participantHeader.width, participantHeader.y + participantHeader.height, stroke, lineWidth)
+      this._appendLine(schema, participantHeader.x, participantHeader.y + participantHeader.height, participantHeader.x + participantHeader.width, participantHeader.y + participantHeader.height, stroke, lineWidth)
       if (laneHeadersVisible) {
-        this.appendLine(schema, laneHeaderArea.x, laneHeaderArea.y + laneHeaderArea.height, laneHeaderArea.x + laneHeaderArea.width, laneHeaderArea.y + laneHeaderArea.height, stroke, lineWidth)
+        this._appendLine(schema, laneHeaderArea.x, laneHeaderArea.y + laneHeaderArea.height, laneHeaderArea.x + laneHeaderArea.width, laneHeaderArea.y + laneHeaderArea.height, stroke, lineWidth)
       }
     }
     else {
-      this.appendLine(schema, participantHeader.x + participantHeader.width, participantHeader.y, participantHeader.x + participantHeader.width, participantHeader.y + participantHeader.height, stroke, lineWidth)
+      this._appendLine(schema, participantHeader.x + participantHeader.width, participantHeader.y, participantHeader.x + participantHeader.width, participantHeader.y + participantHeader.height, stroke, lineWidth)
       if (laneHeadersVisible) {
-        this.appendLine(schema, laneHeaderArea.x + laneHeaderArea.width, laneHeaderArea.y, laneHeaderArea.x + laneHeaderArea.width, laneHeaderArea.y + laneHeaderArea.height, stroke, lineWidth)
+        this._appendLine(schema, laneHeaderArea.x + laneHeaderArea.width, laneHeaderArea.y, laneHeaderArea.x + laneHeaderArea.width, laneHeaderArea.y + laneHeaderArea.height, stroke, lineWidth)
       }
     }
     layout.lanes.slice(1).forEach((lane) => {
-      const rect = this.worldRect(lane.rect)
+      const rect = this._worldRect(lane.rect)
       if (vertical) {
-        this.appendLine(schema, rect.x, rect.y, rect.x, rect.y + rect.height, stroke, lineWidth)
+        this._appendLine(schema, rect.x, rect.y, rect.x, rect.y + rect.height, stroke, lineWidth)
       }
-      else { this.appendLine(schema, rect.x, rect.y, rect.x + rect.width, rect.y, stroke, lineWidth) }
+      else { this._appendLine(schema, rect.x, rect.y, rect.x + rect.width, rect.y, stroke, lineWidth) }
     })
-    this.appendParticipantLabels(schema, element, layout)
+    this._appendParticipantLabels(schema, element, layout)
   }
 
-  private appendParticipantLabels(schema: NovaSchema, element: BpmnParticipantElement, layout: ReturnType<typeof createBpmnParticipantLayout>): void {
+  private _appendParticipantLabels(schema: NovaSchema, element: BpmnParticipantElement, layout: ReturnType<typeof createBpmnParticipantLayout>): void {
     const participant = createParticipantRenderLabelLayout(
       element.data?.name ?? 'Participant',
-      this.worldRect(layout.participantHeaderRect),
+      this._worldRect(layout.participantHeaderRect),
       element.data?.orientation,
     )
-    this.appendParticipantLabel(schema, participant)
+    this._appendParticipantLabel(schema, participant)
     if (!areBpmnParticipantLaneHeadersVisible(element)) {
       return
     }
     layout.lanes.forEach((lane) => {
-      const laneLayout = createParticipantRenderLabelLayout(lane.name, this.worldRect(lane.headerRect), element.data?.orientation)
-      this.appendParticipantLabel(schema, laneLayout)
+      const laneLayout = createParticipantRenderLabelLayout(lane.name, this._worldRect(lane.headerRect), element.data?.orientation)
+      this._appendParticipantLabel(schema, laneLayout)
     })
   }
 
-  private appendParticipantLabel(schema: NovaSchema, layout: BpmnParticipantRecipeLabelLayout): void {
-    const color = this.resolveThemeColor('bpmnTaskTextColor')
+  private _appendParticipantLabel(schema: NovaSchema, layout: BpmnParticipantRecipeLabelLayout): void {
+    const color = this._resolveThemeColor('bpmnTaskTextColor')
     for (const line of layout.lines) {
       schema.push({
         type: 'text',
@@ -1058,7 +1058,7 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     }
   }
 
-  private appendTinyPlusMarker(schema: NovaSchema, rect: ModelerRect, color: string): void {
+  private _appendTinyPlusMarker(schema: NovaSchema, rect: ModelerRect, color: string): void {
     const size = Math.max(1, Math.min(16, rect.height * 0.16))
     const x = rect.x + rect.width / 2
     const y = rect.y + rect.height - size * 1.2
@@ -1067,12 +1067,12 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     schema.push({ type: 'line', x1: x, y1: y - size / 2, x2: x, y2: y + size / 2, styles: { color, width } })
   }
 
-  private appendLine(schema: NovaSchema, x1: number, y1: number, x2: number, y2: number, color: string, width: number): void {
+  private _appendLine(schema: NovaSchema, x1: number, y1: number, x2: number, y2: number, color: string, width: number): void {
     schema.push({ type: 'line', x1, y1, x2, y2, styles: { color, width } })
   }
 
-  private elementRectToWorld(element: ModelerElement): ModelerRect {
-    return this.worldRect({
+  private _elementRectToWorld(element: ModelerElement): ModelerRect {
+    return this._worldRect({
       x: element.x,
       y: element.y,
       width: element.width,
@@ -1080,7 +1080,7 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     })
   }
 
-  private worldRect(rect: ModelerRect): ModelerRect {
+  private _worldRect(rect: ModelerRect): ModelerRect {
     return {
       x: rect.x,
       y: rect.y,
@@ -1089,31 +1089,31 @@ export class BpmnRecipeLayerView<E extends EventList = Record<string, any>>
     }
   }
 
-  private resolveElementFill(element: ModelerElement, token: ModelerThemeTokenKey, fallbackToken?: ModelerThemeTokenKey): string {
-    return String(element.style?.fill ?? this.resolveThemeColor(token, fallbackToken))
+  private _resolveElementFill(element: ModelerElement, token: ModelerThemeTokenKey, fallbackToken?: ModelerThemeTokenKey): string {
+    return String(element.style?.fill ?? this._resolveThemeColor(token, fallbackToken))
   }
 
-  private resolveElementStroke(element: ModelerElement, token: ModelerThemeTokenKey, fallbackToken?: ModelerThemeTokenKey): string {
-    return String(element.style?.stroke ?? this.resolveThemeColor(token, fallbackToken))
+  private _resolveElementStroke(element: ModelerElement, token: ModelerThemeTokenKey, fallbackToken?: ModelerThemeTokenKey): string {
+    return String(element.style?.stroke ?? this._resolveThemeColor(token, fallbackToken))
   }
 
-  private resolveElementStrokeWidth(element: ModelerElement, token: ModelerThemeTokenKey, fallbackToken?: ModelerThemeTokenKey): number {
-    const value = Number(element.style?.strokeWidth ?? this.resolveThemeNumber(token, fallbackToken))
-    const normalized = Number.isFinite(value) && value > 0 ? value : this.resolveThemeNumber(token, fallbackToken)
+  private _resolveElementStrokeWidth(element: ModelerElement, token: ModelerThemeTokenKey, fallbackToken?: ModelerThemeTokenKey): number {
+    const value = Number(element.style?.strokeWidth ?? this._resolveThemeNumber(token, fallbackToken))
+    const normalized = Number.isFinite(value) && value > 0 ? value : this._resolveThemeNumber(token, fallbackToken)
     return Math.max(0.5, normalized)
   }
 
-  private resolveElementRadius(element: ModelerElement, token: ModelerThemeTokenKey): number {
-    const value = Number(element.style?.radius ?? this.resolveThemeNumber(token))
+  private _resolveElementRadius(element: ModelerElement, token: ModelerThemeTokenKey): number {
+    const value = Number(element.style?.radius ?? this._resolveThemeNumber(token))
     return Number.isFinite(value) && value > 0 ? value : 0
   }
 
-  private resolveThemeColor(token: ModelerThemeTokenKey, fallbackToken?: ModelerThemeTokenKey): string {
+  private _resolveThemeColor(token: ModelerThemeTokenKey, fallbackToken?: ModelerThemeTokenKey): string {
     const fallback = String(MODELER_THEME_FALLBACKS[fallbackToken ?? token])
     return this.nova.theme.resolve(MODELER_THEME_TOKENS[token], fallback) ?? fallback
   }
 
-  private resolveThemeNumber(token: ModelerThemeTokenKey, fallbackToken?: ModelerThemeTokenKey): number {
+  private _resolveThemeNumber(token: ModelerThemeTokenKey, fallbackToken?: ModelerThemeTokenKey): number {
     const fallback = Number(MODELER_THEME_FALLBACKS[fallbackToken ?? token])
     const raw = this.nova.theme.resolve(MODELER_THEME_TOKENS[token], String(fallback)) ?? fallback
     const value = typeof raw === 'number' ? raw : Number(raw)
@@ -1143,13 +1143,13 @@ interface BpmnBatchRuntimeFinalizeInput {
 }
 
 export class BpmnBatchRuntime {
-  private readonly fillBatch: NovaRectBatch = createEmptyRectBatch()
-  private readonly textBatch: NovaTextBatch = createEmptyTextBatch()
-  private readonly slotMap = new Map<string, { fill: Array<number>, text: Array<number> }>()
-  private readonly slotSignatures: Array<string> = []
-  private previousSlotSignatures: Array<string> = []
-  private revision = 0
-  private diagnostics: BpmnRecipeLayerDiagnostics = {
+  private readonly _fillBatch: NovaRectBatch = createEmptyRectBatch()
+  private readonly _textBatch: NovaTextBatch = createEmptyTextBatch()
+  private readonly _slotMap = new Map<string, { fill: Array<number>, text: Array<number> }>()
+  private readonly _slotSignatures: Array<string> = []
+  private _previousSlotSignatures: Array<string> = []
+  private _revision = 0
+  private _diagnostics: BpmnRecipeLayerDiagnostics = {
     recipeElements: 0,
     schemaFallbacks: 0,
     visibleElements: 0,
@@ -1160,93 +1160,93 @@ export class BpmnBatchRuntime {
     panZoomRenderSkips: 0,
   }
 
-  private fillCount = 0
-  private textCount = 0
+  private _fillCount = 0
+  private _textCount = 0
 
   begin(): { fill: BpmnRecipeFillWriter, text: BpmnRecipeTextWriter } {
-    this.fillCount = 0
-    this.textCount = 0
-    this.slotMap.clear()
-    this.slotSignatures.length = 0
+    this._fillCount = 0
+    this._textCount = 0
+    this._slotMap.clear()
+    this._slotSignatures.length = 0
     return {
       fill: {
-        write: (elementId, slotId, rect, color, radius) => this.writeFill(elementId, slotId, rect, color, radius),
+        write: (elementId, slotId, rect, color, radius) => this._writeFill(elementId, slotId, rect, color, radius),
       },
       text: {
-        write: (elementId, slotId, text, rect) => this.writeText(elementId, slotId, text, rect),
+        write: (elementId, slotId, text, rect) => this._writeText(elementId, slotId, text, rect),
       },
     }
   }
 
   finalize(input: BpmnBatchRuntimeFinalizeInput): void {
-    const dirtySlots = countChangedSlots(this.previousSlotSignatures, this.slotSignatures)
+    const dirtySlots = countChangedSlots(this._previousSlotSignatures, this._slotSignatures)
     const changed = dirtySlots > 0
     if (changed) {
-      this.revision += 1
-      this.previousSlotSignatures = [...this.slotSignatures]
-      this.diagnostics.batchRebuilds += 1
+      this._revision += 1
+      this._previousSlotSignatures = [...this._slotSignatures]
+      this._diagnostics.batchRebuilds += 1
     }
     else {
-      this.diagnostics.panZoomRenderSkips += 1
+      this._diagnostics.panZoomRenderSkips += 1
     }
 
-    this.fillBatch.count = this.fillCount
-    this.fillBatch.revision = this.revision
-    this.fillBatch.staticRevision = this.revision
-    this.textBatch.count = input.textEnabled ? this.textCount : 0
-    this.textBatch.revision = this.revision
-    this.textBatch.staticRevision = this.revision
-    this.textBatch.color = input.textColor
-    this.textBatch.font = {
+    this._fillBatch.count = this._fillCount
+    this._fillBatch.revision = this._revision
+    this._fillBatch.staticRevision = this._revision
+    this._textBatch.count = input.textEnabled ? this._textCount : 0
+    this._textBatch.revision = this._revision
+    this._textBatch.staticRevision = this._revision
+    this._textBatch.color = input.textColor
+    this._textBatch.font = {
       family: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
       size: 12,
       weight: '500',
     }
-    this.textBatch.align = { horizontal: 'center', vertical: 'middle' }
-    this.textBatch.lineHeight = 16
-    this.textBatch.ellipsis = true
-    this.textBatch.meta = { ...(this.textBatch.meta ?? {}), textRole: 'task-label' }
-    this.textBatch.dirtyIndices = changed ? createDirtyIndices(this.textCount, dirtySlots) : []
-    this.diagnostics = {
-      ...this.diagnostics,
+    this._textBatch.align = { horizontal: 'center', vertical: 'middle' }
+    this._textBatch.lineHeight = 16
+    this._textBatch.ellipsis = true
+    this._textBatch.meta = { ...(this._textBatch.meta ?? {}), textRole: 'task-label' }
+    this._textBatch.dirtyIndices = changed ? createDirtyIndices(this._textCount, dirtySlots) : []
+    this._diagnostics = {
+      ...this._diagnostics,
       recipeElements: input.recipeElements,
       schemaFallbacks: input.schemaFallbacks,
       visibleElements: input.visibleElements,
       culledElements: input.culledElements,
       dirtySlots,
-      batchRevision: this.revision,
+      batchRevision: this._revision,
     }
   }
 
   getFillBatch(): NovaRectBatch {
-    return this.fillBatch
+    return this._fillBatch
   }
 
   getTextBatch(): NovaTextBatch {
-    return this.textBatch
+    return this._textBatch
   }
 
   getSlotMap(): ReadonlyMap<string, { fill: Array<number>, text: Array<number> }> {
-    return this.slotMap
+    return this._slotMap
   }
 
   getDiagnostics(): BpmnRecipeLayerDiagnostics {
-    return { ...this.diagnostics }
+    return { ...this._diagnostics }
   }
 
-  private writeFill(elementId: string, slotId: string, rect: ModelerRect, color: string, radius = 0): boolean {
+  private _writeFill(elementId: string, slotId: string, rect: ModelerRect, color: string, radius = 0): boolean {
     const rgba = parseCssColor(color)
     if (!rgba) {
       return false
     }
-    this.ensureFillCapacity(this.fillCount + 1)
-    const index = this.fillCount
-    const x = this.fillBatch.x as Float32Array
-    const y = this.fillBatch.y as Float32Array
-    const width = this.fillBatch.width as Float32Array
-    const height = this.fillBatch.height as Float32Array
-    const colors = this.fillBatch.colors as Float32Array
-    const radii = this.fillBatch.radii as Float32Array
+    this._ensureFillCapacity(this._fillCount + 1)
+    const index = this._fillCount
+    const x = this._fillBatch.x as Float32Array
+    const y = this._fillBatch.y as Float32Array
+    const width = this._fillBatch.width as Float32Array
+    const height = this._fillBatch.height as Float32Array
+    const colors = this._fillBatch.colors as Float32Array
+    const radii = this._fillBatch.radii as Float32Array
     x[index] = rect.x
     y[index] = rect.y
     width[index] = rect.width
@@ -1256,65 +1256,65 @@ export class BpmnBatchRuntime {
     colors[index * 4 + 2] = rgba[2]
     colors[index * 4 + 3] = rgba[3]
     radii[index] = radius
-    this.trackSlot(elementId, 'fill', index)
-    this.slotSignatures.push(createSlotSignature('fill', elementId, slotId, rect, `${color}:${radius}`))
-    this.fillCount += 1
+    this._trackSlot(elementId, 'fill', index)
+    this._slotSignatures.push(createSlotSignature('fill', elementId, slotId, rect, `${color}:${radius}`))
+    this._fillCount += 1
     return true
   }
 
-  private writeText(elementId: string, slotId: string, text: string, rect: ModelerRect): void {
+  private _writeText(elementId: string, slotId: string, text: string, rect: ModelerRect): void {
     if (text.trim().length === 0 || rect.width <= 1 || rect.height <= 1) {
       return
     }
-    this.ensureTextCapacity(this.textCount + 1)
-    const index = this.textCount
-    const x = this.textBatch.x as Float32Array
-    const y = this.textBatch.y as Float32Array
-    const width = this.textBatch.width as Float32Array
-    const height = this.textBatch.height as Float32Array
-    ;(this.textBatch.text as Array<string>)[index] = text
+    this._ensureTextCapacity(this._textCount + 1)
+    const index = this._textCount
+    const x = this._textBatch.x as Float32Array
+    const y = this._textBatch.y as Float32Array
+    const width = this._textBatch.width as Float32Array
+    const height = this._textBatch.height as Float32Array
+    ;(this._textBatch.text as Array<string>)[index] = text
     x[index] = rect.x
     y[index] = rect.y
     width[index] = rect.width
     height[index] = rect.height
-    this.trackSlot(elementId, 'text', index)
-    this.slotSignatures.push(createSlotSignature('text', elementId, slotId, rect, text))
-    this.textCount += 1
+    this._trackSlot(elementId, 'text', index)
+    this._slotSignatures.push(createSlotSignature('text', elementId, slotId, rect, text))
+    this._textCount += 1
   }
 
-  private trackSlot(elementId: string, kind: 'fill' | 'text', index: number): void {
-    const entry = this.slotMap.get(elementId) ?? { fill: [], text: [] }
+  private _trackSlot(elementId: string, kind: 'fill' | 'text', index: number): void {
+    const entry = this._slotMap.get(elementId) ?? { fill: [], text: [] }
     entry[kind].push(index)
-    this.slotMap.set(elementId, entry)
+    this._slotMap.set(elementId, entry)
   }
 
-  private ensureFillCapacity(capacity: number): void {
-    if (this.fillBatch.x.length >= capacity) {
+  private _ensureFillCapacity(capacity: number): void {
+    if (this._fillBatch.x.length >= capacity) {
       return
     }
-    const nextCapacity = growCapacity(this.fillBatch.x.length, capacity)
-    this.fillBatch.x = copyFloat32(this.fillBatch.x, nextCapacity)
-    this.fillBatch.y = copyFloat32(this.fillBatch.y, nextCapacity)
-    this.fillBatch.width = copyFloat32(this.fillBatch.width, nextCapacity)
-    this.fillBatch.height = copyFloat32(this.fillBatch.height, nextCapacity)
-    this.fillBatch.colors = copyFloat32(this.fillBatch.colors, nextCapacity * 4)
-    this.fillBatch.radii = copyFloat32(this.fillBatch.radii ?? new Float32Array(0), nextCapacity)
+    const nextCapacity = growCapacity(this._fillBatch.x.length, capacity)
+    this._fillBatch.x = copyFloat32(this._fillBatch.x, nextCapacity)
+    this._fillBatch.y = copyFloat32(this._fillBatch.y, nextCapacity)
+    this._fillBatch.width = copyFloat32(this._fillBatch.width, nextCapacity)
+    this._fillBatch.height = copyFloat32(this._fillBatch.height, nextCapacity)
+    this._fillBatch.colors = copyFloat32(this._fillBatch.colors, nextCapacity * 4)
+    this._fillBatch.radii = copyFloat32(this._fillBatch.radii ?? new Float32Array(0), nextCapacity)
   }
 
-  private ensureTextCapacity(capacity: number): void {
-    if (this.textBatch.x.length >= capacity) {
+  private _ensureTextCapacity(capacity: number): void {
+    if (this._textBatch.x.length >= capacity) {
       return
     }
-    const nextCapacity = growCapacity(this.textBatch.x.length, capacity)
-    this.textBatch.x = copyFloat32(this.textBatch.x, nextCapacity)
-    this.textBatch.y = copyFloat32(this.textBatch.y, nextCapacity)
-    this.textBatch.width = copyFloat32(this.textBatch.width, nextCapacity)
-    this.textBatch.height = copyFloat32(this.textBatch.height, nextCapacity)
+    const nextCapacity = growCapacity(this._textBatch.x.length, capacity)
+    this._textBatch.x = copyFloat32(this._textBatch.x, nextCapacity)
+    this._textBatch.y = copyFloat32(this._textBatch.y, nextCapacity)
+    this._textBatch.width = copyFloat32(this._textBatch.width, nextCapacity)
+    this._textBatch.height = copyFloat32(this._textBatch.height, nextCapacity)
     const nextText = new Array<string>(nextCapacity)
-    for (let index = 0; index < (this.textBatch.text as Array<string>).length; index += 1) {
-      nextText[index] = this.textBatch.text[index] ?? ''
+    for (let index = 0; index < (this._textBatch.text as Array<string>).length; index += 1) {
+      nextText[index] = this._textBatch.text[index] ?? ''
     }
-    this.textBatch.text = nextText
+    this._textBatch.text = nextText
   }
 }
 

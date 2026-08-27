@@ -22,8 +22,8 @@ const BUILT_IN_CATEGORIES: Array<ModelerSettingsCategoryDefinition> = [
  * Хранит категории и секции диалога настроек, собранные из DSL schema.
  */
 export class ModelerSettingsRegistry {
-  private readonly categories = new Map<string, ModelerSettingsCategoryDefinition>()
-  private readonly sections = new Map<string, ModelerSettingsSectionDefinition>()
+  private readonly _categories = new Map<string, ModelerSettingsCategoryDefinition>()
+  private readonly _sections = new Map<string, ModelerSettingsSectionDefinition>()
 
   /**
    * Создает registry с базовыми категориями Modeler.
@@ -49,10 +49,10 @@ export class ModelerSettingsRegistry {
   registerSchemas(children: Array<NovaElementSchema<any>>): void {
     for (const child of children) {
       if (child.type === Modeler.SettingsCategory) {
-        this.registerCategory(this.normalizeCategory(child as ModelerSettingsCategorySchema))
+        this.registerCategory(this._normalizeCategory(child as ModelerSettingsCategorySchema))
       }
       if (child.type === Modeler.SettingsSection) {
-        this.registerSection(this.normalizeSection(child as ModelerSettingsSectionSchema))
+        this.registerSection(this._normalizeSection(child as ModelerSettingsSectionSchema))
       }
     }
   }
@@ -61,7 +61,7 @@ export class ModelerSettingsRegistry {
    * Возвращает отсортированные видимые категории.
    */
   getCategories(): Array<ModelerSettingsCategoryDefinition> {
-    return [...this.categories.values()]
+    return [...this._categories.values()]
       .filter(category => !category.hidden)
       .sort((a, b) => a.order - b.order || a.title.localeCompare(b.title))
   }
@@ -70,14 +70,14 @@ export class ModelerSettingsRegistry {
    * Возвращает категорию по id.
    */
   getCategory(id: string): ModelerSettingsCategoryDefinition | undefined {
-    return this.categories.get(id)
+    return this._categories.get(id)
   }
 
   /**
    * Возвращает отсортированные видимые секции категории.
    */
   getSections(categoryId: string): Array<ModelerSettingsSectionDefinition> {
-    return [...this.sections.values()]
+    return [...this._sections.values()]
       .filter(section => !section.hidden && section.category === categoryId)
       .sort((a, b) => a.order - b.order || a.title.localeCompare(b.title))
   }
@@ -86,20 +86,20 @@ export class ModelerSettingsRegistry {
    * Добавляет или заменяет категорию.
    */
   registerCategory(category: ModelerSettingsCategoryDefinition): void {
-    this.categories.set(category.id, category)
+    this._categories.set(category.id, category)
   }
 
   /**
    * Добавляет или заменяет секцию.
    */
   registerSection(section: ModelerSettingsSectionDefinition): void {
-    this.sections.set(section.id, section)
+    this._sections.set(section.id, section)
   }
 
   /**
    * Нормализует категорию из DSL props.
    */
-  private normalizeCategory(schema: ModelerSettingsCategorySchema): ModelerSettingsCategoryDefinition {
+  private _normalizeCategory(schema: ModelerSettingsCategorySchema): ModelerSettingsCategoryDefinition {
     const props = schema.props as Partial<ModelerSettingsCategoryProps> | undefined
     const id = props?.id ?? schema.id ?? 'custom'
     return {
@@ -114,7 +114,7 @@ export class ModelerSettingsRegistry {
   /**
    * Нормализует секцию из DSL schema.
    */
-  private normalizeSection(schema: ModelerSettingsSectionSchema): ModelerSettingsSectionDefinition {
+  private _normalizeSection(schema: ModelerSettingsSectionSchema): ModelerSettingsSectionDefinition {
     const props = schema.props as Partial<ModelerSettingsSectionProps> | undefined
     const id = props?.id ?? schema.id ?? 'custom.section'
     return {

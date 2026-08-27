@@ -8,33 +8,33 @@ import type {
 import { SelectionRuntime } from '@/model/selection/SelectionRuntime'
 
 export class ShortcutRegistry {
-  private readonly items = new Map<string, ModelerShortcutDefinition>()
+  private readonly _items = new Map<string, ModelerShortcutDefinition>()
 
   constructor(
-    private readonly getOptions: () => ModelerShortcutOptions | undefined,
-    private readonly getSelectionOptions: () => ModelerSelectionOptions | undefined,
+    private readonly _getOptions: () => ModelerShortcutOptions | undefined,
+    private readonly _getSelectionOptions: () => ModelerSelectionOptions | undefined,
   ) {}
 
   register(definition: ModelerShortcutDefinition): () => void {
-    this.items.set(definition.id, definition)
+    this._items.set(definition.id, definition)
     return () => {
-      if (this.items.get(definition.id) === definition) {
-        this.items.delete(definition.id)
+      if (this._items.get(definition.id) === definition) {
+        this._items.delete(definition.id)
       }
     }
   }
 
   get(id: string): ModelerShortcutDefinition | undefined {
-    return this.items.get(id)
+    return this._items.get(id)
   }
 
   getAll(): ReadonlyArray<ModelerShortcutDefinition> {
-    return [...this.items.values()]
+    return [...this._items.values()]
   }
 
   resolve(event: KeyboardEvent): ModelerResolvedShortcut | undefined {
-    for (const definition of this.items.values()) {
-      const shortcut = SelectionRuntime.matchShortcut(event, this.resolveBindings(definition))
+    for (const definition of this._items.values()) {
+      const shortcut = SelectionRuntime.matchShortcut(event, this._resolveBindings(definition))
       if (shortcut) {
         return { definition, shortcut }
       }
@@ -42,13 +42,13 @@ export class ShortcutRegistry {
     return undefined
   }
 
-  private resolveBindings(definition: ModelerShortcutDefinition): Array<ModelerKeyboardShortcut> {
-    const bindings = this.getOptions()?.bindings
+  private _resolveBindings(definition: ModelerShortcutDefinition): Array<ModelerKeyboardShortcut> {
+    const bindings = this._getOptions()?.bindings
     if (bindings && Object.hasOwn(bindings, definition.id)) {
       return bindings[definition.id] ?? []
     }
     if (definition.id === 'selection.delete') {
-      return this.getSelectionOptions()?.deleteShortcuts ?? definition.defaults ?? []
+      return this._getSelectionOptions()?.deleteShortcuts ?? definition.defaults ?? []
     }
     return definition.defaults ?? []
   }

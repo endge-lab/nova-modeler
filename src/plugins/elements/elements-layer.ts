@@ -21,36 +21,36 @@ import {
 } from '@/ui/layers/BpmnRecipeLayer'
 
 export class ElementsLayer {
-  private stableBpmnContainerRecipeElements: Array<ModelerElement> = []
-  private stableBpmnNodeRecipeElements: Array<ModelerElement> = []
-  private stableBpmnContainerRecipeSignature = ''
-  private renderedElementIds = new Set<string>()
-  private renderedExternalLabelIds = new Set<string>()
-  private renderedOverlayComponentIds = new Set<string>()
-  private viewportFastPathWindow: ModelerRect | null = null
-  private viewportFastPathScaleBucket = Number.NaN
-  private viewportFastPathUseBpmnRecipes = false
-  private disposeContainersLayer: (() => void) | undefined
-  private disposeLinksLayer: (() => void) | undefined
-  private disposeInteractionLayer: (() => void) | undefined
-  private disposeWarningLayer: (() => void) | undefined
-  private readonly disposeShadow: () => void
-  private readonly disposePreview: () => void
-  private readonly disposeConnection: () => void
-  private readonly disposeSegmentHover: () => void
-  private readonly disposeConnectionWarning: () => void
-  private readonly disposeExternalLabels: () => void
+  private _stableBpmnContainerRecipeElements: Array<ModelerElement> = []
+  private _stableBpmnNodeRecipeElements: Array<ModelerElement> = []
+  private _stableBpmnContainerRecipeSignature = ''
+  private _renderedElementIds = new Set<string>()
+  private _renderedExternalLabelIds = new Set<string>()
+  private _renderedOverlayComponentIds = new Set<string>()
+  private _viewportFastPathWindow: ModelerRect | null = null
+  private _viewportFastPathScaleBucket = Number.NaN
+  private _viewportFastPathUseBpmnRecipes = false
+  private _disposeContainersLayer: (() => void) | undefined
+  private _disposeLinksLayer: (() => void) | undefined
+  private _disposeInteractionLayer: (() => void) | undefined
+  private _disposeWarningLayer: (() => void) | undefined
+  private readonly _disposeShadow: () => void
+  private readonly _disposePreview: () => void
+  private readonly _disposeConnection: () => void
+  private readonly _disposeSegmentHover: () => void
+  private readonly _disposeConnectionWarning: () => void
+  private readonly _disposeExternalLabels: () => void
 
   constructor(
-    private readonly context: ModelerPluginContext,
-    private readonly runtime: ElementsRuntime,
+    private readonly _context: ModelerPluginContext,
+    private readonly _runtime: ElementsRuntime,
   ) {
-    this.disposeShadow = this.runtime.dragShadow.subscribe(() => this.sync())
-    this.disposePreview = this.runtime.edgePreview.subscribe(() => this.sync())
-    this.disposeConnection = this.runtime.connection.subscribe(() => this.sync())
-    this.disposeSegmentHover = this.runtime.edgeSegmentHover.subscribe(() => this.sync())
-    this.disposeConnectionWarning = this.runtime.connectionWarnings.subscribe(() => this.sync())
-    this.disposeExternalLabels = this.context.externalLabels.subscribe(() => this.sync())
+    this._disposeShadow = this._runtime.dragShadow.subscribe(() => this.sync())
+    this._disposePreview = this._runtime.edgePreview.subscribe(() => this.sync())
+    this._disposeConnection = this._runtime.connection.subscribe(() => this.sync())
+    this._disposeSegmentHover = this._runtime.edgeSegmentHover.subscribe(() => this.sync())
+    this._disposeConnectionWarning = this._runtime.connectionWarnings.subscribe(() => this.sync())
+    this._disposeExternalLabels = this._context.externalLabels.subscribe(() => this.sync())
   }
 
   sync(): void {
@@ -64,33 +64,33 @@ export class ElementsLayer {
     const renderedElementIds = new Set<string>()
     const renderedExternalLabelIds = new Set<string>()
     const renderedOverlayComponentIds = new Set<string>()
-    const model = this.context.getModel()
-    const viewport = this.context.getViewport()
-    const layout = this.context.getLayout()
-    const options = this.context.getOptions()
+    const model = this._context.getModel()
+    const viewport = this._context.getViewport()
+    const layout = this._context.getLayout()
+    const options = this._context.getOptions()
     const recipeOptions = normalizeBpmnRecipeRenderingOptions(options)
     const selected = new Set(model.selection)
-    const connection = this.runtime.connection.get()
+    const connection = this._runtime.connection.get()
     const connectionTargetId = connection?.targetElementId
     const forcedRecipeNodeIds = new Set<string>()
     if (connection?.sourceElementId) {
       forcedRecipeNodeIds.add(connection.sourceElementId)
     }
-    const segmentHover = this.runtime.edgeSegmentHover.get()
+    const segmentHover = this._runtime.edgeSegmentHover.get()
     const useBpmnRecipes = shouldUseBpmnRecipeRendering(options, viewport)
     if (options.interaction?.dragShadow !== false) {
-      for (const element of this.runtime.dragShadow.getElements()) {
-        const definition = this.context.getElementRegistry().get(element.type)
+      for (const element of this._runtime.dragShadow.getElements()) {
+        const definition = this._context.getElementRegistry().get(element.type)
         if (!definition) {
           continue
         }
-        interactionSchemas.push(this.createShadowSchema(definition.render({
-          ...this.context,
+        interactionSchemas.push(this._createShadowSchema(definition.render({
+          ...this._context,
           selected: false,
-        }, this.createShadowElement(element))))
+        }, this._createShadowElement(element))))
       }
     }
-    const visible = this.context.visibility.resolve({
+    const visible = this._context.visibility.resolve({
       model,
       layout,
       viewport,
@@ -100,9 +100,9 @@ export class ElementsLayer {
       forcedIds: [connection?.sourceElementId],
       useBpmnRecipes,
       recipeCulling: recipeOptions.culling,
-      resolveExternalLabelBounds: element => this.context.externalLabels.resolveBounds(this.context, element),
+      resolveExternalLabelBounds: element => this._context.externalLabels.resolveBounds(this._context, element),
       classifier: {
-        isEdge: element => this.runtime.edges.isEdge(element),
+        isEdge: element => this._runtime.edges.isEdge(element),
         isRecipeNodeType: isBpmnRecipeNodeType,
         isRecipeRenderable: element => isBpmnRecipeRenderableNode(element),
       },
@@ -111,30 +111,30 @@ export class ElementsLayer {
     const nodes = [...visible.schemaNodes].sort(compareNodeRenderOrder)
     for (const element of edges) {
       renderedElementIds.add(element.id)
-      this.appendEdgeSchema(linkSchemas, element, selected)
-      this.appendEdgeInteractionSchema(interactionSchemas, element, selected, renderedOverlayComponentIds)
-      this.appendExternalLabelSchema(externalLabelSchemas, element, renderedExternalLabelIds)
+      this._appendEdgeSchema(linkSchemas, element, selected)
+      this._appendEdgeInteractionSchema(interactionSchemas, element, selected, renderedOverlayComponentIds)
+      this._appendExternalLabelSchema(externalLabelSchemas, element, renderedExternalLabelIds)
     }
     for (const element of nodes) {
       renderedElementIds.add(element.id)
-      const band = this.resolveElementRenderBand(element)
+      const band = this._resolveElementRenderBand(element)
       const schemas = band === 'containers'
         ? containerSchemas
         : band === 'links'
           ? linkSchemas
           : nodeSchemas
-      this.appendNodeSchema(schemas, nodeOverlaySchemas, element, selected, connectionTargetId, renderedOverlayComponentIds)
-      this.appendExternalLabelSchema(externalLabelSchemas, element, renderedExternalLabelIds)
+      this._appendNodeSchema(schemas, nodeOverlaySchemas, element, selected, connectionTargetId, renderedOverlayComponentIds)
+      this._appendExternalLabelSchema(externalLabelSchemas, element, renderedExternalLabelIds)
     }
     bpmnRecipeElements.push(...[...visible.recipeNodes].sort(compareNodeRenderOrder))
     const containerRecipeElements = useBpmnRecipes
       ? model.elements
-          .filter(element => this.isRetainedContainerRecipeElement(element, selected, connectionTargetId, forcedRecipeNodeIds))
+          .filter(element => this._isRetainedContainerRecipeElement(element, selected, connectionTargetId, forcedRecipeNodeIds))
           .sort(compareNodeRenderOrder)
       : []
-    const nodeRecipeElements = bpmnRecipeElements.filter(element => this.resolveElementRenderBand(element) !== 'containers')
+    const nodeRecipeElements = bpmnRecipeElements.filter(element => this._resolveElementRenderBand(element) !== 'containers')
     if (containerRecipeElements.length > 0) {
-      const stableBpmnRecipeElements = this.resolveStableBpmnRecipeElements('containers', containerRecipeElements)
+      const stableBpmnRecipeElements = this._resolveStableBpmnRecipeElements('containers', containerRecipeElements)
       containerSchemas.push({
         type: Modeler.BpmnRecipeLayerView,
         id: 'modeler-elements:bpmn-container-recipe-layer',
@@ -149,7 +149,7 @@ export class ElementsLayer {
       })
     }
     if (nodeRecipeElements.length > 0) {
-      const stableBpmnRecipeElements = this.resolveStableBpmnRecipeElements('nodes', nodeRecipeElements)
+      const stableBpmnRecipeElements = this._resolveStableBpmnRecipeElements('nodes', nodeRecipeElements)
       nodeSchemas.push({
         type: Modeler.BpmnRecipeLayerView,
         id: 'modeler-elements:bpmn-recipe-layer',
@@ -166,46 +166,46 @@ export class ElementsLayer {
     interactionSchemas.push(...nodeSchemas)
     interactionSchemas.push(...nodeOverlaySchemas)
     interactionSchemas.push(...externalLabelSchemas)
-    const preview = this.runtime.edgePreview.get()
+    const preview = this._runtime.edgePreview.get()
     if (preview) {
-      const definition = this.context.getElementRegistry().get(preview.type)
+      const definition = this._context.getElementRegistry().get(preview.type)
       if (definition) {
-        linkSchemas.push(definition.render({ ...this.context, selected: false }, preview))
+        linkSchemas.push(definition.render({ ...this._context, selected: false }, preview))
         const schema = linkSchemas[linkSchemas.length - 1] as NovaTemplateChildSchema & { props?: Record<string, unknown> }
         schema.id = `${preview.id}:preview`
         schema.props = { ...(schema.props ?? {}), preview: true }
       }
     }
-    this.disposeContainersLayer = this.context.layers.reconcile('containers', 'modeler-elements-containers', containerSchemas)
-    this.disposeLinksLayer = this.context.layers.reconcile('links', 'modeler-elements-links', linkSchemas)
-    this.disposeInteractionLayer = this.context.layers.reconcile('interaction', 'modeler-elements', interactionSchemas)
-    this.renderedElementIds = renderedElementIds
-    this.renderedExternalLabelIds = renderedExternalLabelIds
-    this.renderedOverlayComponentIds = renderedOverlayComponentIds
-    this.viewportFastPathWindow = createViewportOverscanWindow(viewport, layout)
-    this.viewportFastPathScaleBucket = createViewportScaleBucket(viewport.scale)
-    this.viewportFastPathUseBpmnRecipes = useBpmnRecipes
-    this.syncConnectionWarning()
+    this._disposeContainersLayer = this._context.layers.reconcile('containers', 'modeler-elements-containers', containerSchemas)
+    this._disposeLinksLayer = this._context.layers.reconcile('links', 'modeler-elements-links', linkSchemas)
+    this._disposeInteractionLayer = this._context.layers.reconcile('interaction', 'modeler-elements', interactionSchemas)
+    this._renderedElementIds = renderedElementIds
+    this._renderedExternalLabelIds = renderedExternalLabelIds
+    this._renderedOverlayComponentIds = renderedOverlayComponentIds
+    this._viewportFastPathWindow = createViewportOverscanWindow(viewport, layout)
+    this._viewportFastPathScaleBucket = createViewportScaleBucket(viewport.scale)
+    this._viewportFastPathUseBpmnRecipes = useBpmnRecipes
+    this._syncConnectionWarning()
   }
 
   syncViewport(): void {
-    const viewport = this.context.getViewport()
-    if (!this.canUseViewportFastPath(viewport)) {
+    const viewport = this._context.getViewport()
+    if (!this._canUseViewportFastPath(viewport)) {
       this.sync()
       return
     }
-    const app = this.resolveNovaApp()
+    const app = this._resolveNovaApp()
     const patch = () => {
-      this.patchComponentViewport('modeler-elements:bpmn-container-recipe-layer', viewport, app)
-      this.patchComponentViewport('modeler-elements:bpmn-recipe-layer', viewport, app)
-      for (const elementId of this.renderedElementIds) {
-        this.patchComponentViewport(`${elementId}:view`, viewport, app)
+      this._patchComponentViewport('modeler-elements:bpmn-container-recipe-layer', viewport, app)
+      this._patchComponentViewport('modeler-elements:bpmn-recipe-layer', viewport, app)
+      for (const elementId of this._renderedElementIds) {
+        this._patchComponentViewport(`${elementId}:view`, viewport, app)
       }
-      for (const elementId of this.renderedExternalLabelIds) {
-        this.patchComponentViewport(`${elementId}:external-label`, viewport, app)
+      for (const elementId of this._renderedExternalLabelIds) {
+        this._patchComponentViewport(`${elementId}:external-label`, viewport, app)
       }
-      for (const componentId of this.renderedOverlayComponentIds) {
-        this.patchComponentViewport(componentId, viewport, app)
+      for (const componentId of this._renderedOverlayComponentIds) {
+        this._patchComponentViewport(componentId, viewport, app)
       }
     }
     if (app) {
@@ -214,57 +214,57 @@ export class ElementsLayer {
     else { patch() }
   }
 
-  private canUseViewportFastPath(viewport: ModelerViewport): boolean {
-    if (!this.viewportFastPathWindow) {
+  private _canUseViewportFastPath(viewport: ModelerViewport): boolean {
+    if (!this._viewportFastPathWindow) {
       return false
     }
-    if (this.runtime.dragShadow.getElements().length > 0) {
+    if (this._runtime.dragShadow.getElements().length > 0) {
       return false
     }
-    if (this.runtime.edgePreview.get()) {
+    if (this._runtime.edgePreview.get()) {
       return false
     }
-    if (this.runtime.connection.get()) {
+    if (this._runtime.connection.get()) {
       return false
     }
-    if (this.runtime.connectionWarnings.get()) {
+    if (this._runtime.connectionWarnings.get()) {
       return false
     }
-    if (createViewportScaleBucket(viewport.scale) !== this.viewportFastPathScaleBucket) {
+    if (createViewportScaleBucket(viewport.scale) !== this._viewportFastPathScaleBucket) {
       return false
     }
-    if (shouldUseBpmnRecipeRendering(this.context.getOptions(), viewport) !== this.viewportFastPathUseBpmnRecipes) {
+    if (shouldUseBpmnRecipeRendering(this._context.getOptions(), viewport) !== this._viewportFastPathUseBpmnRecipes) {
       return false
     }
-    return containsRect(this.viewportFastPathWindow, createViewportWorldRect(viewport, this.context.getLayout()))
+    return containsRect(this._viewportFastPathWindow, createViewportWorldRect(viewport, this._context.getLayout()))
   }
 
-  private resolveNovaApp(): NovaApp | null {
+  private _resolveNovaApp(): NovaApp | null {
     try {
-      return this.context.layers.get('interaction')?.nova ?? null
+      return this._context.layers.get('interaction')?.nova ?? null
     }
     catch {
       return null
     }
   }
 
-  private patchComponentViewport(componentId: string, viewport: ModelerViewport, app: NovaApp | null = this.resolveNovaApp()): void {
+  private _patchComponentViewport(componentId: string, viewport: ModelerViewport, app: NovaApp | null = this._resolveNovaApp()): void {
     const node = app?.components.get(componentId) as { setProps?: (patch: { viewport: ModelerViewport }) => void } | undefined
     node?.setProps?.({ viewport })
   }
 
-  private resolveStableBpmnRecipeElements(kind: 'containers' | 'nodes', elements: Array<ModelerElement>): Array<ModelerElement> {
+  private _resolveStableBpmnRecipeElements(kind: 'containers' | 'nodes', elements: Array<ModelerElement>): Array<ModelerElement> {
     const stable = kind === 'containers'
-      ? this.stableBpmnContainerRecipeElements
-      : this.stableBpmnNodeRecipeElements
+      ? this._stableBpmnContainerRecipeElements
+      : this._stableBpmnNodeRecipeElements
     if (kind === 'containers') {
       const nextSignature = createContainerRecipeSignature(elements)
-      if (nextSignature === this.stableBpmnContainerRecipeSignature) {
+      if (nextSignature === this._stableBpmnContainerRecipeSignature) {
         return stable
       }
       const next = [...elements]
-      this.stableBpmnContainerRecipeElements = next
-      this.stableBpmnContainerRecipeSignature = nextSignature
+      this._stableBpmnContainerRecipeElements = next
+      this._stableBpmnContainerRecipeSignature = nextSignature
       return next
     }
     if (elements.length === stable.length
@@ -272,11 +272,11 @@ export class ElementsLayer {
       return stable
     }
     const next = [...elements]
-    this.stableBpmnNodeRecipeElements = next
+    this._stableBpmnNodeRecipeElements = next
     return next
   }
 
-  private isRetainedContainerRecipeElement(
+  private _isRetainedContainerRecipeElement(
     element: ModelerElement,
     selected: Set<string>,
     connectionTargetId: string | undefined,
@@ -287,22 +287,22 @@ export class ElementsLayer {
       && !selected.has(element.id)
       && connectionTargetId !== element.id
       && !forcedRecipeNodeIds.has(element.id)
-      && this.resolveElementRenderBand(element) === 'containers'
+      && this._resolveElementRenderBand(element) === 'containers'
   }
 
-  private appendEdgeSchema(
+  private _appendEdgeSchema(
     schemas: Array<NovaTemplateChildSchema>,
     element: ModelerElement,
     selected: Set<string>,
   ): void {
-    const definition = this.context.getElementRegistry().get(element.type)
+    const definition = this._context.getElementRegistry().get(element.type)
     if (!definition) {
       return
     }
-    schemas.push(definition.render({ ...this.context, selected: selected.has(element.id) }, element))
+    schemas.push(definition.render({ ...this._context, selected: selected.has(element.id) }, element))
   }
 
-  private appendEdgeInteractionSchema(
+  private _appendEdgeInteractionSchema(
     schemas: Array<NovaTemplateChildSchema>,
     element: ModelerElement,
     selected: Set<string>,
@@ -311,26 +311,26 @@ export class ElementsLayer {
     if (!selected.has(element.id) || !isModelerEdgeElement(element)) {
       return
     }
-    const segmentHover = this.runtime.edgeSegmentHover.get()
+    const segmentHover = this._runtime.edgeSegmentHover.get()
     if (segmentHover?.elementId === element.id) {
       overlayIds.add(`${element.id}:segment:${segmentHover.segmentIndex}`)
       schemas.push({
         type: Modeler.EdgeWaypointHandleView,
         id: `${element.id}:segment:${segmentHover.segmentIndex}`,
-        props: { handle: segmentHover, viewport: this.context.getViewport() },
+        props: { handle: segmentHover, viewport: this._context.getViewport() },
       })
     }
-    for (const handle of this.runtime.edges.createWaypointHandles(element as ModelerEdgeElement)) {
+    for (const handle of this._runtime.edges.createWaypointHandles(element as ModelerEdgeElement)) {
       overlayIds.add(`${element.id}:waypoint:${handle.waypointIndex}`)
       schemas.push({
         type: Modeler.EdgeWaypointHandleView,
         id: `${element.id}:waypoint:${handle.waypointIndex}`,
-        props: { handle, viewport: this.context.getViewport() },
+        props: { handle, viewport: this._context.getViewport() },
       })
     }
   }
 
-  private appendNodeSchema(
+  private _appendNodeSchema(
     schemas: Array<NovaTemplateChildSchema>,
     overlaySchemas: Array<NovaTemplateChildSchema>,
     element: ModelerElement,
@@ -338,59 +338,59 @@ export class ElementsLayer {
     connectionTargetId?: string,
     overlayIds?: Set<string>,
   ): void {
-    const definition = this.context.getElementRegistry().get(element.type)
+    const definition = this._context.getElementRegistry().get(element.type)
     if (!definition) {
       return
     }
     const isSelected = selected.has(element.id)
-    schemas.push(definition.render({ ...this.context, selected: isSelected || connectionTargetId === element.id }, element))
+    schemas.push(definition.render({ ...this._context, selected: isSelected || connectionTargetId === element.id }, element))
     if (!isSelected) {
       return
     }
-    const rotateHandle = this.runtime.handles.createRotateHandle(element, definition)
+    const rotateHandle = this._runtime.handles.createRotateHandle(element, definition)
     if (rotateHandle) {
       overlayIds?.add(`${element.id}:rotate`)
       overlaySchemas.push({
         type: Modeler.RotateHandleView,
         id: `${element.id}:rotate`,
-        props: { handle: rotateHandle, viewport: this.context.getViewport() },
+        props: { handle: rotateHandle, viewport: this._context.getViewport() },
       })
     }
-    for (const handle of this.runtime.handles.createResizeHandles(element, definition)) {
+    for (const handle of this._runtime.handles.createResizeHandles(element, definition)) {
       overlayIds?.add(`${element.id}:resize:${handle.handle}`)
       overlaySchemas.push({
         type: Modeler.ResizeHandleView,
         id: `${element.id}:resize:${handle.handle}`,
-        props: { handle, viewport: this.context.getViewport() },
+        props: { handle, viewport: this._context.getViewport() },
       })
     }
     if (definition.capabilities?.ports === false) {
       return
     }
-    for (const port of this.runtime.ports.createElementPorts(element, definition.getPorts?.(this.context, element) ?? [])) {
+    for (const port of this._runtime.ports.createElementPorts(element, definition.getPorts?.(this._context, element) ?? [])) {
       overlayIds?.add(`${element.id}:port:${port.id}`)
       overlaySchemas.push({
         type: Modeler.PortView,
         id: `${element.id}:port:${port.id}`,
-        props: { port, viewport: this.context.getViewport(), radius: MODELER_PORT_RADIUS },
+        props: { port, viewport: this._context.getViewport(), radius: MODELER_PORT_RADIUS },
       })
     }
   }
 
-  private appendExternalLabelSchema(
+  private _appendExternalLabelSchema(
     schemas: Array<NovaTemplateChildSchema>,
     element: ModelerElement,
     renderedIds: Set<string>,
   ): void {
-    const definition = this.context.getElementRegistry().get(element.type)
+    const definition = this._context.getElementRegistry().get(element.type)
     if (!definition?.externalLabel) {
       return
     }
-    const layout = this.context.externalLabels.resolve(this.context, element)
+    const layout = this._context.externalLabels.resolve(this._context, element)
     if (!layout) {
       return
     }
-    if (!layout.text && !this.context.externalLabels.isSelected(element.id)) {
+    if (!layout.text && !this._context.externalLabels.isSelected(element.id)) {
       return
     }
     renderedIds.add(element.id)
@@ -399,50 +399,50 @@ export class ElementsLayer {
       id: `${element.id}:external-label`,
       props: {
         layout,
-        viewport: this.context.getViewport(),
-        selected: this.context.externalLabels.isSelected(element.id),
+        viewport: this._context.getViewport(),
+        selected: this._context.externalLabels.isSelected(element.id),
       },
     })
   }
 
-  private resolveElementRenderBand(element: ModelerElement): ModelerRenderBand {
-    const definition = this.context.getElementRegistry().get(element.type)
+  private _resolveElementRenderBand(element: ModelerElement): ModelerRenderBand {
+    const definition = this._context.getElementRegistry().get(element.type)
     if (!definition) {
       return 'nodes'
     }
-    return resolveElementRenderBand(this.context, definition, element)
+    return resolveElementRenderBand(this._context, definition, element)
   }
 
   dispose(): void {
-    this.disposeShadow()
-    this.disposePreview()
-    this.disposeConnection()
-    this.disposeSegmentHover()
-    this.disposeConnectionWarning()
-    this.disposeExternalLabels()
-    this.disposeContainersLayer?.()
-    this.disposeLinksLayer?.()
-    this.disposeInteractionLayer?.()
-    this.disposeWarningLayer?.()
-    this.disposeContainersLayer = undefined
-    this.disposeLinksLayer = undefined
-    this.disposeInteractionLayer = undefined
-    this.disposeWarningLayer = undefined
+    this._disposeShadow()
+    this._disposePreview()
+    this._disposeConnection()
+    this._disposeSegmentHover()
+    this._disposeConnectionWarning()
+    this._disposeExternalLabels()
+    this._disposeContainersLayer?.()
+    this._disposeLinksLayer?.()
+    this._disposeInteractionLayer?.()
+    this._disposeWarningLayer?.()
+    this._disposeContainersLayer = undefined
+    this._disposeLinksLayer = undefined
+    this._disposeInteractionLayer = undefined
+    this._disposeWarningLayer = undefined
   }
 
-  private syncConnectionWarning(): void {
-    const warning = this.runtime.connectionWarnings.get()
+  private _syncConnectionWarning(): void {
+    const warning = this._runtime.connectionWarnings.get()
     if (!warning) {
-      this.disposeWarningLayer?.()
-      this.disposeWarningLayer = undefined
+      this._disposeWarningLayer?.()
+      this._disposeWarningLayer = undefined
       return
     }
-    const layout = this.context.getLayout()
+    const layout = this._context.getLayout()
     const width = Math.min(392, Math.max(280, layout.width - 32))
     const height = 148
     const x = Math.max(16, Math.round((layout.width - width) / 2))
     const y = Math.max(16, Math.round((layout.height - height) / 2))
-    this.disposeWarningLayer = this.context.layers.reconcile('controls', 'modeler-elements-connection-warning', [
+    this._disposeWarningLayer = this._context.layers.reconcile('controls', 'modeler-elements-connection-warning', [
       {
         type: 'rect',
         id: `${warning.id}:dimmer`,
@@ -521,7 +521,7 @@ export class ElementsLayer {
                 text: 'OK',
                 variant: 'primary',
                 onPress: () => {
-                  this.runtime.connectionWarnings.clear()
+                  this._runtime.connectionWarnings.clear()
                 },
               },
             }],
@@ -531,7 +531,7 @@ export class ElementsLayer {
     ])
   }
 
-  private createShadowElement(element: ModelerElement): ModelerElement {
+  private _createShadowElement(element: ModelerElement): ModelerElement {
     const opacity = typeof element.style?.opacity === 'number' ? element.style.opacity : 1
     return {
       ...element,
@@ -543,17 +543,17 @@ export class ElementsLayer {
     }
   }
 
-  private createShadowSchema(schema: NovaTemplateChildSchema): NovaTemplateChildSchema {
-    return this.rekeySchema(schema, 'shadow')
+  private _createShadowSchema(schema: NovaTemplateChildSchema): NovaTemplateChildSchema {
+    return this._rekeySchema(schema, 'shadow')
   }
 
-  private rekeySchema(schema: NovaTemplateChildSchema, segment: string): NovaTemplateChildSchema {
+  private _rekeySchema(schema: NovaTemplateChildSchema, segment: string): NovaTemplateChildSchema {
     const next = { ...schema } as NovaTemplateChildSchema & { id?: string, children?: Array<NovaTemplateChildSchema> }
     if (typeof next.id === 'string') {
       next.id = `${next.id}:${segment}`
     }
     if (Array.isArray(next.children)) {
-      next.children = next.children.map(child => this.rekeySchema(child, segment))
+      next.children = next.children.map(child => this._rekeySchema(child, segment))
     }
     return next
   }

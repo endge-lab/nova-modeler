@@ -49,8 +49,8 @@ const ISSUE_GAP = 8
 
 export class BpmnValidationDialog<E extends EventList = Record<string, any>>
   extends NovaComponentNode<BpmnValidationDialogResolvedProps, BpmnValidationDialogApi, Record<string, never>, BpmnValidationDialogProps, E> {
-  private readonly sourceId: string
-  private readonly api: BpmnValidationDialogApi
+  private readonly _sourceId: string
+  private readonly _api: BpmnValidationDialogApi
 
   constructor(
     app: NovaApp<E>,
@@ -60,8 +60,8 @@ export class BpmnValidationDialog<E extends EventList = Record<string, any>>
     options: { componentId?: string } = {},
   ) {
     super(app, surface, descriptor, props, options)
-    this.sourceId = options.componentId ?? this.id
-    this.api = {
+    this._sourceId = options.componentId ?? this.id
+    this._api = {
       setProps: patch => this.setProps(patch),
       getProps: () => this.props,
     }
@@ -70,7 +70,7 @@ export class BpmnValidationDialog<E extends EventList = Record<string, any>>
   }
 
   override getApi(): BpmnValidationDialogApi {
-    return this.api
+    return this._api
   }
 
   override setProps(patch: BpmnValidationDialogProps): this {
@@ -84,11 +84,11 @@ export class BpmnValidationDialog<E extends EventList = Record<string, any>>
 
   protected override onMount(): void {
     super.onMount()
-    this.syncRootDefinition()
+    this._syncRootDefinition()
   }
 
   protected override onUnmount(): void {
-    findNovaUiRoot(this)?.getApi?.().unregisterDialogDefinitions(this.sourceId)
+    findNovaUiRoot(this)?.getApi?.().unregisterDialogDefinitions(this._sourceId)
     super.onUnmount()
   }
 
@@ -97,19 +97,19 @@ export class BpmnValidationDialog<E extends EventList = Record<string, any>>
     super.onPropsChanged(changedKeys)
     this.visible = false
     this.options({ interactive: false })
-    this.syncRootDefinition()
+    this._syncRootDefinition()
   }
 
-  private syncRootDefinition(): void {
+  private _syncRootDefinition(): void {
     const definition: DialogDefinition = {
       type: this.props.type,
-      props: this.createDialogProps(),
-      slot: slot => this.createDialogBody(slot),
+      props: this._createDialogProps(),
+      slot: slot => this._createDialogBody(slot),
     }
-    findNovaUiRoot(this)?.getApi?.().registerDialogDefinitions(this.sourceId, [definition])
+    findNovaUiRoot(this)?.getApi?.().registerDialogDefinitions(this._sourceId, [definition])
   }
 
-  private createDialogProps(): DialogProps {
+  private _createDialogProps(): DialogProps {
     return {
       title: this.props.title,
       description: this.props.description,
@@ -137,7 +137,7 @@ export class BpmnValidationDialog<E extends EventList = Record<string, any>>
     } as DialogProps
   }
 
-  private createDialogBody(slot: DialogSlotContext): Array<NovaElementSchema<any>> {
+  private _createDialogBody(slot: DialogSlotContext): Array<NovaElementSchema<any>> {
     const dialogProps = slot.props as DialogProps & { width: number, height: number }
     const bodyWidth = Math.max(0, dialogProps.width - BODY_HORIZONTAL_PADDING)
     const bodyHeight = Math.max(0, dialogProps.height - BODY_VERTICAL_CHROME)
@@ -155,13 +155,13 @@ export class BpmnValidationDialog<E extends EventList = Record<string, any>>
         clip: true,
       },
       children: [
-        this.createSummary(slot, bodyWidth, errors.length),
-        this.createIssueList(slot, bodyWidth, Math.max(0, bodyHeight - 48), errors),
+        this._createSummary(slot, bodyWidth, errors.length),
+        this._createIssueList(slot, bodyWidth, Math.max(0, bodyHeight - 48), errors),
       ],
     }]
   }
 
-  private createSummary(slot: DialogSlotContext, width: number, errorCount: number): NovaElementSchema<any> {
+  private _createSummary(slot: DialogSlotContext, width: number, errorCount: number): NovaElementSchema<any> {
     const valid = errorCount === 0
     return {
       type: NovaUIKit.Flex,
@@ -213,7 +213,7 @@ export class BpmnValidationDialog<E extends EventList = Record<string, any>>
     }
   }
 
-  private createIssueList(
+  private _createIssueList(
     slot: DialogSlotContext,
     width: number,
     height: number,
@@ -255,12 +255,12 @@ export class BpmnValidationDialog<E extends EventList = Record<string, any>>
           height: contentHeight,
           padding: 0,
         },
-        children: errors.map((issue, index) => this.createIssueItem(slot, issue, index, Math.max(0, width - 12))),
+        children: errors.map((issue, index) => this._createIssueItem(slot, issue, index, Math.max(0, width - 12))),
       }],
     }
   }
 
-  private createIssueItem(
+  private _createIssueItem(
     slot: DialogSlotContext,
     issue: ModelerValidationIssue,
     index: number,

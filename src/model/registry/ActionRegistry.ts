@@ -4,33 +4,33 @@ import type {
 } from '@/domain/types'
 
 export class ActionRegistry {
-  private readonly items = new Map<string, ModelerActionDefinition>()
+  private readonly _items = new Map<string, ModelerActionDefinition>()
 
-  constructor(private readonly getContext: () => ModelerPluginContext) {}
+  constructor(private readonly _getContext: () => ModelerPluginContext) {}
 
   register(definition: ModelerActionDefinition): () => void {
-    this.items.set(definition.id, definition)
+    this._items.set(definition.id, definition)
     return () => {
-      if (this.items.get(definition.id) === definition) {
-        this.items.delete(definition.id)
+      if (this._items.get(definition.id) === definition) {
+        this._items.delete(definition.id)
       }
     }
   }
 
   get(id: string): ModelerActionDefinition | undefined {
-    return this.items.get(id)
+    return this._items.get(id)
   }
 
   getAll(): ReadonlyArray<ModelerActionDefinition> {
-    return [...this.items.values()]
+    return [...this._items.values()]
   }
 
   run(id: string): boolean {
-    const definition = this.items.get(id)
+    const definition = this._items.get(id)
     if (!definition) {
       return false
     }
-    definition.run(this.getContext())
+    definition.run(this._getContext())
     return true
   }
 }

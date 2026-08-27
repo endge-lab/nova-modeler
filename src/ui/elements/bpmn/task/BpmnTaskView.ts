@@ -213,16 +213,16 @@ export class BpmnTaskView<E extends EventList = Record<string, any>>
 
   render(): void {
     super.render()
-    this.renderer.schema(this.createTaskSchema())
+    this.renderer.schema(this._createTaskSchema())
   }
 
-  private createTaskSchema(): NovaSchema {
+  private _createTaskSchema(): NovaSchema {
     const element = this.props.element
-    const data = this.resolveTaskData()
+    const data = this._resolveTaskData()
     const style = element.style ?? {}
     const borderColor = this.props.selected
-      ? String(style.selectedStroke ?? this.resolveThemeColor('bpmnTaskSelectedStroke', 'elementSelectedStroke'))
-      : String(style.stroke ?? this.resolveThemeColor('bpmnTaskStroke', 'elementStroke'))
+      ? String(style.selectedStroke ?? this._resolveThemeColor('bpmnTaskSelectedStroke', 'elementSelectedStroke'))
+      : String(style.stroke ?? this._resolveThemeColor('bpmnTaskStroke', 'elementStroke'))
     const schema: NovaSchema = [{
       type: 'rect',
       x: -this.width / 2,
@@ -230,26 +230,26 @@ export class BpmnTaskView<E extends EventList = Record<string, any>>
       width: this.width,
       height: this.height,
       styles: {
-        background: String(style.fill ?? this.resolveThemeColor('bpmnTaskFill', 'elementFill')),
+        background: String(style.fill ?? this._resolveThemeColor('bpmnTaskFill', 'elementFill')),
         border: {
           color: borderColor,
-          width: Number(style.strokeWidth ?? this.resolveThemeNumber('bpmnTaskStrokeWidth', 'elementStrokeWidth')),
-          radius: Number(style.radius ?? this.resolveThemeNumber('bpmnTaskRadius')),
+          width: Number(style.strokeWidth ?? this._resolveThemeNumber('bpmnTaskStrokeWidth', 'elementStrokeWidth')),
+          radius: Number(style.radius ?? this._resolveThemeNumber('bpmnTaskRadius')),
         },
-        opacity: Number(style.opacity ?? this.resolveThemeNumber('elementOpacity')),
+        opacity: Number(style.opacity ?? this._resolveThemeNumber('elementOpacity')),
       },
     }]
 
-    this.appendTaskTypeMarker(schema)
+    this._appendTaskTypeMarker(schema)
     if (!this.props.hideName) {
-      this.appendTaskName(schema, data.name)
+      this._appendTaskName(schema, data.name)
     }
-    this.appendBottomMarkers(schema)
+    this._appendBottomMarkers(schema)
     return schema
   }
 
-  private appendTaskTypeMarker(schema: NovaSchema): void {
-    const data = this.resolveTaskData()
+  private _appendTaskTypeMarker(schema: NovaSchema): void {
+    const data = this._resolveTaskData()
     const icon = resolveBpmnTaskTypeIcon(data.taskType)
     if (!icon) {
       return
@@ -268,14 +268,14 @@ export class BpmnTaskView<E extends EventList = Record<string, any>>
     })
   }
 
-  private appendTaskName(schema: NovaSchema, name: string): void {
+  private _appendTaskName(schema: NovaSchema, name: string): void {
     const layout = resolveBpmnTaskNameLayout({
       name,
       width: this.width,
       height: this.height,
-      data: this.resolveTaskData(),
+      data: this._resolveTaskData(),
     })
-    const color = this.resolveThemeColor('bpmnTaskTextColor')
+    const color = this._resolveThemeColor('bpmnTaskTextColor')
     for (const line of layout.lines) {
       schema.push({
         type: 'text',
@@ -300,8 +300,8 @@ export class BpmnTaskView<E extends EventList = Record<string, any>>
     }
   }
 
-  private appendBottomMarkers(schema: NovaSchema): void {
-    const data = this.resolveTaskData()
+  private _appendBottomMarkers(schema: NovaSchema): void {
+    const data = this._resolveTaskData()
     const markers = [
       data.loopType !== 'none' ? data.loopType : null,
       data.isForCompensation ? 'compensation' : null,
@@ -317,24 +317,24 @@ export class BpmnTaskView<E extends EventList = Record<string, any>>
     const y = this.height / 2 - 15
     markers.forEach((marker) => {
       if (marker === 'standard') {
-        this.appendLoopMarker(schema, x, y)
+        this._appendLoopMarker(schema, x, y)
       }
       else if (marker === 'multiInstanceParallel') {
-        this.appendMultiInstanceMarker(schema, x, y, true)
+        this._appendMultiInstanceMarker(schema, x, y, true)
       }
       else if (marker === 'multiInstanceSequential') {
-        this.appendMultiInstanceMarker(schema, x, y, false)
+        this._appendMultiInstanceMarker(schema, x, y, false)
       }
       else if (marker === 'compensation') {
-        this.appendCompensationMarker(schema, x, y)
+        this._appendCompensationMarker(schema, x, y)
       }
-      else { this.appendInstantiateMarker(schema, x, y) }
+      else { this._appendInstantiateMarker(schema, x, y) }
       x += markerWidth + gap
     })
   }
 
-  private appendLoopMarker(schema: NovaSchema, x: number, y: number): void {
-    const color = this.resolveThemeColor('bpmnTaskMarkerStroke')
+  private _appendLoopMarker(schema: NovaSchema, x: number, y: number): void {
+    const color = this._resolveThemeColor('bpmnTaskMarkerStroke')
     schema.push({
       type: 'arc',
       x: x + 8,
@@ -354,8 +354,8 @@ export class BpmnTaskView<E extends EventList = Record<string, any>>
     })
   }
 
-  private appendMultiInstanceMarker(schema: NovaSchema, x: number, y: number, vertical: boolean): void {
-    const color = this.resolveThemeColor('bpmnTaskMarkerStroke')
+  private _appendMultiInstanceMarker(schema: NovaSchema, x: number, y: number, vertical: boolean): void {
+    const color = this._resolveThemeColor('bpmnTaskMarkerStroke')
     for (let index = 0; index < 3; index += 1) {
       if (vertical) {
         schema.push({ type: 'line', x1: x + 4 + index * 4, y1: y + 3, x2: x + 4 + index * 4, y2: y + 13, styles: { color, width: 1.7 } })
@@ -366,8 +366,8 @@ export class BpmnTaskView<E extends EventList = Record<string, any>>
     }
   }
 
-  private appendCompensationMarker(schema: NovaSchema, x: number, y: number): void {
-    const color = this.resolveThemeColor('bpmnTaskMarkerStroke')
+  private _appendCompensationMarker(schema: NovaSchema, x: number, y: number): void {
+    const color = this._resolveThemeColor('bpmnTaskMarkerStroke')
     schema.push({
       type: 'polygon',
       points: [{ x: x + 2, y: y + 8 }, { x: x + 8, y: y + 3 }, { x: x + 8, y: y + 13 }],
@@ -380,8 +380,8 @@ export class BpmnTaskView<E extends EventList = Record<string, any>>
     })
   }
 
-  private appendInstantiateMarker(schema: NovaSchema, x: number, y: number): void {
-    const color = this.resolveThemeColor('bpmnTaskMarkerStroke')
+  private _appendInstantiateMarker(schema: NovaSchema, x: number, y: number): void {
+    const color = this._resolveThemeColor('bpmnTaskMarkerStroke')
     schema.push({
       type: 'circle',
       x: x + 8,
@@ -391,23 +391,23 @@ export class BpmnTaskView<E extends EventList = Record<string, any>>
     })
   }
 
-  private resolveThemeColor(token: ModelerThemeTokenKey, fallbackToken?: ModelerThemeTokenKey): string {
+  private _resolveThemeColor(token: ModelerThemeTokenKey, fallbackToken?: ModelerThemeTokenKey): string {
     const fallback = fallbackToken
-      ? String(this.resolveThemeValue(fallbackToken))
+      ? String(this._resolveThemeValue(fallbackToken))
       : String(MODELER_THEME_FALLBACKS[token])
     return this.nova.theme.resolve(MODELER_THEME_TOKENS[token], fallback) ?? fallback
   }
 
-  private resolveThemeNumber(token: ModelerThemeTokenKey, fallbackToken?: ModelerThemeTokenKey): number {
+  private _resolveThemeNumber(token: ModelerThemeTokenKey, fallbackToken?: ModelerThemeTokenKey): number {
     const fallback = fallbackToken
-      ? this.resolveThemeNumber(fallbackToken)
+      ? this._resolveThemeNumber(fallbackToken)
       : Number(MODELER_THEME_FALLBACKS[token])
     const raw = this.nova.theme.resolve(MODELER_THEME_TOKENS[token], String(fallback)) ?? fallback
     const value = typeof raw === 'number' ? raw : Number(raw)
     return Number.isFinite(value) ? value : fallback
   }
 
-  private resolveThemeValue(token: ModelerThemeTokenKey): string | number {
+  private _resolveThemeValue(token: ModelerThemeTokenKey): string | number {
     const fallback = MODELER_THEME_FALLBACKS[token]
     return this.nova.theme.resolve(
       MODELER_THEME_TOKENS[token],
@@ -415,7 +415,7 @@ export class BpmnTaskView<E extends EventList = Record<string, any>>
     ) ?? fallback
   }
 
-  private resolveTaskData(): BpmnTaskElementData {
+  private _resolveTaskData(): BpmnTaskElementData {
     return this.props.element.data ?? DEFAULT_TASK_DATA
   }
 }

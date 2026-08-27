@@ -1,33 +1,33 @@
 import type { ModelerElement } from '@/domain/types/index'
 
 export class ElementsDragShadow {
-  private elements: Array<ModelerElement> = []
-  private readonly listeners = new Set<() => void>()
+  private _elements: Array<ModelerElement> = []
+  private readonly _listeners = new Set<() => void>()
 
   begin(elements: Array<ModelerElement>): void {
-    this.elements = elements.map(element => cloneElement(element))
-    this.notify()
+    this._elements = elements.map(element => cloneElement(element))
+    this._notify()
   }
 
   getElements(): Array<ModelerElement> {
-    return this.elements.map(element => cloneElement(element))
+    return this._elements.map(element => cloneElement(element))
   }
 
   clear(): void {
-    if (this.elements.length === 0) {
+    if (this._elements.length === 0) {
       return
     }
-    this.elements = []
-    this.notify()
+    this._elements = []
+    this._notify()
   }
 
   subscribe(listener: () => void): () => void {
-    this.listeners.add(listener)
-    return () => this.listeners.delete(listener)
+    this._listeners.add(listener)
+    return () => this._listeners.delete(listener)
   }
 
-  private notify(): void {
-    for (const listener of this.listeners) {
+  private _notify(): void {
+    for (const listener of this._listeners) {
       listener()
     }
   }

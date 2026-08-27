@@ -89,21 +89,21 @@ export class RotateHandleView<E extends EventList = Record<string, any>>
       y: screen.y,
       radius: this.props.handle.size / 2,
       styles: {
-        background: this.resolveThemeColor('elementHandleFill'),
+        background: this._resolveThemeColor('elementHandleFill'),
         border: {
-          color: this.resolveThemeColor('elementHandleStroke'),
-          width: this.resolveThemeNumber('elementHandleStrokeWidth'),
+          color: this._resolveThemeColor('elementHandleStroke'),
+          width: this._resolveThemeNumber('elementHandleStrokeWidth'),
         },
       },
     }] as NovaSchema)
   }
 
-  private resolveThemeColor(token: ModelerThemeTokenKey): string {
+  private _resolveThemeColor(token: ModelerThemeTokenKey): string {
     const fallback = String(MODELER_THEME_FALLBACKS[token])
     return this.nova.theme.resolve(MODELER_THEME_TOKENS[token], fallback) ?? fallback
   }
 
-  private resolveThemeNumber(token: ModelerThemeTokenKey): number {
+  private _resolveThemeNumber(token: ModelerThemeTokenKey): number {
     const fallback = Number(MODELER_THEME_FALLBACKS[token])
     const raw = this.nova.theme.resolve(MODELER_THEME_TOKENS[token], String(fallback)) ?? fallback
     const value = typeof raw === 'number' ? raw : Number(raw)

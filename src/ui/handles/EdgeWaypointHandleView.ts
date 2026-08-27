@@ -93,22 +93,22 @@ export class EdgeWaypointHandleView<E extends EventList = Record<string, any>>
       y: screen.y,
       radius: size / 2,
       styles: {
-        background: this.resolveThemeColor('elementHandleStroke'),
+        background: this._resolveThemeColor('elementHandleStroke'),
         opacity: 1,
         border: {
-          color: this.resolveThemeColor('elementHandleFill'),
-          width: Math.max(1, this.resolveThemeNumber('elementHandleStrokeWidth')),
+          color: this._resolveThemeColor('elementHandleFill'),
+          width: Math.max(1, this._resolveThemeNumber('elementHandleStrokeWidth')),
         },
       },
     }] as NovaSchema)
   }
 
-  private resolveThemeColor(token: ModelerThemeTokenKey): string {
+  private _resolveThemeColor(token: ModelerThemeTokenKey): string {
     const fallback = String(MODELER_THEME_FALLBACKS[token])
     return this.nova.theme.resolve(MODELER_THEME_TOKENS[token], fallback) ?? fallback
   }
 
-  private resolveThemeNumber(token: ModelerThemeTokenKey): number {
+  private _resolveThemeNumber(token: ModelerThemeTokenKey): number {
     const fallback = Number(MODELER_THEME_FALLBACKS[token])
     const raw = this.nova.theme.resolve(MODELER_THEME_TOKENS[token], String(fallback)) ?? fallback
     const value = typeof raw === 'number' ? raw : Number(raw)

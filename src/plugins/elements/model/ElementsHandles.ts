@@ -15,7 +15,7 @@ import {
  * Создает runtime handles для элементов.
  */
 export class ElementsHandles {
-  constructor(private readonly geometry: ElementsGeometry) {}
+  constructor(private readonly _geometry: ElementsGeometry) {}
 
   /**
    * Создает resize handles с учетом rotation элемента.
@@ -32,8 +32,8 @@ export class ElementsHandles {
       elementId: element.id,
       handle,
       size: MODELER_RESIZE_HANDLE_SIZE,
-      cursor: this.cursorForResizeHandle(handle),
-      ...this.geometry.rotatePoint(element, this.resizeHandlePoint(element, handle)),
+      cursor: this._cursorForResizeHandle(handle),
+      ...this._geometry.rotatePoint(element, this._resizeHandlePoint(element, handle)),
     }))
   }
 
@@ -52,7 +52,7 @@ export class ElementsHandles {
       elementId: element.id,
       size: MODELER_ROTATE_HANDLE_SIZE,
       cursor: 'grab',
-      ...this.geometry.rotatePoint(element, {
+      ...this._geometry.rotatePoint(element, {
         x: element.x + element.width / 2,
         y: element.y - (rotatable.handleOffset ?? 28),
       }),
@@ -62,7 +62,7 @@ export class ElementsHandles {
   /**
    * Возвращает локальную точку resize handle.
    */
-  private resizeHandlePoint(element: ModelerElement, handle: ModelerResizeHandle): { x: number, y: number } {
+  private _resizeHandlePoint(element: ModelerElement, handle: ModelerResizeHandle): { x: number, y: number } {
     const centerX = element.x + element.width / 2
     const centerY = element.y + element.height / 2
     return {
@@ -74,7 +74,7 @@ export class ElementsHandles {
   /**
    * Возвращает CSS cursor для resize handle.
    */
-  private cursorForResizeHandle(handle: ModelerResizeHandle): string {
+  private _cursorForResizeHandle(handle: ModelerResizeHandle): string {
     if (handle === 'n' || handle === 's') {
       return 'ns-resize'
     }

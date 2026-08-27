@@ -8,13 +8,13 @@ import { ModelerElementDefinitions } from '@/elements/elements'
  * Хранит доступные definitions элементов Modeler.
  */
 export class ElementRegistry implements ModelerElementRegistry {
-  private readonly definitions = new Map<string, ModelerElementDefinition>()
+  private readonly _definitions = new Map<string, ModelerElementDefinition>()
 
   /**
    * Регистрирует definition элемента.
    */
   register(definition: ModelerElementDefinition): this {
-    this.definitions.set(definition.type, definition)
+    this._definitions.set(definition.type, definition)
     return this
   }
 
@@ -30,7 +30,7 @@ export class ElementRegistry implements ModelerElementRegistry {
    * Возвращает definition элемента, если она зарегистрирована.
    */
   get(type: string): ModelerElementDefinition | undefined {
-    return this.definitions.get(type)
+    return this._definitions.get(type)
   }
 
   /**
@@ -48,7 +48,7 @@ export class ElementRegistry implements ModelerElementRegistry {
    * Возвращает все зарегистрированные definitions.
    */
   getAll(): ReadonlyArray<ModelerElementDefinition> {
-    return [...this.definitions.values()]
+    return [...this._definitions.values()]
   }
 }
 

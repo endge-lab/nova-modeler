@@ -76,123 +76,123 @@ interface ModelerWorldBoundsCache {
 
 export class Controller implements ModelerController {
   readonly store: ModelerStore
-  private options: ModelerOptionsRef
-  private readonly elementRegistry: ModelerElementRegistry
-  private readonly visibilityRuntime: ModelerVisibilityRuntime
-  private readonly externalLabelRuntime: ModelerExternalLabelRuntime
-  private host: ControllerHost | null = null
-  private layout: ModelerLayout
-  private committedModel: ModelerModel
+  private _options: ModelerOptionsRef
+  private readonly _elementRegistry: ModelerElementRegistry
+  private readonly _visibilityRuntime: ModelerVisibilityRuntime
+  private readonly _externalLabelRuntime: ModelerExternalLabelRuntime
+  private _host: ControllerHost | null = null
+  private _layout: ModelerLayout
+  private _committedModel: ModelerModel
 
   //
-  private pluginRuntime: ModelerPluginRuntime
-  private pluginLayers: Array<ModelerPluginLayer> = []
-  private pluginGestures: Array<ModelerGesture> = []
+  private _pluginRuntime: ModelerPluginRuntime
+  private _pluginLayers: Array<ModelerPluginLayer> = []
+  private _pluginGestures: Array<ModelerGesture> = []
 
   //
-  private readonly storeValues = new Map<ModelerStoreKey<unknown>, unknown>()
-  private readonly modelListeners = new Set<ModelerModelListenerEntry>()
-  private readonly invalidation = new ModelerInvalidationScope()
-  private worldBoundsCache: ModelerWorldBoundsCache | null = null
+  private readonly _storeValues = new Map<ModelerStoreKey<unknown>, unknown>()
+  private readonly _modelListeners = new Set<ModelerModelListenerEntry>()
+  private readonly _invalidation = new ModelerInvalidationScope()
+  private _worldBoundsCache: ModelerWorldBoundsCache | null = null
 
   //
-  private readonly actions: ActionRegistry
-  private readonly elementVariants: ElementVariantRegistry
-  private readonly tools: ToolRegistry
-  private readonly palette: PaletteRegistry
-  private readonly shortcuts: ShortcutRegistry
+  private readonly _actions: ActionRegistry
+  private readonly _elementVariants: ElementVariantRegistry
+  private readonly _tools: ToolRegistry
+  private readonly _palette: PaletteRegistry
+  private readonly _shortcuts: ShortcutRegistry
 
-  private readonly pluginContext: ModelerPluginContext
-  private lastConfiguredActiveToolId: string | null | undefined
+  private readonly _pluginContext: ModelerPluginContext
+  private _lastConfiguredActiveToolId: string | null | undefined
 
   //
-  private onModelChange?: (model: ModelerModel) => void
-  private onSelectionChange?: (selection: Array<string>) => void
+  private _onModelChange?: (model: ModelerModel) => void
+  private _onSelectionChange?: (selection: Array<string>) => void
 
   constructor(options: ControllerOptions = {}) {
-    this.elementRegistry = options.elementRegistry ?? createModelerElementRegistry()
-    this.store = options.store ?? new Store(options.model, { elementRegistry: this.elementRegistry })
-    this.visibilityRuntime = new ModelerVisibilityRuntime()
-    this.externalLabelRuntime = new ModelerExternalLabelRuntime()
-    this.options = normalizeModelerOptions(options.options)
-    this.pluginRuntime = options.pluginRuntime ?? createPluginRuntime()
-    this.actions = new ActionRegistry(() => this.pluginContext)
-    this.elementVariants = new ElementVariantRegistry(() => this.pluginContext)
-    this.tools = new ToolRegistry(
-      () => this.pluginContext,
+    this._elementRegistry = options.elementRegistry ?? createModelerElementRegistry()
+    this.store = options.store ?? new Store(options.model, { elementRegistry: this._elementRegistry })
+    this._visibilityRuntime = new ModelerVisibilityRuntime()
+    this._externalLabelRuntime = new ModelerExternalLabelRuntime()
+    this._options = normalizeModelerOptions(options.options)
+    this._pluginRuntime = options.pluginRuntime ?? createPluginRuntime()
+    this._actions = new ActionRegistry(() => this._pluginContext)
+    this._elementVariants = new ElementVariantRegistry(() => this._pluginContext)
+    this._tools = new ToolRegistry(
+      () => this._pluginContext,
       () => this.invalidate('render'),
     )
-    this.palette = new PaletteRegistry(() => this.getOptions().palette)
-    this.shortcuts = new ShortcutRegistry(
+    this._palette = new PaletteRegistry(() => this.getOptions().palette)
+    this._shortcuts = new ShortcutRegistry(
       () => this.getOptions().shortcuts,
       () => this.getOptions().interaction?.selection,
     )
-    this.ensureDefaultPlugins(options.plugins)
-    this.onModelChange = options.onModelChange
-    this.onSelectionChange = options.onSelectionChange
-    this.committedModel = this.store.getModel()
-    this.layout = this.createLayout()
-    this.pluginContext = this.createPluginContext()
+    this._ensureDefaultPlugins(options.plugins)
+    this._onModelChange = options.onModelChange
+    this._onSelectionChange = options.onSelectionChange
+    this._committedModel = this.store.getModel()
+    this._layout = this._createLayout()
+    this._pluginContext = this._createPluginContext()
   }
 
   mount(host: ControllerHost): void {
-    this.host = host
+    this._host = host
     Nova.createStore(this.store, {
       app: host.app,
       scope: `modeler.${host.id}`,
     })
-    this.worldBoundsCache = null
-    this.recomputeLayout()
-    this.pluginRuntime.bindRoot(this.pluginContext)
-    this.activateConfiguredTool()
+    this._worldBoundsCache = null
+    this._recomputeLayout()
+    this._pluginRuntime.bindRoot(this._pluginContext)
+    this._activateConfiguredTool()
   }
 
   unmount(): void {
-    this.pluginRuntime.unbindRoot()
-    this.pluginLayers = []
-    this.pluginGestures = []
-    this.host = null
+    this._pluginRuntime.unbindRoot()
+    this._pluginLayers = []
+    this._pluginGestures = []
+    this._host = null
   }
 
   configure(options: ControllerOptions): void {
     if (options.options) {
-      this.options = normalizeModelerOptions(options.options)
+      this._options = normalizeModelerOptions(options.options)
     }
-    this.onModelChange = options.onModelChange ?? this.onModelChange
-    this.onSelectionChange = options.onSelectionChange ?? this.onSelectionChange
+    this._onModelChange = options.onModelChange ?? this._onModelChange
+    this._onSelectionChange = options.onSelectionChange ?? this._onSelectionChange
     if (options.pluginRuntime || options.plugins) {
-      this.setPluginRuntime(options.pluginRuntime ?? createPluginRuntime({ plugins: options.plugins }))
+      this._setPluginRuntime(options.pluginRuntime ?? createPluginRuntime({ plugins: options.plugins }))
     }
     if (options.model) {
       this.setModel(options.model)
     }
     else {
-      this.activateConfiguredTool()
-      this.recomputeLayout()
+      this._activateConfiguredTool()
+      this._recomputeLayout()
       this.invalidate()
     }
   }
 
   resize(width: number, height: number): void {
-    if (!this.host) {
+    if (!this._host) {
       return
     }
-    if (this.host.width === width && this.host.height === height) {
+    if (this._host.width === width && this._host.height === height) {
       return
     }
-    this.host.width = width
-    this.host.height = height
-    this.recomputeLayout()
+    this._host.width = width
+    this._host.height = height
+    this._recomputeLayout()
     this.invalidate()
   }
 
   use(plugin: ModelerPlugin): this {
-    this.pluginRuntime.use(plugin)
+    this._pluginRuntime.use(plugin)
     return this
   }
 
   unuse(pluginOrId: ModelerPlugin | string): this {
-    this.pluginRuntime.unuse(pluginOrId)
+    this._pluginRuntime.unuse(pluginOrId)
     return this
   }
 
@@ -201,18 +201,18 @@ export class Controller implements ModelerController {
   }
 
   setModel(model: ModelerModel | ModelerModelInput): ModelerModel {
-    const previous = this.committedModel
+    const previous = this._committedModel
     const next = this.store.setModel(model)
-    return this.afterModelCommit(previous, next)
+    return this._afterModelCommit(previous, next)
   }
 
   applyCommand(command: ModelerCommand): ModelerModel {
     if (command.type === 'setViewport') {
       return this.setViewport(command.viewport)
     }
-    const previous = this.committedModel
+    const previous = this._committedModel
     const next = this.store.apply(command)
-    return this.afterModelCommit(previous, next)
+    return this._afterModelCommit(previous, next)
   }
 
   getViewport(): ModelerViewport {
@@ -221,51 +221,51 @@ export class Controller implements ModelerController {
 
   setViewport(viewport: Partial<ModelerViewport>): ModelerModel {
     const current = this.store.viewport.toJSON()
-    const previous = this.committedModel
-    this.store.setViewport(this.clampViewport({ ...current, ...viewport }))
+    const previous = this._committedModel
+    this.store.setViewport(this._clampViewport({ ...current, ...viewport }))
     const next = this.getModel()
-    return this.afterModelCommit(previous, next, {
+    return this._afterModelCommit(previous, next, {
       viewportOnly: true,
       changed: ['viewport'],
     })
   }
 
   fitView(): ModelerViewport {
-    const viewport = this.fitViewportToWorld()
+    const viewport = this._fitViewportToWorld()
     this.setViewport(viewport)
     return viewport
   }
 
   getLayout(): ModelerLayout {
-    return this.layout
+    return this._layout
   }
 
   getOptions(): ModelerOptions {
-    return this.options.current
+    return this._options.current
   }
 
   getElementRegistry(): ModelerElementRegistry {
-    return this.elementRegistry
+    return this._elementRegistry
   }
 
   getPluginContext(): ModelerPluginContext {
-    return this.pluginContext
+    return this._pluginContext
   }
 
   getPluginLayers(): ReadonlyArray<ModelerPluginLayer> {
-    return this.pluginLayers
+    return this._pluginLayers
   }
 
   getGestures(): ReadonlyArray<ModelerGesture> {
-    return this.pluginGestures
+    return this._pluginGestures
   }
 
   hitTest(point: ModelerPoint): ModelerHitTarget {
-    const elementTarget = this.hitTestElements(point)
+    const elementTarget = this._hitTestElements(point)
     if (elementTarget.type !== 'empty') {
       return elementTarget
     }
-    const canvas = this.layout.canvas
+    const canvas = this._layout.canvas
     return point.x >= canvas.x
       && point.x <= canvas.x + canvas.width
       && point.y >= canvas.y
@@ -276,49 +276,49 @@ export class Controller implements ModelerController {
 
   screenToWorld(point: ModelerPoint): ModelerPoint {
     return {
-      x: (point.x - this.layout.viewport.x) / this.layout.viewport.scale,
-      y: (point.y - this.layout.viewport.y) / this.layout.viewport.scale,
+      x: (point.x - this._layout.viewport.x) / this._layout.viewport.scale,
+      y: (point.y - this._layout.viewport.y) / this._layout.viewport.scale,
     }
   }
 
   worldToScreen(point: ModelerPoint): ModelerPoint {
     return {
-      x: point.x * this.layout.viewport.scale + this.layout.viewport.x,
-      y: point.y * this.layout.viewport.scale + this.layout.viewport.y,
+      x: point.x * this._layout.viewport.scale + this._layout.viewport.x,
+      y: point.y * this._layout.viewport.scale + this._layout.viewport.y,
     }
   }
 
   invalidate(phase: 'update' | 'render' | 'both' = 'both'): void {
-    this.host?.invalidate(phase)
+    this._host?.invalidate(phase)
   }
 
-  private afterModelCommit(previous: ModelerModel, next: ModelerModel, meta = this.resolveCommitMeta(previous, next)): ModelerModel {
-    const selectedLabel = this.externalLabelRuntime.getSelected()
+  private _afterModelCommit(previous: ModelerModel, next: ModelerModel, meta = this._resolveCommitMeta(previous, next)): ModelerModel {
+    const selectedLabel = this._externalLabelRuntime.getSelected()
     if (selectedLabel && !next.selection.includes(selectedLabel.elementId)) {
-      this.externalLabelRuntime.clearSelection()
+      this._externalLabelRuntime.clearSelection()
     }
     if (meta.viewportOnly) {
-      this.layout = { ...this.layout, viewport: next.viewport }
+      this._layout = { ...this._layout, viewport: next.viewport }
     }
     else {
-      this.worldBoundsCache = null
-      this.recomputeLayout()
+      this._worldBoundsCache = null
+      this._recomputeLayout()
     }
-    this.invalidation.bumpMany(meta.changed)
-    this.onModelChange?.(next)
-    this.onSelectionChange?.(next.selection)
-    for (const entry of this.modelListeners) {
+    this._invalidation.bumpMany(meta.changed)
+    this._onModelChange?.(next)
+    this._onSelectionChange?.(next.selection)
+    for (const entry of this._modelListeners) {
       if (meta.viewportOnly && entry.options.includeViewport === false) {
         continue
       }
       entry.listener(next, meta)
     }
-    this.host?.onModelCommit(previous, next, meta)
-    this.committedModel = next
+    this._host?.onModelCommit(previous, next, meta)
+    this._committedModel = next
     return next
   }
 
-  private resolveCommitMeta(previous: ModelerModel, next: ModelerModel): ModelerCommitMeta {
+  private _resolveCommitMeta(previous: ModelerModel, next: ModelerModel): ModelerCommitMeta {
     const changed: Array<ModelerCommitChange> = []
     if (previous.viewportVersion !== next.viewportVersion) {
       changed.push('viewport')
@@ -341,60 +341,60 @@ export class Controller implements ModelerController {
     }
   }
 
-  private setPluginRuntime(pluginRuntime: ModelerPluginRuntime): void {
-    if (pluginRuntime === this.pluginRuntime) {
+  private _setPluginRuntime(pluginRuntime: ModelerPluginRuntime): void {
+    if (pluginRuntime === this._pluginRuntime) {
       return
     }
-    this.pluginRuntime.unbindRoot()
-    this.pluginLayers = []
-    this.pluginGestures = []
-    this.pluginRuntime = pluginRuntime
-    this.ensureDefaultPlugins()
-    this.lastConfiguredActiveToolId = undefined
-    if (this.host) {
-      this.pluginRuntime.bindRoot(this.pluginContext)
+    this._pluginRuntime.unbindRoot()
+    this._pluginLayers = []
+    this._pluginGestures = []
+    this._pluginRuntime = pluginRuntime
+    this._ensureDefaultPlugins()
+    this._lastConfiguredActiveToolId = undefined
+    if (this._host) {
+      this._pluginRuntime.bindRoot(this._pluginContext)
     }
   }
 
-  private recomputeLayout(): void {
-    this.layout = this.createLayout()
+  private _recomputeLayout(): void {
+    this._layout = this._createLayout()
   }
 
-  private createLayout(): ModelerLayout {
+  private _createLayout(): ModelerLayout {
     const model = this.getModel()
     return {
-      width: this.host?.width ?? 0,
-      height: this.host?.height ?? 0,
-      canvas: { x: 0, y: 0, width: this.host?.width ?? 0, height: this.host?.height ?? 0 },
+      width: this._host?.width ?? 0,
+      height: this._host?.height ?? 0,
+      canvas: { x: 0, y: 0, width: this._host?.width ?? 0, height: this._host?.height ?? 0 },
       viewport: model.viewport,
-      worldBounds: this.resolveCachedWorldBounds(model),
+      worldBounds: this._resolveCachedWorldBounds(model),
     }
   }
 
-  private resolveCachedWorldBounds(model: ModelerModel): ModelerRect {
+  private _resolveCachedWorldBounds(model: ModelerModel): ModelerRect {
     const signature = createWorldBoundsSignature(model)
-    if (this.worldBoundsCache?.signature === signature) {
-      return this.worldBoundsCache.bounds
+    if (this._worldBoundsCache?.signature === signature) {
+      return this._worldBoundsCache.bounds
     }
-    const bounds = this.resolveWorldBounds(model)
-    this.worldBoundsCache = { signature, bounds }
+    const bounds = this._resolveWorldBounds(model)
+    this._worldBoundsCache = { signature, bounds }
     return bounds
   }
 
-  private resolveWorldBounds(model: ModelerModel): ModelerRect {
+  private _resolveWorldBounds(model: ModelerModel): ModelerRect {
     let bounds: ModelerRect | null = null
     for (const element of model.elements) {
       const elementBounds = isModelerEdgeElement(element)
-        ? this.resolveEdgeWorldBounds(element)
+        ? this._resolveEdgeWorldBounds(element)
         : { x: element.x, y: element.y, width: element.width, height: element.height }
-      const labelBounds = this.resolveExternalLabelWorldBounds(element)
+      const labelBounds = this._resolveExternalLabelWorldBounds(element)
       const fullBounds = labelBounds ? unionRects(elementBounds, labelBounds) : elementBounds
       bounds = bounds ? unionRects(bounds, fullBounds) : fullBounds
     }
     return bounds ? expandRect(bounds, MODELER_WORLD_BOUNDS_PADDING_RATIO) : { ...model.canvas }
   }
 
-  private resolveEdgeWorldBounds(element: ModelerEdgeElement): ModelerRect {
+  private _resolveEdgeWorldBounds(element: ModelerEdgeElement): ModelerRect {
     const points = [element.source.point, ...element.waypoints, element.target.point].filter(
       (point): point is ModelerPoint => Boolean(point),
     )
@@ -419,18 +419,18 @@ export class Controller implements ModelerController {
     }
   }
 
-  private resolveExternalLabelWorldBounds(element: ModelerElement): ModelerRect | null {
+  private _resolveExternalLabelWorldBounds(element: ModelerElement): ModelerRect | null {
     const pluginContext = (this as unknown as { pluginContext?: ModelerPluginContext }).pluginContext
     if (!pluginContext) {
       return null
     }
-    return this.externalLabelRuntime.resolveBounds(pluginContext, element)
+    return this._externalLabelRuntime.resolveBounds(pluginContext, element)
   }
 
-  private clampViewport(viewport: ModelerViewport): ModelerViewport {
-    const opts = this.options.current.viewport
+  private _clampViewport(viewport: ModelerViewport): ModelerViewport {
+    const opts = this._options.current.viewport
     const scale = clamp(viewport.scale, opts?.minZoom ?? 0.1, opts?.maxZoom ?? 3)
-    const layout = { ...this.layout, viewport: { ...viewport, scale } }
+    const layout = { ...this._layout, viewport: { ...viewport, scale } }
     const minX = layout.canvas.width - (layout.worldBounds.x + layout.worldBounds.width) * scale
     const maxX = -layout.worldBounds.x * scale
     const minY = layout.canvas.height - (layout.worldBounds.y + layout.worldBounds.height) * scale
@@ -442,37 +442,37 @@ export class Controller implements ModelerController {
     }
   }
 
-  private fitViewportToWorld(padding = 80): ModelerViewport {
+  private _fitViewportToWorld(padding = 80): ModelerViewport {
     const scale = Math.min(
-      this.layout.canvas.width / (this.layout.worldBounds.width + padding * 2),
-      this.layout.canvas.height / (this.layout.worldBounds.height + padding * 2),
+      this._layout.canvas.width / (this._layout.worldBounds.width + padding * 2),
+      this._layout.canvas.height / (this._layout.worldBounds.height + padding * 2),
     )
-    return this.clampViewport({
-      x: this.layout.canvas.width / 2 - (this.layout.worldBounds.x + this.layout.worldBounds.width / 2) * scale,
-      y: this.layout.canvas.height / 2 - (this.layout.worldBounds.y + this.layout.worldBounds.height / 2) * scale,
+    return this._clampViewport({
+      x: this._layout.canvas.width / 2 - (this._layout.worldBounds.x + this._layout.worldBounds.width / 2) * scale,
+      y: this._layout.canvas.height / 2 - (this._layout.worldBounds.y + this._layout.worldBounds.height / 2) * scale,
       scale,
     })
   }
 
-  private addLayer(layer: ModelerPluginLayer): () => void {
-    this.pluginLayers.push(layer)
-    this.pluginLayers.sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+  private _addLayer(layer: ModelerPluginLayer): () => void {
+    this._pluginLayers.push(layer)
+    this._pluginLayers.sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
     this.invalidate('render')
     return () => {
-      this.pluginLayers = this.pluginLayers.filter(item => item !== layer)
+      this._pluginLayers = this._pluginLayers.filter(item => item !== layer)
       this.invalidate('render')
     }
   }
 
-  private addGesture(gesture: ModelerGesture): () => void {
-    this.pluginGestures.push(gesture)
-    this.pluginGestures.sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0))
+  private _addGesture(gesture: ModelerGesture): () => void {
+    this._pluginGestures.push(gesture)
+    this._pluginGestures.sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0))
     return () => {
-      this.pluginGestures = this.pluginGestures.filter(item => item !== gesture)
+      this._pluginGestures = this._pluginGestures.filter(item => item !== gesture)
     }
   }
 
-  private createPluginContext(): ModelerPluginContext {
+  private _createPluginContext(): ModelerPluginContext {
     return {
       model: {
         get: () => this.getModel(),
@@ -483,20 +483,20 @@ export class Controller implements ModelerController {
             listener,
             options: { includeViewport: options.includeViewport ?? true },
           }
-          this.modelListeners.add(entry)
-          return () => this.modelListeners.delete(entry)
+          this._modelListeners.add(entry)
+          return () => this._modelListeners.delete(entry)
         },
       },
       store: {
         provide: (key, value) => {
-          this.storeValues.set(key as ModelerStoreKey<unknown>, value)
+          this._storeValues.set(key as ModelerStoreKey<unknown>, value)
           return () => {
-            if (this.storeValues.get(key as ModelerStoreKey<unknown>) === value) {
-              this.storeValues.delete(key as ModelerStoreKey<unknown>)
+            if (this._storeValues.get(key as ModelerStoreKey<unknown>) === value) {
+              this._storeValues.delete(key as ModelerStoreKey<unknown>)
             }
           }
         },
-        inject: key => this.storeValues.get(key as ModelerStoreKey<unknown>) as never,
+        inject: key => this._storeValues.get(key as ModelerStoreKey<unknown>) as never,
       },
       getModel: () => this.getModel(),
       getLayout: () => this.getLayout(),
@@ -509,60 +509,60 @@ export class Controller implements ModelerController {
       screenToWorld: point => this.screenToWorld(point),
       worldToScreen: point => this.worldToScreen(point),
       invalidate: phase => this.invalidate(phase),
-      visibility: this.visibilityRuntime,
-      externalLabels: this.externalLabelRuntime,
+      visibility: this._visibilityRuntime,
+      externalLabels: this._externalLabelRuntime,
       layers: {
-        add: layer => this.addLayer(layer),
-        get: name => this.requireHost().layers.get(name),
-        mount: (name, schema) => this.requireHost().layers.mount(name, schema),
-        unmount: node => this.requireHost().layers.unmount(node),
-        reconcile: (name, ownerId, schema) => this.requireHost().layers.reconcile(name, ownerId, schema),
+        add: layer => this._addLayer(layer),
+        get: name => this._requireHost().layers.get(name),
+        mount: (name, schema) => this._requireHost().layers.mount(name, schema),
+        unmount: node => this._requireHost().layers.unmount(node),
+        reconcile: (name, ownerId, schema) => this._requireHost().layers.reconcile(name, ownerId, schema),
       },
-      gestures: { add: gesture => this.addGesture(gesture) },
+      gestures: { add: gesture => this._addGesture(gesture) },
       actions: {
-        register: definition => this.actions.register(definition),
-        get: id => this.actions.get(id),
-        getAll: () => this.actions.getAll(),
-        run: id => this.actions.run(id),
+        register: definition => this._actions.register(definition),
+        get: id => this._actions.get(id),
+        getAll: () => this._actions.getAll(),
+        run: id => this._actions.run(id),
       },
       elementVariants: {
-        register: provider => this.elementVariants.register(provider),
-        getAll: () => this.elementVariants.getAll(),
-        getProviders: element => this.elementVariants.getProviders(element),
-        getProvider: element => this.elementVariants.getProvider(element),
-        hasProvider: element => this.elementVariants.hasProvider(element),
+        register: provider => this._elementVariants.register(provider),
+        getAll: () => this._elementVariants.getAll(),
+        getProviders: element => this._elementVariants.getProviders(element),
+        getProvider: element => this._elementVariants.getProvider(element),
+        hasProvider: element => this._elementVariants.hasProvider(element),
       },
       tools: {
-        register: definition => this.tools.register(definition),
-        get: id => this.tools.get(id),
-        getAll: () => this.tools.getAll(),
-        activate: id => this.tools.activate(id),
-        deactivate: id => this.tools.deactivate(id),
-        getActive: () => this.tools.getActive(),
-        getActiveId: () => this.tools.getActiveId(),
-        createAt: (id, point) => this.tools.createAt(id, point),
-        subscribe: listener => this.tools.subscribe(listener),
+        register: definition => this._tools.register(definition),
+        get: id => this._tools.get(id),
+        getAll: () => this._tools.getAll(),
+        activate: id => this._tools.activate(id),
+        deactivate: id => this._tools.deactivate(id),
+        getActive: () => this._tools.getActive(),
+        getActiveId: () => this._tools.getActiveId(),
+        createAt: (id, point) => this._tools.createAt(id, point),
+        subscribe: listener => this._tools.subscribe(listener),
       },
       palette: {
-        register: definition => this.palette.register(definition),
-        get: id => this.palette.get(id),
-        getAll: () => this.palette.getAll(),
-        getItems: () => this.palette.getItems(),
+        register: definition => this._palette.register(definition),
+        get: id => this._palette.get(id),
+        getAll: () => this._palette.getAll(),
+        getItems: () => this._palette.getItems(),
       },
       shortcuts: {
-        register: definition => this.shortcuts.register(definition),
-        get: id => this.shortcuts.get(id),
-        getAll: () => this.shortcuts.getAll(),
-        resolve: event => this.shortcuts.resolve(event),
+        register: definition => this._shortcuts.register(definition),
+        get: id => this._shortcuts.get(id),
+        getAll: () => this._shortcuts.getAll(),
+        resolve: event => this._shortcuts.resolve(event),
       },
     }
   }
 
-  private requireHost(): ControllerHost {
-    if (!this.host) {
+  private _requireHost(): ControllerHost {
+    if (!this._host) {
       throw new Error('[Controller] Modeler host is not mounted.')
     }
-    return this.host
+    return this._host
   }
 
   static shouldSyncLayerTemplates(previous: ModelerModel, next: ModelerModel): boolean {
@@ -575,35 +575,35 @@ export class Controller implements ModelerController {
     return !sameCanvas(previous, next)
   }
 
-  private ensureDefaultPlugins(plugins: Array<ModelerPlugin> = []): void {
-    if (!this.pluginRuntime.getPlugins().some(plugin => plugin.id === CoreActionsPlugin.ID)) {
-      this.pluginRuntime.use(CoreActionsPlugin.create())
+  private _ensureDefaultPlugins(plugins: Array<ModelerPlugin> = []): void {
+    if (!this._pluginRuntime.getPlugins().some(plugin => plugin.id === CoreActionsPlugin.ID)) {
+      this._pluginRuntime.use(CoreActionsPlugin.create())
     }
-    if (!this.pluginRuntime.getPlugins().some(plugin => plugin.id === MODELER_ELEMENTS_PLUGIN_ID)) {
-      this.pluginRuntime.use(ElementsPlugin.create())
+    if (!this._pluginRuntime.getPlugins().some(plugin => plugin.id === MODELER_ELEMENTS_PLUGIN_ID)) {
+      this._pluginRuntime.use(ElementsPlugin.create())
     }
-    plugins.forEach(plugin => this.pluginRuntime.use(plugin))
+    plugins.forEach(plugin => this._pluginRuntime.use(plugin))
   }
 
-  private activateConfiguredTool(): void {
-    const configured = this.options.current.interaction?.tools?.activeToolId
-    if (configured === this.lastConfiguredActiveToolId) {
+  private _activateConfiguredTool(): void {
+    const configured = this._options.current.interaction?.tools?.activeToolId
+    if (configured === this._lastConfiguredActiveToolId) {
       return
     }
-    this.lastConfiguredActiveToolId = configured
+    this._lastConfiguredActiveToolId = configured
     if (configured) {
-      this.tools.activate(configured)
+      this._tools.activate(configured)
     }
-    else { this.tools.deactivate() }
+    else { this._tools.deactivate() }
   }
 
-  private hitTestElements(point: ModelerPoint): ModelerHitTarget {
+  private _hitTestElements(point: ModelerPoint): ModelerHitTarget {
     const elements = this.store.elements.items
     if (elements.length === 0) {
       return { type: 'empty' }
     }
     const selected = this.store.selection.ids.length > 0 ? new Set(this.store.selection.ids) : null
-    const externalLabelHandle = this.hitTestExternalLabelResizeHandle(point)
+    const externalLabelHandle = this._hitTestExternalLabelResizeHandle(point)
     if (externalLabelHandle) {
       return externalLabelHandle
     }
@@ -612,7 +612,7 @@ export class Controller implements ModelerController {
       if (!element) {
         continue
       }
-      const definition = this.elementRegistry.get(element.type)
+      const definition = this._elementRegistry.get(element.type)
       if (!definition || !selected?.has(element.id)) {
         continue
       }
@@ -636,7 +636,7 @@ export class Controller implements ModelerController {
       if (!element) {
         continue
       }
-      const definition = this.elementRegistry.get(element.type)
+      const definition = this._elementRegistry.get(element.type)
       if (!definition || !selected?.has(element.id)) {
         continue
       }
@@ -658,7 +658,7 @@ export class Controller implements ModelerController {
       if (!element || !selected?.has(element.id) || element.type !== BPMN_PARTICIPANT_TYPE) {
         continue
       }
-      const target = this.hitTestBpmnParticipantLaneResizeHandle(point, element as BpmnParticipantElement)
+      const target = this._hitTestBpmnParticipantLaneResizeHandle(point, element as BpmnParticipantElement)
       if (target) {
         return target
       }
@@ -668,7 +668,7 @@ export class Controller implements ModelerController {
       if (!element) {
         continue
       }
-      const definition = this.elementRegistry.get(element.type)
+      const definition = this._elementRegistry.get(element.type)
       if (!definition || !selected?.has(element.id)) {
         continue
       }
@@ -677,7 +677,7 @@ export class Controller implements ModelerController {
       }
       for (const port of MODEL_ELEMENTS_RUNTIME.ports.createElementPorts(
         element,
-        definition.getPorts?.(this.pluginContext, element) ?? [],
+        definition.getPorts?.(this._pluginContext, element) ?? [],
       )) {
         const screen = this.worldToScreen(port)
         const radius = port.radius ?? MODELER_PORT_RADIUS
@@ -712,7 +712,7 @@ export class Controller implements ModelerController {
         continue
       }
       const handle = MODEL_ELEMENTS_RUNTIME.edges.createSegmentHandleAtPoint(
-        this.pluginContext,
+        this._pluginContext,
         element,
         this.screenToWorld(point),
       )
@@ -721,7 +721,7 @@ export class Controller implements ModelerController {
       }
     }
     const ordered = elements.length > 1 ? [...elements].sort(compareElementsByZIndex) : elements
-    const externalLabelTarget = this.hitTestExternalLabels(ordered, point)
+    const externalLabelTarget = this._hitTestExternalLabels(ordered, point)
     if (externalLabelTarget) {
       return externalLabelTarget
     }
@@ -730,12 +730,12 @@ export class Controller implements ModelerController {
       if (!element || !isModelerEdgeElement(element)) {
         continue
       }
-      const definition = this.elementRegistry.get(element.type)
+      const definition = this._elementRegistry.get(element.type)
       if (!definition) {
         continue
       }
       const world = this.screenToWorld(point)
-      const contains = definition.hitTest ? definition.hitTest(this.pluginContext, element, world) : false
+      const contains = definition.hitTest ? definition.hitTest(this._pluginContext, element, world) : false
       if (contains) {
         return { type: 'element', id: element.id }
       }
@@ -745,20 +745,20 @@ export class Controller implements ModelerController {
       if (!element || isModelerEdgeElement(element)) {
         continue
       }
-      const definition = this.elementRegistry.get(element.type)
+      const definition = this._elementRegistry.get(element.type)
       if (!definition) {
         continue
       }
       const world = this.screenToWorld(point)
       const local = MODEL_ELEMENTS_RUNTIME.geometry.unrotatePoint(element, world)
       const contains = definition.hitTest
-        ? definition.hitTest(this.pluginContext, element, local)
+        ? definition.hitTest(this._pluginContext, element, local)
         : local.x >= element.x
           && local.x <= element.x + element.width
           && local.y >= element.y
           && local.y <= element.y + element.height
       if (contains) {
-        const partTarget = definition.hitTestPart?.(this.pluginContext, element, local)
+        const partTarget = definition.hitTestPart?.(this._pluginContext, element, local)
         if (partTarget) {
           return partTarget
         }
@@ -768,26 +768,26 @@ export class Controller implements ModelerController {
     return { type: 'empty' }
   }
 
-  private hitTestExternalLabels(ordered: Array<ModelerElement>, point: ModelerPoint): ModelerHitTarget | null {
+  private _hitTestExternalLabels(ordered: Array<ModelerElement>, point: ModelerPoint): ModelerHitTarget | null {
     const world = this.screenToWorld(point)
     for (let index = ordered.length - 1; index >= 0; index -= 1) {
       const element = ordered[index]
       if (!element) {
         continue
       }
-      const definition = this.elementRegistry.get(element.type)
+      const definition = this._elementRegistry.get(element.type)
       if (!definition?.externalLabel) {
         continue
       }
-      if (this.externalLabelRuntime.hitTest(this.pluginContext, element, world)) {
+      if (this._externalLabelRuntime.hitTest(this._pluginContext, element, world)) {
         return { type: 'external-label', elementId: element.id }
       }
     }
     return null
   }
 
-  private hitTestExternalLabelResizeHandle(point: ModelerPoint): ModelerHitTarget | null {
-    const selected = this.externalLabelRuntime.getSelected()
+  private _hitTestExternalLabelResizeHandle(point: ModelerPoint): ModelerHitTarget | null {
+    const selected = this._externalLabelRuntime.getSelected()
     if (!selected) {
       return null
     }
@@ -795,7 +795,7 @@ export class Controller implements ModelerController {
     if (!element) {
       return null
     }
-    const layout = this.externalLabelRuntime.resolve(this.pluginContext, element)
+    const layout = this._externalLabelRuntime.resolve(this._pluginContext, element)
     if (!layout) {
       return null
     }
@@ -813,7 +813,7 @@ export class Controller implements ModelerController {
     return null
   }
 
-  private hitTestBpmnParticipantLaneResizeHandle(
+  private _hitTestBpmnParticipantLaneResizeHandle(
     point: ModelerPoint,
     element: BpmnParticipantElement,
   ): ModelerHitTarget | null {

@@ -25,39 +25,39 @@ import { SnapRuntime } from '@/model/snap/SnapRuntime'
 import { eventPoint } from '@/tools/event-point'
 
 export class ElementsGestures {
-  private activeResize: {
+  private _activeResize: {
     element: ModelerElement
     handle: ModelerResizeHandle
     startWorld: ModelerPoint
   } | null = null
 
-  private activeLaneResize: {
+  private _activeLaneResize: {
     element: BpmnParticipantElement
     laneId: string
     orientation: 'horizontal' | 'vertical'
     startWorld: ModelerPoint
   } | null = null
 
-  private activeMove: {
+  private _activeMove: {
     primary: ModelerElement
     elements: Array<ModelerElement>
     startWorld: ModelerPoint
   } | null = null
 
-  private activeExternalLabelMove: {
+  private _activeExternalLabelMove: {
     elementId: string
     startWorld: ModelerPoint
     startGeometry: ModelerExternalLabelGeometry
   } | null = null
 
-  private activeExternalLabelResize: {
+  private _activeExternalLabelResize: {
     elementId: string
     handle: ModelerResizeHandle
     startWorld: ModelerPoint
     startGeometry: ModelerExternalLabelGeometry
   } | null = null
 
-  private activeRotate: {
+  private _activeRotate: {
     element: ModelerElement
     center: ModelerPoint
     startAngle: number
@@ -65,27 +65,27 @@ export class ElementsGestures {
     snapDegrees?: number
   } | null = null
 
-  private activeWaypoint: {
+  private _activeWaypoint: {
     element: ModelerEdgeElement
     waypointIndex: number
   } | null = null
 
-  private activeSegmentWaypoint: {
+  private _activeSegmentWaypoint: {
     element: ModelerEdgeElement
     waypointIndex: number
   } | null = null
 
-  private readonly snap: SnapRuntime
+  private readonly _snap: SnapRuntime
 
   constructor(
-    private readonly context: ModelerPluginContext,
-    private readonly runtime: ElementsRuntime,
+    private readonly _context: ModelerPluginContext,
+    private readonly _runtime: ElementsRuntime,
   ) {
-    this.snap = new SnapRuntime(context)
+    this._snap = new SnapRuntime(_context)
   }
 
   bind(addDisposer: (dispose: () => void) => void): void {
-    addDisposer(this.context.gestures.add({
+    addDisposer(this._context.gestures.add({
       id: 'modeler-elements:create-flow',
       priority: 120,
       hitTest: (context, event, target) => {
@@ -95,43 +95,43 @@ export class ElementsGestures {
         if (target.type === 'port') {
           return true
         }
-        if (!this.isConnectionToolActive(context.tools.getActiveId()) || target.type !== 'element') {
+        if (!this._isConnectionToolActive(context.tools.getActiveId()) || target.type !== 'element') {
           return false
         }
-        const state = this.runtime.connection.get()
+        const state = this._runtime.connection.get()
         return state
-          ? this.runtime.connectionFlow.canCompleteElement(context, target.id)
-          : this.runtime.connectionFlow.canStart(context, target.id)
+          ? this._runtime.connectionFlow.canCompleteElement(context, target.id)
+          : this._runtime.connectionFlow.canStart(context, target.id)
       },
       onPointerDown: (context, event) => {
         const point = eventPoint(event)
         const target = context.hitTest(point)
         const world = context.screenToWorld(point)
-        if (this.isConnectionToolActive(context.tools.getActiveId()) && this.runtime.connection.get()) {
-          this.completeConnection(context, target, world)
+        if (this._isConnectionToolActive(context.tools.getActiveId()) && this._runtime.connection.get()) {
+          this._completeConnection(context, target, world)
           return false
         }
         if (target.type === 'port') {
-          this.runtime.connectionFlow.beginFromPort(
+          this._runtime.connectionFlow.beginFromPort(
             context,
             target.elementId,
             target.portId,
-            this.isConnectionToolActive(context.tools.getActiveId()) ? 'tool' : 'port-drag',
+            this._isConnectionToolActive(context.tools.getActiveId()) ? 'tool' : 'port-drag',
           )
           return false
         }
-        if (this.isConnectionToolActive(context.tools.getActiveId()) && target.type === 'element') {
-          this.runtime.connectionFlow.beginFromElement(context, target.id, 'tool', world)
+        if (this._isConnectionToolActive(context.tools.getActiveId()) && target.type === 'element') {
+          this._runtime.connectionFlow.beginFromElement(context, target.id, 'tool', world)
           return false
         }
         return false
       },
       onPointerMove: (context, event) => {
         const point = eventPoint(event)
-        if (!this.runtime.connection.get()) {
+        if (!this._runtime.connection.get()) {
           return false
         }
-        this.runtime.connectionFlow.updatePreviewToPoint(
+        this._runtime.connectionFlow.updatePreviewToPoint(
           context,
           context.screenToWorld(point),
           context.hitTest(point),
@@ -139,22 +139,22 @@ export class ElementsGestures {
         return false
       },
       onPointerUp: (context, event) => {
-        const state = this.runtime.connection.get()
+        const state = this._runtime.connection.get()
         if (!state) {
           return false
         }
         const point = eventPoint(event)
-        const completed = this.completeConnection(context, context.hitTest(point), context.screenToWorld(point))
+        const completed = this._completeConnection(context, context.hitTest(point), context.screenToWorld(point))
         if (!completed && state.origin === 'port-drag') {
-          this.runtime.connectionFlow.clear()
+          this._runtime.connectionFlow.clear()
         }
         return false
       },
       onCancel: () => {
-        this.runtime.connectionFlow.clear()
+        this._runtime.connectionFlow.clear()
       },
     }))
-    addDisposer(this.context.gestures.add({
+    addDisposer(this._context.gestures.add({
       id: 'modeler-elements:external-label-resize',
       priority: 118,
       hitTest: (_context, event, target) => event.button === 0 && target.type === 'external-label-resize-handle',
@@ -178,7 +178,7 @@ export class ElementsGestures {
           id: element.id,
           patch: { data: { ...(element.data ?? {}), label: geometry } },
         })
-        this.activeExternalLabelResize = {
+        this._activeExternalLabelResize = {
           elementId: element.id,
           handle: target.handle,
           startWorld: context.screenToWorld(eventPoint(event)),
@@ -187,19 +187,19 @@ export class ElementsGestures {
         return false
       },
       onPointerMove: (context, event) => {
-        if (!this.activeExternalLabelResize) {
+        if (!this._activeExternalLabelResize) {
           return false
         }
-        const element = context.getModel().elements.find(item => item.id === this.activeExternalLabelResize?.elementId)
+        const element = context.getModel().elements.find(item => item.id === this._activeExternalLabelResize?.elementId)
         if (!element) {
           return false
         }
         const current = context.screenToWorld(eventPoint(event))
         const geometry = context.externalLabels.resizeGeometry(
-          this.activeExternalLabelResize.startGeometry,
-          this.activeExternalLabelResize.handle,
-          current.x - this.activeExternalLabelResize.startWorld.x,
-          current.y - this.activeExternalLabelResize.startWorld.y,
+          this._activeExternalLabelResize.startGeometry,
+          this._activeExternalLabelResize.handle,
+          current.x - this._activeExternalLabelResize.startWorld.x,
+          current.y - this._activeExternalLabelResize.startWorld.y,
         )
         context.applyCommand({
           type: 'element.patch',
@@ -209,24 +209,24 @@ export class ElementsGestures {
         return false
       },
       onPointerUp: () => {
-        this.activeExternalLabelResize = null
+        this._activeExternalLabelResize = null
         return false
       },
       onCancel: (context) => {
-        if (this.activeExternalLabelResize) {
-          const element = context.getModel().elements.find(item => item.id === this.activeExternalLabelResize?.elementId)
+        if (this._activeExternalLabelResize) {
+          const element = context.getModel().elements.find(item => item.id === this._activeExternalLabelResize?.elementId)
           if (element) {
             context.applyCommand({
               type: 'element.patch',
               id: element.id,
-              patch: { data: { ...(element.data ?? {}), label: this.activeExternalLabelResize.startGeometry } },
+              patch: { data: { ...(element.data ?? {}), label: this._activeExternalLabelResize.startGeometry } },
             })
           }
         }
-        this.activeExternalLabelResize = null
+        this._activeExternalLabelResize = null
       },
     }))
-    addDisposer(this.context.gestures.add({
+    addDisposer(this._context.gestures.add({
       id: 'modeler-elements:external-label-move',
       priority: 92,
       hitTest: (_context, event, target) => event.button === 0 && target.type === 'external-label',
@@ -250,7 +250,7 @@ export class ElementsGestures {
           id: element.id,
           patch: { data: { ...(element.data ?? {}), label: geometry } },
         })
-        this.activeExternalLabelMove = {
+        this._activeExternalLabelMove = {
           elementId: element.id,
           startWorld: context.screenToWorld(eventPoint(event)),
           startGeometry: geometry,
@@ -258,18 +258,18 @@ export class ElementsGestures {
         return false
       },
       onPointerMove: (context, event) => {
-        if (!this.activeExternalLabelMove) {
+        if (!this._activeExternalLabelMove) {
           return false
         }
-        const element = context.getModel().elements.find(item => item.id === this.activeExternalLabelMove?.elementId)
+        const element = context.getModel().elements.find(item => item.id === this._activeExternalLabelMove?.elementId)
         if (!element) {
           return false
         }
         const current = context.screenToWorld(eventPoint(event))
         const geometry = context.externalLabels.moveGeometry(
-          this.activeExternalLabelMove.startGeometry,
-          current.x - this.activeExternalLabelMove.startWorld.x,
-          current.y - this.activeExternalLabelMove.startWorld.y,
+          this._activeExternalLabelMove.startGeometry,
+          current.x - this._activeExternalLabelMove.startWorld.x,
+          current.y - this._activeExternalLabelMove.startWorld.y,
         )
         context.applyCommand({
           type: 'element.patch',
@@ -279,24 +279,24 @@ export class ElementsGestures {
         return false
       },
       onPointerUp: () => {
-        this.activeExternalLabelMove = null
+        this._activeExternalLabelMove = null
         return false
       },
       onCancel: (context) => {
-        if (this.activeExternalLabelMove) {
-          const element = context.getModel().elements.find(item => item.id === this.activeExternalLabelMove?.elementId)
+        if (this._activeExternalLabelMove) {
+          const element = context.getModel().elements.find(item => item.id === this._activeExternalLabelMove?.elementId)
           if (element) {
             context.applyCommand({
               type: 'element.patch',
               id: element.id,
-              patch: { data: { ...(element.data ?? {}), label: this.activeExternalLabelMove.startGeometry } },
+              patch: { data: { ...(element.data ?? {}), label: this._activeExternalLabelMove.startGeometry } },
             })
           }
         }
-        this.activeExternalLabelMove = null
+        this._activeExternalLabelMove = null
       },
     }))
-    addDisposer(this.context.gestures.add({
+    addDisposer(this._context.gestures.add({
       id: 'modeler-elements:waypoint',
       priority: 115,
       hitTest: (_context, event, target) => event.button === 0
@@ -310,13 +310,13 @@ export class ElementsGestures {
         if (!element || !isModelerEdgeElement(element)) {
           return false
         }
-        const original = this.cloneEdge(element)
+        const original = this._cloneEdge(element)
         if (target.type === 'edge-waypoint-handle') {
-          this.activeWaypoint = { element: original, waypointIndex: target.waypointIndex }
+          this._activeWaypoint = { element: original, waypointIndex: target.waypointIndex }
           return false
         }
         const point = context.screenToWorld(eventPoint(event))
-        const handle = this.runtime.edges.createSegmentHandleAtPoint(context, element, point)
+        const handle = this._runtime.edges.createSegmentHandleAtPoint(context, element, point)
         const waypointIndex = Math.min(target.segmentIndex, element.waypoints.length)
         const waypoints = [
           ...element.waypoints.slice(0, waypointIndex).map(item => ({ ...item })),
@@ -328,11 +328,11 @@ export class ElementsGestures {
           id: element.id,
           patch: { waypoints },
         })
-        this.activeSegmentWaypoint = { element: original, waypointIndex }
+        this._activeSegmentWaypoint = { element: original, waypointIndex }
         return false
       },
       onPointerMove: (context, event) => {
-        const active = this.activeWaypoint ?? this.activeSegmentWaypoint
+        const active = this._activeWaypoint ?? this._activeSegmentWaypoint
         if (!active) {
           return false
         }
@@ -352,16 +352,16 @@ export class ElementsGestures {
         return false
       },
       onPointerUp: (context) => {
-        const active = this.activeWaypoint ?? this.activeSegmentWaypoint
+        const active = this._activeWaypoint ?? this._activeSegmentWaypoint
         if (active) {
-          this.optimizeActiveWaypoints(context, active.element.id)
+          this._optimizeActiveWaypoints(context, active.element.id)
         }
-        this.activeWaypoint = null
-        this.activeSegmentWaypoint = null
+        this._activeWaypoint = null
+        this._activeSegmentWaypoint = null
         return false
       },
       onCancel: (context) => {
-        const active = this.activeWaypoint ?? this.activeSegmentWaypoint
+        const active = this._activeWaypoint ?? this._activeSegmentWaypoint
         if (active) {
           context.applyCommand({
             type: 'element.patch',
@@ -371,23 +371,23 @@ export class ElementsGestures {
             },
           })
         }
-        this.activeWaypoint = null
-        this.activeSegmentWaypoint = null
+        this._activeWaypoint = null
+        this._activeSegmentWaypoint = null
       },
     }))
-    addDisposer(this.context.gestures.add({
+    addDisposer(this._context.gestures.add({
       id: 'modeler-elements:select',
       priority: 40,
-      hitTest: (_context, event, target) => event.button === 0 && this.resolveTargetElementId(target) !== null,
+      hitTest: (_context, event, target) => event.button === 0 && this._resolveTargetElementId(target) !== null,
       onPointerDown: (context, event) => {
         const point = eventPoint(event)
         const target = context.hitTest(point)
-        const elementId = this.resolveTargetElementId(target)
+        const elementId = this._resolveTargetElementId(target)
         if (!elementId) {
           return false
         }
         context.externalLabels.clearSelection()
-        this.runtime.contextPadAnchors.set(elementId, point, target.type === 'element-part'
+        this._runtime.contextPadAnchors.set(elementId, point, target.type === 'element-part'
           ? { partType: target.partType, partId: target.partId }
           : undefined)
         context.applyCommand({
@@ -402,11 +402,11 @@ export class ElementsGestures {
         return false
       },
     }))
-    addDisposer(this.context.gestures.add({
+    addDisposer(this._context.gestures.add({
       id: 'modeler-elements:move',
       priority: 90,
       hitTest: (context, event, target) => {
-        const elementId = this.resolveTargetElementId(target)
+        const elementId = this._resolveTargetElementId(target)
         if (event.button !== 0 || !elementId) {
           return false
         }
@@ -423,7 +423,7 @@ export class ElementsGestures {
         }
         const point = eventPoint(event)
         const target = context.hitTest(point)
-        const elementId = this.resolveTargetElementId(target)
+        const elementId = this._resolveTargetElementId(target)
         if (!elementId) {
           return false
         }
@@ -433,10 +433,10 @@ export class ElementsGestures {
         if (!element || definition?.capabilities?.draggable === false) {
           return false
         }
-        this.runtime.contextPadAnchors.set(elementId, point, target.type === 'element-part'
+        this._runtime.contextPadAnchors.set(elementId, point, target.type === 'element-part'
           ? { partType: target.partType, partId: target.partId }
           : undefined)
-        const nextSelection = this.shouldKeepCurrentSelection(model.selection, elementId, event)
+        const nextSelection = this._shouldKeepCurrentSelection(model.selection, elementId, event)
           ? model.selection
           : SelectionRuntime.resolvePointerSelection({
               current: model.selection,
@@ -448,33 +448,33 @@ export class ElementsGestures {
           type: 'select',
           ids: nextSelection,
         })
-        const elements = this.resolveMoveElements(context, model.elements, nextSelection)
-        this.activeMove = {
+        const elements = this._resolveMoveElements(context, model.elements, nextSelection)
+        this._activeMove = {
           primary: { ...element, data: { ...element.data }, style: { ...element.style } },
           elements,
           startWorld: context.screenToWorld(eventPoint(event)),
         }
         if (context.getOptions().interaction?.dragShadow !== false) {
-          this.runtime.dragShadow.begin(elements)
+          this._runtime.dragShadow.begin(elements)
         }
         return false
       },
       onPointerMove: (context, event) => {
-        if (!this.activeMove) {
+        if (!this._activeMove) {
           return false
         }
         const current = context.screenToWorld(eventPoint(event))
-        const snapped = this.snap.moveElement({
-          element: this.activeMove.primary,
+        const snapped = this._snap.moveElement({
+          element: this._activeMove.primary,
           raw: {
-            x: this.activeMove.primary.x + current.x - this.activeMove.startWorld.x,
-            y: this.activeMove.primary.y + current.y - this.activeMove.startWorld.y,
+            x: this._activeMove.primary.x + current.x - this._activeMove.startWorld.x,
+            y: this._activeMove.primary.y + current.y - this._activeMove.startWorld.y,
           },
           event,
         })
-        const dx = snapped.x - this.activeMove.primary.x
-        const dy = snapped.y - this.activeMove.primary.y
-        this.activeMove.elements.forEach((element) => {
+        const dx = snapped.x - this._activeMove.primary.x
+        const dy = snapped.y - this._activeMove.primary.y
+        this._activeMove.elements.forEach((element) => {
           context.applyCommand({
             type: 'element.patch',
             id: element.id,
@@ -487,13 +487,13 @@ export class ElementsGestures {
         return false
       },
       onPointerUp: () => {
-        this.activeMove = null
-        this.runtime.dragShadow.clear()
+        this._activeMove = null
+        this._runtime.dragShadow.clear()
         return false
       },
       onCancel: (context) => {
-        if (this.activeMove) {
-          for (const element of this.activeMove.elements) {
+        if (this._activeMove) {
+          for (const element of this._activeMove.elements) {
             context.applyCommand({
               type: 'element.patch',
               id: element.id,
@@ -504,11 +504,11 @@ export class ElementsGestures {
             })
           }
         }
-        this.activeMove = null
-        this.runtime.dragShadow.clear()
+        this._activeMove = null
+        this._runtime.dragShadow.clear()
       },
     }))
-    addDisposer(this.context.gestures.add({
+    addDisposer(this._context.gestures.add({
       id: 'modeler-elements:bpmn-lane-resize',
       priority: 105,
       hitTest: (_context, event, target) => event.button === 0 && target.type === 'bpmn-lane-resize-handle',
@@ -521,8 +521,8 @@ export class ElementsGestures {
         if (!element || element.type !== BPMN_PARTICIPANT_TYPE) {
           return false
         }
-        this.activeLaneResize = {
-          element: this.cloneParticipant(element as BpmnParticipantElement),
+        this._activeLaneResize = {
+          element: this._cloneParticipant(element as BpmnParticipantElement),
           laneId: target.laneId,
           orientation: target.orientation,
           startWorld: context.screenToWorld(eventPoint(event)),
@@ -530,40 +530,40 @@ export class ElementsGestures {
         return false
       },
       onPointerMove: (context, event) => {
-        if (!this.activeLaneResize) {
+        if (!this._activeLaneResize) {
           return false
         }
         const current = context.screenToWorld(eventPoint(event))
-        const delta = this.activeLaneResize.orientation === 'vertical'
-          ? current.x - this.activeLaneResize.startWorld.x
-          : current.y - this.activeLaneResize.startWorld.y
+        const delta = this._activeLaneResize.orientation === 'vertical'
+          ? current.x - this._activeLaneResize.startWorld.x
+          : current.y - this._activeLaneResize.startWorld.y
         context.applyCommand({
           type: 'element.replace',
-          id: this.activeLaneResize.element.id,
+          id: this._activeLaneResize.element.id,
           element: resizeBpmnParticipantLaneBoundary(
-            this.activeLaneResize.element,
-            this.activeLaneResize.laneId,
+            this._activeLaneResize.element,
+            this._activeLaneResize.laneId,
             delta,
           ),
         })
         return false
       },
       onPointerUp: () => {
-        this.activeLaneResize = null
+        this._activeLaneResize = null
         return false
       },
       onCancel: (context) => {
-        if (this.activeLaneResize) {
+        if (this._activeLaneResize) {
           context.applyCommand({
             type: 'element.replace',
-            id: this.activeLaneResize.element.id,
-            element: this.activeLaneResize.element,
+            id: this._activeLaneResize.element.id,
+            element: this._activeLaneResize.element,
           })
         }
-        this.activeLaneResize = null
+        this._activeLaneResize = null
       },
     }))
-    addDisposer(this.context.gestures.add({
+    addDisposer(this._context.gestures.add({
       id: 'modeler-elements:resize',
       priority: 100,
       hitTest: (_context, event, target) => event.button === 0 && target.type === 'resize-handle',
@@ -576,7 +576,7 @@ export class ElementsGestures {
         if (!element) {
           return false
         }
-        this.activeResize = {
+        this._activeResize = {
           element: { ...element, data: { ...element.data }, style: { ...element.style } },
           handle: target.handle,
           startWorld: context.screenToWorld(eventPoint(event)),
@@ -584,32 +584,32 @@ export class ElementsGestures {
         return false
       },
       onPointerMove: (context, event) => {
-        if (!this.activeResize) {
+        if (!this._activeResize) {
           return false
         }
         const current = context.screenToWorld(eventPoint(event))
-        const definition = context.getElementRegistry().get(this.activeResize.element.type)
-        const minSize = this.runtime.bounds.getMinSize(definition)
-        const delta = this.runtime.geometry.rotateDelta(
+        const definition = context.getElementRegistry().get(this._activeResize.element.type)
+        const minSize = this._runtime.bounds.getMinSize(definition)
+        const delta = this._runtime.geometry.rotateDelta(
           {
-            x: current.x - this.activeResize.startWorld.x,
-            y: current.y - this.activeResize.startWorld.y,
+            x: current.x - this._activeResize.startWorld.x,
+            y: current.y - this._activeResize.startWorld.y,
           },
-          -(this.activeResize.element.rotation ?? 0),
+          -(this._activeResize.element.rotation ?? 0),
         )
-        const rawBounds = this.runtime.bounds.resizeBounds({
-          element: this.activeResize.element,
-          handle: this.activeResize.handle,
+        const rawBounds = this._runtime.bounds.resizeBounds({
+          element: this._activeResize.element,
+          handle: this._activeResize.handle,
           dx: delta.x,
           dy: delta.y,
           minSize,
         })
         context.applyCommand({
           type: 'element.resize',
-          id: this.activeResize.element.id,
-          bounds: this.snap.resizeElement({
-            element: this.activeResize.element,
-            handle: this.activeResize.handle,
+          id: this._activeResize.element.id,
+          bounds: this._snap.resizeElement({
+            element: this._activeResize.element,
+            handle: this._activeResize.handle,
             rawBounds,
             minSize,
             event,
@@ -618,14 +618,14 @@ export class ElementsGestures {
         return false
       },
       onPointerUp: () => {
-        this.activeResize = null
+        this._activeResize = null
         return false
       },
       onCancel: () => {
-        this.activeResize = null
+        this._activeResize = null
       },
     }))
-    addDisposer(this.context.gestures.add({
+    addDisposer(this._context.gestures.add({
       id: 'modeler-elements:rotate',
       priority: 110,
       hitTest: (_context, event, target) => event.button === 0 && target.type === 'rotate-handle',
@@ -640,61 +640,61 @@ export class ElementsGestures {
         if (!element || !rotatable) {
           return false
         }
-        const center = this.runtime.geometry.elementCenter(element)
+        const center = this._runtime.geometry.elementCenter(element)
         const pointer = context.screenToWorld(eventPoint(event))
-        this.activeRotate = {
+        this._activeRotate = {
           element: { ...element, data: { ...element.data }, style: { ...element.style } },
           center,
-          startAngle: this.runtime.geometry.angleBetween(center, pointer),
+          startAngle: this._runtime.geometry.angleBetween(center, pointer),
           startRotation: element.rotation ?? 0,
           snapDegrees: rotatable.snapDegrees,
         }
         return false
       },
       onPointerMove: (context, event) => {
-        if (!this.activeRotate) {
+        if (!this._activeRotate) {
           return false
         }
         const pointer = context.screenToWorld(eventPoint(event))
-        const rotation = this.activeRotate.startRotation
-          + this.runtime.geometry.angleBetween(this.activeRotate.center, pointer)
-          - this.activeRotate.startAngle
+        const rotation = this._activeRotate.startRotation
+          + this._runtime.geometry.angleBetween(this._activeRotate.center, pointer)
+          - this._activeRotate.startAngle
         context.applyCommand({
           type: 'element.rotate',
-          id: this.activeRotate.element.id,
+          id: this._activeRotate.element.id,
           rotation: event.shiftKey
-            ? this.runtime.geometry.snapRadians(rotation, this.activeRotate.snapDegrees)
+            ? this._runtime.geometry.snapRadians(rotation, this._activeRotate.snapDegrees)
             : rotation,
         })
         return false
       },
       onPointerUp: () => {
-        this.activeRotate = null
+        this._activeRotate = null
         return false
       },
       onCancel: () => {
-        this.activeRotate = null
+        this._activeRotate = null
       },
     }))
   }
 
   dispose(): void {
-    this.activeResize = null
-    this.activeLaneResize = null
-    this.activeMove = null
-    this.activeExternalLabelMove = null
-    this.activeExternalLabelResize = null
-    this.activeRotate = null
-    this.activeWaypoint = null
-    this.activeSegmentWaypoint = null
-    this.runtime.dragShadow.clear()
-    this.runtime.edgeSegmentHover.clear()
-    this.runtime.connectionFlow.clear()
+    this._activeResize = null
+    this._activeLaneResize = null
+    this._activeMove = null
+    this._activeExternalLabelMove = null
+    this._activeExternalLabelResize = null
+    this._activeRotate = null
+    this._activeWaypoint = null
+    this._activeSegmentWaypoint = null
+    this._runtime.dragShadow.clear()
+    this._runtime.edgeSegmentHover.clear()
+    this._runtime.connectionFlow.clear()
   }
 
-  private completeConnection(context: ModelerPluginContext, target: ModelerHitTarget, fallbackPoint: ModelerPoint): boolean {
-    const state = this.runtime.connection.get()
-    const element = this.runtime.connectionFlow.completeAtTarget(context, target, fallbackPoint)
+  private _completeConnection(context: ModelerPluginContext, target: ModelerHitTarget, fallbackPoint: ModelerPoint): boolean {
+    const state = this._runtime.connection.get()
+    const element = this._runtime.connectionFlow.completeAtTarget(context, target, fallbackPoint)
     if (!element) {
       return false
     }
@@ -704,7 +704,7 @@ export class ElementsGestures {
     return true
   }
 
-  private shouldKeepCurrentSelection(selection: Array<string>, elementId: string, event: MouseEvent): boolean {
+  private _shouldKeepCurrentSelection(selection: Array<string>, elementId: string, event: MouseEvent): boolean {
     return selection.includes(elementId)
       && selection.length > 1
       && !event.shiftKey
@@ -713,11 +713,11 @@ export class ElementsGestures {
       && !event.altKey
   }
 
-  private isConnectionToolActive(activeToolId: string | null): boolean {
+  private _isConnectionToolActive(activeToolId: string | null): boolean {
     return activeToolId === 'connect' || activeToolId?.startsWith('connect:') === true
   }
 
-  private resolveMoveElements(
+  private _resolveMoveElements(
     context: ModelerPluginContext,
     modelElements: Array<ModelerElement>,
     selection: Array<string>,
@@ -725,7 +725,7 @@ export class ElementsGestures {
     const selected = new Set(selection)
     const moveIds = new Set<string>()
     for (const element of modelElements) {
-      if (selected.has(element.id) && this.isElementDraggable(context, element)) {
+      if (selected.has(element.id) && this._isElementDraggable(context, element)) {
         moveIds.add(element.id)
       }
     }
@@ -735,10 +735,10 @@ export class ElementsGestures {
         if (moveIds.has(element.id) || element.id === group.id || isModelerEdgeElement(element)) {
           continue
         }
-        if (!this.isElementDraggable(context, element)) {
+        if (!this._isElementDraggable(context, element)) {
           continue
         }
-        if (this.isElementFullyInsideGroup(element, group)) {
+        if (this._isElementFullyInsideGroup(element, group)) {
           moveIds.add(element.id)
         }
       }
@@ -750,7 +750,7 @@ export class ElementsGestures {
         if (moveIds.has(element.id) || element.id === participant.id || isModelerEdgeElement(element)) {
           continue
         }
-        if (!this.isElementDraggable(context, element)) {
+        if (!this._isElementDraggable(context, element)) {
           continue
         }
         if (isElementInsideBpmnParticipantContent(element, participant)) {
@@ -770,10 +770,10 @@ export class ElementsGestures {
     }
     return modelElements
       .filter(element => moveIds.has(element.id))
-      .map(element => this.cloneElement(element))
+      .map(element => this._cloneElement(element))
   }
 
-  private resolveTargetElementId(target: ModelerHitTarget): string | null {
+  private _resolveTargetElementId(target: ModelerHitTarget): string | null {
     if (target.type === 'element') {
       return target.id
     }
@@ -786,28 +786,28 @@ export class ElementsGestures {
     return null
   }
 
-  private isElementDraggable(context: ModelerPluginContext, element: ModelerElement): boolean {
+  private _isElementDraggable(context: ModelerPluginContext, element: ModelerElement): boolean {
     return context.getElementRegistry().get(element.type)?.capabilities?.draggable !== false
   }
 
-  private isElementFullyInsideGroup(element: ModelerElement, group: ModelerElement): boolean {
+  private _isElementFullyInsideGroup(element: ModelerElement, group: ModelerElement): boolean {
     return element.x >= group.x
       && element.y >= group.y
       && element.x + element.width <= group.x + group.width
       && element.y + element.height <= group.y + group.height
   }
 
-  private cloneElement(element: ModelerElement): ModelerElement {
+  private _cloneElement(element: ModelerElement): ModelerElement {
     if (isModelerEdgeElement(element)) {
-      return this.cloneEdge(element)
+      return this._cloneEdge(element)
     }
     if (element.type === BPMN_PARTICIPANT_TYPE) {
-      return this.cloneParticipant(element as BpmnParticipantElement)
+      return this._cloneParticipant(element as BpmnParticipantElement)
     }
     return { ...element, data: { ...element.data }, style: { ...element.style } }
   }
 
-  private cloneParticipant(element: BpmnParticipantElement): BpmnParticipantElement {
+  private _cloneParticipant(element: BpmnParticipantElement): BpmnParticipantElement {
     return createBpmnParticipantElement({
       ...element,
       data: {
@@ -821,12 +821,12 @@ export class ElementsGestures {
     })
   }
 
-  private optimizeActiveWaypoints(context: ModelerPluginContext, elementId: string): void {
+  private _optimizeActiveWaypoints(context: ModelerPluginContext, elementId: string): void {
     const element = context.getModel().elements.find(item => item.id === elementId)
     if (!element || !isModelerEdgeElement(element)) {
       return
     }
-    const waypoints = this.runtime.routeOptimizer.optimizeWaypoints(context, element, element.waypoints)
+    const waypoints = this._runtime.routeOptimizer.optimizeWaypoints(context, element, element.waypoints)
     context.applyCommand({
       type: 'element.patch',
       id: element.id,
@@ -834,7 +834,7 @@ export class ElementsGestures {
     })
   }
 
-  private cloneEdge(element: ModelerEdgeElement): ModelerEdgeElement {
+  private _cloneEdge(element: ModelerEdgeElement): ModelerEdgeElement {
     return {
       ...element,
       source: { ...element.source, point: element.source.point ? { ...element.source.point } : undefined },

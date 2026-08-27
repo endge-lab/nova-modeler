@@ -8,7 +8,7 @@ import type { ElementsGeometry } from '@/plugins/elements/model/ElementsGeometry
  * Подготавливает runtime ports для элемента.
  */
 export class ElementsPorts {
-  constructor(private readonly geometry: ElementsGeometry) {}
+  constructor(private readonly _geometry: ElementsGeometry) {}
 
   /**
    * Возвращает ports с учетом rotation элемента.
@@ -16,7 +16,7 @@ export class ElementsPorts {
   createElementPorts(element: ModelerElement, ports: Array<ModelerPort>): Array<ModelerPort> {
     return ports.map(port => ({
       ...port,
-      ...this.geometry.rotatePoint(element, port),
+      ...this._geometry.rotatePoint(element, port),
     }))
   }
 }

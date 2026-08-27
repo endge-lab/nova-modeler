@@ -20,8 +20,8 @@ const LABEL_MAX_AUTO_LINES = 3
 const LABEL_ELLIPSIS = '...'
 
 export class ModelerExternalLabelRuntime implements ModelerExternalLabelApi {
-  private selected: ModelerExternalLabelSelectedPart | null = null
-  private readonly listeners = new Set<() => void>()
+  private _selected: ModelerExternalLabelSelectedPart | null = null
+  private readonly _listeners = new Set<() => void>()
 
   resolve(context: ModelerExternalLabelResolveContext, element: ModelerElement): ModelerExternalLabelLayout | null {
     const adapter = context.getElementRegistry().get(element.type)?.externalLabel
@@ -29,7 +29,7 @@ export class ModelerExternalLabelRuntime implements ModelerExternalLabelApi {
       return null
     }
     const text = normalizeLabelText(adapter.getText(context, element))
-    const geometry = this.resolveGeometry(context, element)
+    const geometry = this._resolveGeometry(context, element)
     if (!geometry && !text) {
       return null
     }
@@ -42,12 +42,12 @@ export class ModelerExternalLabelRuntime implements ModelerExternalLabelApi {
           height: Math.max(LABEL_MIN_HEIGHT, geometry.height),
         }
       : adapter.getDefaultRect(context, element)
-    const lines = this.createLines(text, rect)
+    const lines = this._createLines(text, rect)
     const visibleLines = lines.slice(0, Math.max(1, Math.floor(rect.height / LABEL_LINE_HEIGHT)))
     const clipped = lines.length > visibleLines.length || visibleLines.some(line => line.width > rect.width)
     if (clipped && visibleLines.length > 0) {
       const lastIndex = visibleLines.length - 1
-      visibleLines[lastIndex] = this.createLine(
+      visibleLines[lastIndex] = this._createLine(
         fitTextWithEllipsis(visibleLines[lastIndex]?.text ?? '', rect.width),
         rect,
         lastIndex,
@@ -55,7 +55,7 @@ export class ModelerExternalLabelRuntime implements ModelerExternalLabelApi {
     }
     const connectorStart = anchor
     const connectorEnd = nearestRectPoint(rect, anchor)
-    const screenRect = this.worldRectToScreen(context, rect)
+    const screenRect = this._worldRectToScreen(context, rect)
     const screenAnchor = context.worldToScreen(anchor)
     return {
       elementId: element.id,
@@ -157,16 +157,16 @@ export class ModelerExternalLabelRuntime implements ModelerExternalLabelApi {
   }
 
   getSelected(): ModelerExternalLabelSelectedPart | null {
-    return this.selected ? { ...this.selected } : null
+    return this._selected ? { ...this._selected } : null
   }
 
   select(elementId: string | null): void {
     const next = elementId ? { elementId, partId: 'label' as const } : null
-    if (this.selected?.elementId === next?.elementId && this.selected?.partId === next?.partId) {
+    if (this._selected?.elementId === next?.elementId && this._selected?.partId === next?.partId) {
       return
     }
-    this.selected = next
-    this.emit()
+    this._selected = next
+    this._emit()
   }
 
   clearSelection(): void {
@@ -174,19 +174,19 @@ export class ModelerExternalLabelRuntime implements ModelerExternalLabelApi {
   }
 
   isSelected(elementId: string): boolean {
-    return this.selected?.elementId === elementId
+    return this._selected?.elementId === elementId
   }
 
   subscribe(listener: () => void): () => void {
-    this.listeners.add(listener)
-    return () => this.listeners.delete(listener)
+    this._listeners.add(listener)
+    return () => this._listeners.delete(listener)
   }
 
-  private resolveGeometry(_context: ModelerExternalLabelResolveContext, element: ModelerElement): ModelerExternalLabelGeometry | null {
+  private _resolveGeometry(_context: ModelerExternalLabelResolveContext, element: ModelerElement): ModelerExternalLabelGeometry | null {
     return normalizeGeometry(element.data?.label)
   }
 
-  private createLines(text: string, rect: ModelerRect): Array<ModelerExternalLabelLine> {
+  private _createLines(text: string, rect: ModelerRect): Array<ModelerExternalLabelLine> {
     if (!text) {
       return []
     }
@@ -196,7 +196,7 @@ export class ModelerExternalLabelRuntime implements ModelerExternalLabelApi {
     for (const word of words) {
       const next = current ? `${current} ${word}` : word
       if (current && measureText(next) > rect.width) {
-        lines.push(this.createLine(current, rect, lines.length))
+        lines.push(this._createLine(current, rect, lines.length))
         current = word
         if (lines.length >= LABEL_MAX_AUTO_LINES + 4) {
           break
@@ -206,15 +206,15 @@ export class ModelerExternalLabelRuntime implements ModelerExternalLabelApi {
       current = next
     }
     if (current) {
-      lines.push(this.createLine(current, rect, lines.length))
+      lines.push(this._createLine(current, rect, lines.length))
     }
     if (lines.length === 0) {
-      lines.push(this.createLine(text, rect, 0))
+      lines.push(this._createLine(text, rect, 0))
     }
     return lines
   }
 
-  private createLine(text: string, rect: ModelerRect, index: number): ModelerExternalLabelLine {
+  private _createLine(text: string, rect: ModelerRect, index: number): ModelerExternalLabelLine {
     return {
       text,
       x: rect.x,
@@ -225,7 +225,7 @@ export class ModelerExternalLabelRuntime implements ModelerExternalLabelApi {
     }
   }
 
-  private worldRectToScreen(context: ModelerExternalLabelResolveContext, rect: ModelerRect): ModelerRect {
+  private _worldRectToScreen(context: ModelerExternalLabelResolveContext, rect: ModelerRect): ModelerRect {
     const topLeft = context.worldToScreen({ x: rect.x, y: rect.y })
     const viewport = context.getViewport()
     return {
@@ -236,8 +236,8 @@ export class ModelerExternalLabelRuntime implements ModelerExternalLabelApi {
     }
   }
 
-  private emit(): void {
-    for (const listener of this.listeners) {
+  private _emit(): void {
+    for (const listener of this._listeners) {
       listener()
     }
   }

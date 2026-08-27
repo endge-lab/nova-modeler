@@ -93,17 +93,17 @@ export class BpmnTextAnnotationView<E extends EventList = Record<string, any>>
 
   render(): void {
     super.render()
-    this.renderer.schema(this.createSchema())
+    this.renderer.schema(this._createSchema())
   }
 
-  private createSchema(): NovaSchema {
+  private _createSchema(): NovaSchema {
     const schema: NovaSchema = []
     const style = this.props.element.style ?? {}
     const stroke = this.props.selected
-      ? String(style.selectedStroke ?? this.resolveThemeColor('elementSelectedStroke'))
-      : String(style.stroke ?? this.resolveThemeColor('elementStroke'))
-    const strokeWidth = this.resolveStyleNumber(style.strokeWidth, 'elementStrokeWidth')
-    const opacity = this.resolveStyleNumber(style.opacity, 'elementOpacity')
+      ? String(style.selectedStroke ?? this._resolveThemeColor('elementSelectedStroke'))
+      : String(style.stroke ?? this._resolveThemeColor('elementStroke'))
+    const strokeWidth = this._resolveStyleNumber(style.strokeWidth, 'elementStrokeWidth')
+    const opacity = this._resolveStyleNumber(style.opacity, 'elementOpacity')
     const side = normalizeBpmnTextAnnotationBracketSide(this.props.element.data?.bracketSide)
     const x = side === 'left' ? -this.width / 2 : this.width / 2
     const bracketWidth = Math.min(14, Math.max(1, this.width * 0.0875))
@@ -113,11 +113,11 @@ export class BpmnTextAnnotationView<E extends EventList = Record<string, any>>
     schema.push({ type: 'line', x1: x, y1: top, x2: x, y2: bottom, styles: { color: stroke, width: strokeWidth, opacity } })
     schema.push({ type: 'line', x1: x, y1: top, x2: innerX, y2: top, styles: { color: stroke, width: strokeWidth, opacity } })
     schema.push({ type: 'line', x1: x, y1: bottom, x2: innerX, y2: bottom, styles: { color: stroke, width: strokeWidth, opacity } })
-    this.appendText(schema)
+    this._appendText(schema)
     return schema
   }
 
-  private appendText(schema: NovaSchema): void {
+  private _appendText(schema: NovaSchema): void {
     const side = normalizeBpmnTextAnnotationBracketSide(this.props.element.data?.bracketSide)
     const reserve = Math.min(20, Math.max(1, this.width * 0.125))
     const layout = resolveBpmnTaskNameLayout({
@@ -131,7 +131,7 @@ export class BpmnTextAnnotationView<E extends EventList = Record<string, any>>
       },
     })
     const offsetX = side === 'left' ? reserve / 2 : -reserve / 2
-    const color = this.resolveThemeColor('bpmnTaskTextColor')
+    const color = this._resolveThemeColor('bpmnTaskTextColor')
     for (const line of layout.lines) {
       schema.push({
         type: 'text',
@@ -156,17 +156,17 @@ export class BpmnTextAnnotationView<E extends EventList = Record<string, any>>
     }
   }
 
-  private resolveStyleNumber(value: unknown, token: ModelerThemeTokenKey): number {
+  private _resolveStyleNumber(value: unknown, token: ModelerThemeTokenKey): number {
     const parsed = typeof value === 'number' ? value : Number(value)
-    return Number.isFinite(parsed) ? parsed : this.resolveThemeNumber(token)
+    return Number.isFinite(parsed) ? parsed : this._resolveThemeNumber(token)
   }
 
-  private resolveThemeColor(token: ModelerThemeTokenKey): string {
+  private _resolveThemeColor(token: ModelerThemeTokenKey): string {
     const fallback = String(MODELER_THEME_FALLBACKS[token])
     return this.nova.theme.resolve(MODELER_THEME_TOKENS[token], fallback) ?? fallback
   }
 
-  private resolveThemeNumber(token: ModelerThemeTokenKey): number {
+  private _resolveThemeNumber(token: ModelerThemeTokenKey): number {
     const fallback = Number(MODELER_THEME_FALLBACKS[token])
     const raw = this.nova.theme.resolve(MODELER_THEME_TOKENS[token], String(fallback)) ?? fallback
     const value = typeof raw === 'number' ? raw : Number(raw)

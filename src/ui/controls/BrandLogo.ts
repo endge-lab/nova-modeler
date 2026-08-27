@@ -108,10 +108,10 @@ export class BrandLogo<E extends EventList = Record<string, any>>
 
   render(): void {
     super.render()
-    this.renderer.schema(this.createSchema())
+    this.renderer.schema(this._createSchema())
   }
 
-  private createSchema(): NovaSchema {
+  private _createSchema(): NovaSchema {
     if (!this.props.visible) {
       return []
     }
@@ -136,7 +136,7 @@ export class BrandLogo<E extends EventList = Record<string, any>>
         width: Math.max(1, this.width - textX),
         height: 22,
         styles: {
-          color: this.resolveThemeColor('brandTitleText'),
+          color: this._resolveThemeColor('brandTitleText'),
           font: {
             family: MODELER_BRAND_FONT_FAMILY,
             size: 22,
@@ -155,7 +155,7 @@ export class BrandLogo<E extends EventList = Record<string, any>>
         width: Math.max(1, this.width - textX - 1),
         height: 12,
         styles: {
-          color: this.resolveThemeColor('brandSubtitleText'),
+          color: this._resolveThemeColor('brandSubtitleText'),
           font: {
             family: MODELER_BRAND_FONT_FAMILY,
             size: 10,
@@ -169,7 +169,7 @@ export class BrandLogo<E extends EventList = Record<string, any>>
     ]
   }
 
-  private resolveThemeColor(token: ModelerThemeTokenKey): string {
+  private _resolveThemeColor(token: ModelerThemeTokenKey): string {
     const fallback = String(MODELER_THEME_FALLBACKS[token])
     return this.nova.theme.resolve(MODELER_THEME_TOKENS[token], fallback) ?? fallback
   }

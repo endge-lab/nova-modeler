@@ -96,8 +96,8 @@ export class BasicRectView<E extends EventList = Record<string, any>>
     const element = this.props.element
     const style = element.style ?? {}
     const borderColor = this.props.selected
-      ? String(style.selectedStroke ?? this.resolveThemeColor('basicRectSelectedStroke', 'elementSelectedStroke'))
-      : String(style.stroke ?? this.resolveThemeColor('basicRectStroke', 'elementStroke'))
+      ? String(style.selectedStroke ?? this._resolveThemeColor('basicRectSelectedStroke', 'elementSelectedStroke'))
+      : String(style.stroke ?? this._resolveThemeColor('basicRectStroke', 'elementStroke'))
     this.renderer.schema([{
       type: 'rect',
       x: -this.width / 2,
@@ -105,34 +105,34 @@ export class BasicRectView<E extends EventList = Record<string, any>>
       width: this.width,
       height: this.height,
       styles: {
-        background: String(style.fill ?? this.resolveThemeColor('basicRectFill', 'elementFill')),
+        background: String(style.fill ?? this._resolveThemeColor('basicRectFill', 'elementFill')),
         border: {
           color: borderColor,
-          width: Number(style.strokeWidth ?? this.resolveThemeNumber('basicRectStrokeWidth', 'elementStrokeWidth')),
-          radius: Number(style.radius ?? this.resolveThemeNumber('basicRectRadius')),
+          width: Number(style.strokeWidth ?? this._resolveThemeNumber('basicRectStrokeWidth', 'elementStrokeWidth')),
+          radius: Number(style.radius ?? this._resolveThemeNumber('basicRectRadius')),
         },
-        opacity: Number(style.opacity ?? this.resolveThemeNumber('elementOpacity')),
+        opacity: Number(style.opacity ?? this._resolveThemeNumber('elementOpacity')),
       },
     }] as NovaSchema)
   }
 
-  private resolveThemeColor(token: ModelerThemeTokenKey, fallbackToken?: ModelerThemeTokenKey): string {
+  private _resolveThemeColor(token: ModelerThemeTokenKey, fallbackToken?: ModelerThemeTokenKey): string {
     const fallback = fallbackToken
-      ? String(this.resolveThemeValue(fallbackToken))
+      ? String(this._resolveThemeValue(fallbackToken))
       : String(MODELER_THEME_FALLBACKS[token])
     return this.nova.theme.resolve(MODELER_THEME_TOKENS[token], fallback) ?? fallback
   }
 
-  private resolveThemeNumber(token: ModelerThemeTokenKey, fallbackToken?: ModelerThemeTokenKey): number {
+  private _resolveThemeNumber(token: ModelerThemeTokenKey, fallbackToken?: ModelerThemeTokenKey): number {
     const fallback = fallbackToken
-      ? this.resolveThemeNumber(fallbackToken)
+      ? this._resolveThemeNumber(fallbackToken)
       : Number(MODELER_THEME_FALLBACKS[token])
     const raw = this.nova.theme.resolve(MODELER_THEME_TOKENS[token], String(fallback)) ?? fallback
     const value = typeof raw === 'number' ? raw : Number(raw)
     return Number.isFinite(value) ? value : fallback
   }
 
-  private resolveThemeValue(token: ModelerThemeTokenKey): string | number {
+  private _resolveThemeValue(token: ModelerThemeTokenKey): string | number {
     const fallback = MODELER_THEME_FALLBACKS[token]
     return this.nova.theme.resolve(
       MODELER_THEME_TOKENS[token],

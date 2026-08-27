@@ -43,8 +43,8 @@ export class ZoomControls<E extends EventList = Record<string, any>>
   extends NovaComponentNode<ModelerZoomControlsResolvedProps, ZoomControlsApi, Record<string, never>, ZoomControlsProps, E> {
   readonly [NOVA_UI_LAYOUT_TARGET] = true as const
 
-  private readonly childRuntime: NovaTemplateRuntime<E>
-  private externalLayout = false
+  private readonly _childRuntime: NovaTemplateRuntime<E>
+  private _externalLayout = false
 
   @Prop.number({ default: 0.2 })
   declare step: number
@@ -60,7 +60,7 @@ export class ZoomControls<E extends EventList = Record<string, any>>
     options: { componentId?: string } = {},
   ) {
     super(app, surface, descriptor, props, options)
-    this.childRuntime = new NovaTemplateRuntime(this)
+    this._childRuntime = new NovaTemplateRuntime(this)
     this.options({ width: props.width, height: props.height, interactive: false })
   }
 
@@ -73,9 +73,9 @@ export class ZoomControls<E extends EventList = Record<string, any>>
 
   override getApi(): ZoomControlsApi {
     return {
-      zoomIn: () => this.zoomBy(1),
-      zoomOut: () => this.zoomBy(-1),
-      setValue: value => this.setViewportScale(value),
+      zoomIn: () => this._zoomBy(1),
+      zoomOut: () => this._zoomBy(-1),
+      setValue: value => this._setViewportScale(value),
       setProps: patch => this.setProps(patch),
       getProps: () => this.props,
     }
@@ -83,7 +83,7 @@ export class ZoomControls<E extends EventList = Record<string, any>>
 
   override setProps(patch: ZoomControlsProps): this {
     super.setProps(patch as Partial<ZoomControlsResolvedProps>)
-    if (!this.externalLayout) {
+    if (!this._externalLayout) {
       this.options({ width: this.props.width, height: this.props.height, interactive: false })
     }
     return this
@@ -91,11 +91,11 @@ export class ZoomControls<E extends EventList = Record<string, any>>
 
   update(): void {
     super.update()
-    this.syncChild()
+    this._syncChild()
   }
 
   applyLayoutRect(rect: NovaUiLayoutRect): boolean {
-    this.externalLayout = true
+    this._externalLayout = true
     const sizeChanged = this.width !== rect.width || this.height !== rect.height
     const changed = this.x !== rect.x
       || this.y !== rect.y
@@ -120,18 +120,18 @@ export class ZoomControls<E extends EventList = Record<string, any>>
   }
 
   render(): void {
-    this.syncChild()
+    this._syncChild()
   }
 
   protected override onUnmount(): void {
-    this.childRuntime.dispose()
+    this._childRuntime.dispose()
     super.onUnmount()
   }
 
-  private syncChild(): void {
-    const viewportController = this.resolveViewportController()
+  private _syncChild(): void {
+    const viewportController = this._resolveViewportController()
     const store = this.injectOptional(MODELER_STORE)
-    this.childRuntime.reconcile([{
+    this._childRuntime.reconcile([{
       type: NovaUIKit.ZoomControls,
       id: `${this.componentId}:zoom`,
       props: {
@@ -142,22 +142,22 @@ export class ZoomControls<E extends EventList = Record<string, any>>
         height: this.height,
         position: 'static',
         value: store?.viewport.scale ?? viewportController?.getViewport().scale ?? 1,
-        onChange: (value: number) => this.setViewportScale(value),
+        onChange: (value: number) => this._setViewportScale(value),
       },
     }])
   }
 
-  private zoomBy(direction: -1 | 1): void {
-    const viewportController = this.resolveViewportController()
+  private _zoomBy(direction: -1 | 1): void {
+    const viewportController = this._resolveViewportController()
     if (!viewportController) {
       return
     }
     const viewport = viewportController.getViewport()
-    this.setViewportScale(clamp(viewport.scale + this.props.step * direction, this.props.minZoom, this.props.maxZoom))
+    this._setViewportScale(clamp(viewport.scale + this.props.step * direction, this.props.minZoom, this.props.maxZoom))
   }
 
-  private setViewportScale(scale: number): void {
-    const viewportController = this.resolveViewportController()
+  private _setViewportScale(scale: number): void {
+    const viewportController = this._resolveViewportController()
     if (!viewportController) {
       return
     }
@@ -174,7 +174,7 @@ export class ZoomControls<E extends EventList = Record<string, any>>
     })
   }
 
-  private resolveViewportController(): Pick<ModelerController, 'getLayout' | 'getViewport' | 'screenToWorld' | 'setViewport'> | undefined {
+  private _resolveViewportController(): Pick<ModelerController, 'getLayout' | 'getViewport' | 'screenToWorld' | 'setViewport'> | undefined {
     return this.props.controller ?? this.injectOptional(MODELER_CONTEXT)
   }
 }

@@ -9,40 +9,40 @@ export interface ElementsConnectionWarning {
  * Хранит короткие предупреждения connection runtime, которые должны быть показаны поверх canvas.
  */
 export class ElementsConnectionWarnings {
-  private warning: ElementsConnectionWarning | null = null
-  private readonly listeners = new Set<() => void>()
+  private _warning: ElementsConnectionWarning | null = null
+  private readonly _listeners = new Set<() => void>()
 
   get(): ElementsConnectionWarning | null {
-    return this.warning ? { ...this.warning } : null
+    return this._warning ? { ...this._warning } : null
   }
 
   show(input: Omit<ElementsConnectionWarning, 'id'> & { id?: string }): void {
-    this.warning = {
+    this._warning = {
       id: input.id ?? `connection-warning-${Date.now().toString(36)}`,
       title: input.title,
       message: input.message,
       duplicateElementId: input.duplicateElementId,
     }
-    this.notify()
+    this._notify()
   }
 
   clear(): void {
-    if (!this.warning) {
+    if (!this._warning) {
       return
     }
-    this.warning = null
-    this.notify()
+    this._warning = null
+    this._notify()
   }
 
   subscribe(listener: () => void): () => void {
-    this.listeners.add(listener)
+    this._listeners.add(listener)
     return () => {
-      this.listeners.delete(listener)
+      this._listeners.delete(listener)
     }
   }
 
-  private notify(): void {
-    for (const listener of this.listeners) {
+  private _notify(): void {
+    for (const listener of this._listeners) {
       listener()
     }
   }

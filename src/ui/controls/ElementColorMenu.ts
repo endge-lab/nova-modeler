@@ -61,8 +61,8 @@ const COLOR_PRESETS: Array<ColorPickerPreset> = [
 })
 export class ElementColorMenu<E extends EventList = Record<string, any>>
   extends NovaComponentNode<ElementColorMenuResolvedProps, ElementColorMenuApi, Record<string, never>, ElementColorMenuProps, E> {
-  private readonly childRuntime: NovaTemplateRuntime<E>
-  private customOpen = false
+  private readonly _childRuntime: NovaTemplateRuntime<E>
+  private _customOpen = false
 
   @Prop.object<ModelerController>()
   declare controller?: ModelerController
@@ -75,7 +75,7 @@ export class ElementColorMenu<E extends EventList = Record<string, any>>
     options: { componentId?: string } = {},
   ) {
     super(app, surface, descriptor, props, options)
-    this.childRuntime = new NovaTemplateRuntime(this)
+    this._childRuntime = new NovaTemplateRuntime(this)
     this.options({ width: surface.width, height: surface.height, interactive: props.visible, zIndex: props.zIndex })
   }
 
@@ -93,7 +93,7 @@ export class ElementColorMenu<E extends EventList = Record<string, any>>
 
   override getApi(): ElementColorMenuApi {
     return {
-      close: () => this.close(),
+      close: () => this._close(),
       setProps: patch => this.setProps(patch),
       getProps: () => this.props,
     }
@@ -113,29 +113,29 @@ export class ElementColorMenu<E extends EventList = Record<string, any>>
 
   render(): void {
     super.render()
-    this.renderer.schema(this.createSchema())
-    this.syncPickerChild()
+    this.renderer.schema(this._createSchema())
+    this._syncPickerChild()
   }
 
   override containsPoint(x: number, y: number): boolean {
-    if (!this.props.visible || !this.resolveElement()) {
+    if (!this.props.visible || !this._resolveElement()) {
       return false
     }
-    const rect = this.resolveMenuRect()
+    const rect = this._resolveMenuRect()
     return x >= rect.x && x <= rect.x + rect.width && y >= rect.y && y <= rect.y + rect.height
   }
 
   protected override onUnmount(): void {
-    this.childRuntime.dispose()
+    this._childRuntime.dispose()
     super.onUnmount()
   }
 
-  private createSchema(): NovaSchema {
-    const element = this.resolveElement()
+  private _createSchema(): NovaSchema {
+    const element = this._resolveElement()
     if (!this.props.visible || !element) {
       return []
     }
-    const rect = this.resolveMenuRect()
+    const rect = this._resolveMenuRect()
     const schema: NovaSchema = [{
       type: 'rect',
       x: rect.x,
@@ -149,7 +149,7 @@ export class ElementColorMenu<E extends EventList = Record<string, any>>
     }]
     schema.push({
       type: 'text',
-      text: this.resolveTitle(),
+      text: this._resolveTitle(),
       x: rect.x + MENU_PADDING,
       y: rect.y + 12,
       width: rect.width - MENU_PADDING * 2,
@@ -165,45 +165,45 @@ export class ElementColorMenu<E extends EventList = Record<string, any>>
     return schema
   }
 
-  private syncPickerChild(): void {
-    const element = this.resolveElement()
+  private _syncPickerChild(): void {
+    const element = this._resolveElement()
     if (!this.props.visible || !element) {
-      this.childRuntime.reconcile([])
+      this._childRuntime.reconcile([])
       return
     }
-    const rect = this.resolveMenuRect()
-    this.childRuntime.reconcile([{
+    const rect = this._resolveMenuRect()
+    this._childRuntime.reconcile([{
       type: NovaUIKit.ColorPicker,
       id: `${this.componentId}:picker`,
       props: {
         x: rect.x + MENU_PADDING,
         y: rect.y + 48,
         width: PICKER_WIDTH,
-        height: resolveColorPickerHeight(this.customOpen),
-        value: this.resolveValue(element),
+        height: resolveColorPickerHeight(this._customOpen),
+        value: this._resolveValue(element),
         presets: COLOR_PRESETS,
-        customOpen: this.customOpen,
+        customOpen: this._customOpen,
         format: 'hex',
         allowAlpha: true,
         onCustomOpenChange: (open: boolean) => {
-          this.customOpen = open
-          this.syncPickerChild()
+          this._customOpen = open
+          this._syncPickerChild()
           this.dirty({ render: true })
         },
         onCommit: (value: string, context: ColorPickerValueContext) => {
-          this.applyColor(value, context)
+          this._applyColor(value, context)
         },
       },
     }])
   }
 
-  private applyColor(value: string, context?: ColorPickerValueContext): void {
+  private _applyColor(value: string, context?: ColorPickerValueContext): void {
     const modeler = this.props.controller ?? this.injectOptional(MODELER_CONTEXT)
-    const element = this.resolveElement()
+    const element = this._resolveElement()
     if (!modeler || !element) {
       return
     }
-    const lane = this.resolveLane(element)
+    const lane = this._resolveLane(element)
     if (lane && element.type === BPMN_PARTICIPANT_TYPE) {
       modeler.applyCommand({
         type: 'element.replace',
@@ -212,7 +212,7 @@ export class ElementColorMenu<E extends EventList = Record<string, any>>
       })
       return
     }
-    if (this.resolveColorMode() === 'stroke') {
+    if (this._resolveColorMode() === 'stroke') {
       modeler.applyCommand({
         type: 'element.patch',
         id: element.id,
@@ -239,11 +239,11 @@ export class ElementColorMenu<E extends EventList = Record<string, any>>
     })
   }
 
-  private resolveColorMode(): 'fill' | 'stroke' {
+  private _resolveColorMode(): 'fill' | 'stroke' {
     if (this.props.part?.partType === 'bpmn.swimlane.lane') {
       return 'fill'
     }
-    const definition = this.resolveElementDefinition()
+    const definition = this._resolveElementDefinition()
     const colorable = definition?.capabilities?.colorable
     if (colorable && colorable.stroke === true && colorable.fill !== true) {
       return 'stroke'
@@ -251,16 +251,16 @@ export class ElementColorMenu<E extends EventList = Record<string, any>>
     return 'fill'
   }
 
-  private resolveElementDefinition(): ModelerElementDefinition | null {
+  private _resolveElementDefinition(): ModelerElementDefinition | null {
     const context = this.props.controller ?? this.injectOptional(MODELER_CONTEXT)
-    const element = this.resolveElement()
+    const element = this._resolveElement()
     if (!context || !element) {
       return null
     }
     return context.getElementRegistry().get(element.type) ?? null
   }
 
-  private resolveElement(): ModelerElement | null {
+  private _resolveElement(): ModelerElement | null {
     const context = this.props.controller ?? this.injectOptional(MODELER_CONTEXT)
     if (!context || !this.props.elementId) {
       return null
@@ -268,7 +268,7 @@ export class ElementColorMenu<E extends EventList = Record<string, any>>
     return context.getModel().elements.find(item => item.id === this.props.elementId) ?? null
   }
 
-  private resolveLane(element: ModelerElement): BpmnParticipantLane | null {
+  private _resolveLane(element: ModelerElement): BpmnParticipantLane | null {
     if (element.type !== BPMN_PARTICIPANT_TYPE || this.props.part?.partType !== 'bpmn.swimlane.lane') {
       return null
     }
@@ -276,31 +276,31 @@ export class ElementColorMenu<E extends EventList = Record<string, any>>
     return participant.data?.lanes.find(lane => lane.id === this.props.part?.partId) ?? null
   }
 
-  private resolveTitle(): string {
+  private _resolveTitle(): string {
     if (this.props.part?.partType === 'bpmn.swimlane.lane') {
       return 'Lane color'
     }
-    return this.resolveColorMode() === 'stroke' ? 'Stroke color' : 'Fill color'
+    return this._resolveColorMode() === 'stroke' ? 'Stroke color' : 'Fill color'
   }
 
-  private resolveValue(element: ModelerElement): string {
-    const lane = this.resolveLane(element)
+  private _resolveValue(element: ModelerElement): string {
+    const lane = this._resolveLane(element)
     if (lane) {
       return lane.style?.fill ?? '#ffffff'
     }
-    return this.resolveColorMode() === 'stroke'
+    return this._resolveColorMode() === 'stroke'
       ? element.style?.stroke ?? '#3f3f46'
       : element.style?.fill ?? '#ffffff'
   }
 
-  private resolveMenuRect(): ModelerRect {
-    const height = 64 + resolveColorPickerHeight(this.customOpen)
+  private _resolveMenuRect(): ModelerRect {
+    const height = 64 + resolveColorPickerHeight(this._customOpen)
     const x = clamp(this.props.anchor.x, 8, Math.max(8, this.surface.width - MENU_WIDTH - 8))
     const y = clamp(this.props.anchor.y + 52, 8, Math.max(8, this.surface.height - height - 8))
     return { x, y, width: MENU_WIDTH, height }
   }
 
-  private close(): void {
+  private _close(): void {
     this.props.onClose?.()
   }
 }

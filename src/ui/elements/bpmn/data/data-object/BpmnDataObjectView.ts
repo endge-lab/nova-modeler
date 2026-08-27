@@ -93,17 +93,17 @@ export class BpmnDataObjectView<E extends EventList = Record<string, any>>
 
   render(): void {
     super.render()
-    this.renderer.schema(this.createSchema())
+    this.renderer.schema(this._createSchema())
   }
 
-  private createSchema(): NovaSchema {
+  private _createSchema(): NovaSchema {
     const style = this.props.element.style ?? {}
     const stroke = this.props.selected
-      ? String(style.selectedStroke ?? this.resolveThemeColor('elementSelectedStroke'))
-      : String(style.stroke ?? this.resolveThemeColor('elementStroke'))
-    const fill = String(style.fill ?? this.resolveThemeColor('elementFill'))
-    const strokeWidth = this.resolveStyleNumber(style.strokeWidth, 'elementStrokeWidth')
-    const opacity = this.resolveStyleNumber(style.opacity, 'elementOpacity')
+      ? String(style.selectedStroke ?? this._resolveThemeColor('elementSelectedStroke'))
+      : String(style.stroke ?? this._resolveThemeColor('elementStroke'))
+    const fill = String(style.fill ?? this._resolveThemeColor('elementFill'))
+    const strokeWidth = this._resolveStyleNumber(style.strokeWidth, 'elementStrokeWidth')
+    const opacity = this._resolveStyleNumber(style.opacity, 'elementOpacity')
     const fold = Math.max(1, Math.min(20, this.width * 0.22))
     const left = -this.width / 2
     const top = -this.height / 2
@@ -138,13 +138,13 @@ export class BpmnDataObjectView<E extends EventList = Record<string, any>>
         opacity,
       },
     })
-    this.appendDataDirectionMarker(schema, stroke, strokeWidth, opacity)
-    this.appendLabel(schema)
-    this.appendCollectionMarker(schema, stroke, opacity)
+    this._appendDataDirectionMarker(schema, stroke, strokeWidth, opacity)
+    this._appendLabel(schema)
+    this._appendCollectionMarker(schema, stroke, opacity)
     return schema
   }
 
-  private appendDataDirectionMarker(schema: NovaSchema, color: string, width: number, opacity: number): void {
+  private _appendDataDirectionMarker(schema: NovaSchema, color: string, width: number, opacity: number): void {
     const type = normalizeBpmnDataObjectType(this.props.element.data?.dataObjectType)
     if (type === 'object') {
       return
@@ -165,7 +165,7 @@ export class BpmnDataObjectView<E extends EventList = Record<string, any>>
     schema.push({ type: 'line', x1: start, y1: y, x2: start + arrow * 1.2, y2: y + arrow, styles: { color, width, opacity } })
   }
 
-  private appendLabel(schema: NovaSchema): void {
+  private _appendLabel(schema: NovaSchema): void {
     const layout = resolveBpmnTaskNameLayout({
       name: this.props.element.data?.name ?? 'Data object',
       width: this.width,
@@ -176,7 +176,7 @@ export class BpmnDataObjectView<E extends EventList = Record<string, any>>
         isForCompensation: false,
       },
     })
-    const color = this.resolveThemeColor('bpmnTaskTextColor')
+    const color = this._resolveThemeColor('bpmnTaskTextColor')
     for (const line of layout.lines) {
       schema.push({
         type: 'text',
@@ -201,7 +201,7 @@ export class BpmnDataObjectView<E extends EventList = Record<string, any>>
     }
   }
 
-  private appendCollectionMarker(schema: NovaSchema, color: string, opacity: number): void {
+  private _appendCollectionMarker(schema: NovaSchema, color: string, opacity: number): void {
     if (!this.props.element.data?.isCollection) {
       return
     }
@@ -221,17 +221,17 @@ export class BpmnDataObjectView<E extends EventList = Record<string, any>>
     }
   }
 
-  private resolveStyleNumber(value: unknown, token: ModelerThemeTokenKey): number {
+  private _resolveStyleNumber(value: unknown, token: ModelerThemeTokenKey): number {
     const parsed = typeof value === 'number' ? value : Number(value)
-    return Number.isFinite(parsed) ? parsed : this.resolveThemeNumber(token)
+    return Number.isFinite(parsed) ? parsed : this._resolveThemeNumber(token)
   }
 
-  private resolveThemeColor(token: ModelerThemeTokenKey): string {
+  private _resolveThemeColor(token: ModelerThemeTokenKey): string {
     const fallback = String(MODELER_THEME_FALLBACKS[token])
     return this.nova.theme.resolve(MODELER_THEME_TOKENS[token], fallback) ?? fallback
   }
 
-  private resolveThemeNumber(token: ModelerThemeTokenKey): number {
+  private _resolveThemeNumber(token: ModelerThemeTokenKey): number {
     const fallback = Number(MODELER_THEME_FALLBACKS[token])
     const raw = this.nova.theme.resolve(MODELER_THEME_TOKENS[token], String(fallback)) ?? fallback
     const value = typeof raw === 'number' ? raw : Number(raw)

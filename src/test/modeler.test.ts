@@ -2236,9 +2236,9 @@ describe('nova modeler minimal kernel', () => {
     expect(childIds).toContain('modeler-elements:bpmn-recipe-layer')
     expect(childIds).not.toContain('recipe-task:view')
     const layer = app.components.require('modeler-elements:bpmn-recipe-layer') as unknown as {
-      batchRuntime: { getFillBatch: () => { count: number, radii?: ArrayLike<number> } }
+      _batchRuntime: { getFillBatch: () => { count: number, radii?: ArrayLike<number> } }
     }
-    const fillBatch = layer.batchRuntime.getFillBatch()
+    const fillBatch = layer._batchRuntime.getFillBatch()
     expect(fillBatch.count).toBeGreaterThan(0)
     expect(fillBatch.radii?.[0]).toBe(10)
     const frameItems = interaction?.compileRenderFrame().items ?? []
@@ -2285,9 +2285,9 @@ describe('nova modeler minimal kernel', () => {
     app.raph.run()
 
     const layer = app.components.require('modeler-elements:bpmn-recipe-layer') as unknown as {
-      batchRuntime: { getTextBatch: () => { count: number, text: Array<string> } }
+      _batchRuntime: { getTextBatch: () => { count: number, text: Array<string> } }
     }
-    const textBatch = layer.batchRuntime.getTextBatch()
+    const textBatch = layer._batchRuntime.getTextBatch()
     const labels = textBatch.text.slice(0, textBatch.count)
     expect(labels).toEqual(expectedLayout.lines.map(line => line.text))
     expect(labels).not.toContain(name)
@@ -2331,9 +2331,9 @@ describe('nova modeler minimal kernel', () => {
     app.raph.run()
 
     const layer = app.components.require('modeler-elements:bpmn-recipe-layer') as unknown as {
-      batchRuntime: { getTextBatch: () => { count: number, text: Array<string> } }
+      _batchRuntime: { getTextBatch: () => { count: number, text: Array<string> } }
     }
-    const textBatch = layer.batchRuntime.getTextBatch()
+    const textBatch = layer._batchRuntime.getTextBatch()
     const labels = textBatch.text.slice(0, textBatch.count)
     expect(labels).toEqual(expectedLayout.lines.map(line => line.text))
     expect(labels).not.toContain(name)
@@ -2373,9 +2373,9 @@ describe('nova modeler minimal kernel', () => {
     app.raph.run()
 
     const layer = app.components.require('modeler-elements:bpmn-recipe-layer') as unknown as {
-      batchRuntime: { getTextBatch: () => { count: number, text: Array<string> } }
+      _batchRuntime: { getTextBatch: () => { count: number, text: Array<string> } }
     }
-    const before = layer.batchRuntime.getTextBatch().text.slice(0, layer.batchRuntime.getTextBatch().count)
+    const before = layer._batchRuntime.getTextBatch().text.slice(0, layer._batchRuntime.getTextBatch().count)
     expect(before).toEqual(['Needs external', 'approval'])
 
     root.applyCommand({
@@ -2384,7 +2384,7 @@ describe('nova modeler minimal kernel', () => {
       patch: { data: { ...event.data, label: { offsetX: -42, offsetY: 40, width: 64, height: 48 } } },
     })
     app.raph.run()
-    const afterBatch = layer.batchRuntime.getTextBatch()
+    const afterBatch = layer._batchRuntime.getTextBatch()
     expect(afterBatch.text.slice(0, afterBatch.count)).toEqual(['Needs', 'external', 'approval'])
     app.destroy()
   })
@@ -2521,9 +2521,9 @@ describe('nova modeler minimal kernel', () => {
       y2: 120 + 28 + 56 * 0.18,
     })
     const layer = app.components.require('modeler-elements:bpmn-recipe-layer') as unknown as {
-      batchRuntime: { getTextBatch: () => { count: number, text: Array<string> } }
+      _batchRuntime: { getTextBatch: () => { count: number, text: Array<string> } }
     }
-    const textBatch = layer.batchRuntime.getTextBatch()
+    const textBatch = layer._batchRuntime.getTextBatch()
     expect(textBatch.text.slice(0, textBatch.count)).toEqual(expectedLayout.lines.map(line => line.text))
     app.destroy()
   })
@@ -2556,9 +2556,9 @@ describe('nova modeler minimal kernel', () => {
     app.raph.run()
 
     const layer = app.components.require('modeler-elements:bpmn-recipe-layer') as unknown as {
-      batchRuntime: { getDiagnostics: () => BpmnRecipeLayerDiagnostics }
+      _batchRuntime: { getDiagnostics: () => BpmnRecipeLayerDiagnostics }
     }
-    const diagnostics = layer.batchRuntime.getDiagnostics()
+    const diagnostics = layer._batchRuntime.getDiagnostics()
     expect(diagnostics.visibleElements).toBeLessThan(diagnostics.visibleElements + diagnostics.culledElements)
     expect(diagnostics).toMatchObject({ visibleElements: 1, culledElements: 1 })
     app.destroy()
@@ -3451,9 +3451,9 @@ describe('nova modeler minimal kernel', () => {
       }),
     })
     const internals = controller as unknown as {
-      resolveExternalLabelWorldBounds: (element: ModelerElement) => ModelerRect | null
+      _resolveExternalLabelWorldBounds: (element: ModelerElement) => ModelerRect | null
     }
-    const externalLabelBoundsSpy = vi.spyOn(internals, 'resolveExternalLabelWorldBounds')
+    const externalLabelBoundsSpy = vi.spyOn(internals, '_resolveExternalLabelWorldBounds')
     controller.mount(createControllerHost(640, 420))
     expect(externalLabelBoundsSpy).toHaveBeenCalled()
     externalLabelBoundsSpy.mockClear()
@@ -3512,7 +3512,7 @@ describe('nova modeler minimal kernel', () => {
     app.raph.run()
     app.raph.run()
 
-    const controller = (root as unknown as { controllerInstance: ReturnType<typeof createModelerController> }).controllerInstance
+    const controller = (root as unknown as { _controllerInstance: ReturnType<typeof createModelerController> })._controllerInstance
     const context = controller.getPluginContext()
     const visibilitySpy = vi.spyOn(context.visibility, 'resolve')
     const reconcileSpy = vi.spyOn(context.layers, 'reconcile')
@@ -3990,9 +3990,9 @@ describe('nova modeler minimal kernel', () => {
       throw new Error('Expected flow-1 edge element')
     }
     const rootInternals = root as unknown as {
-      controllerInstance: ReturnType<typeof createModelerController>
+      _controllerInstance: ReturnType<typeof createModelerController>
     }
-    const context = rootInternals.controllerInstance.getPluginContext()
+    const context = rootInternals._controllerInstance.getPluginContext()
     const flowPath = MODEL_ELEMENTS_RUNTIME.edges.createPath(context, flow)
     const segmentHoverPoint = {
       x: (flowPath[0]!.x + flowPath[1]!.x) / 2,
@@ -4136,8 +4136,8 @@ describe('nova modeler minimal kernel', () => {
     expect(schemaItems.some(item => item.type === 'rect' && item.styles?.background === '#eff6ff' && item.styles?.border?.color === '#1d4ed8')).toBe(true)
     expect(schemaItems.some(item => item.type === 'rect' && item.styles?.background === '#fefce8' && item.styles?.border?.color === '#854d0e')).toBe(true)
 
-    ;(root as unknown as { openTaskNameEditorFromPoint: (point: { x: number, y: number }) => boolean })
-      .openTaskNameEditorFromPoint({ x: 140, y: 130 })
+    ;(root as unknown as { _openTaskNameEditorFromPoint: (point: { x: number, y: number }) => boolean })
+      ._openTaskNameEditorFromPoint({ x: 140, y: 130 })
     app.raph.run()
     const input = app.components.requireApi<InputApi>('activity-render-root:task-name-editor:input')
     input.setValue('Updated sub-process name')
@@ -4250,8 +4250,8 @@ describe('nova modeler minimal kernel', () => {
     app.raph.run()
     app.raph.run()
     const openEditor = (): void => {
-      ;(root as unknown as { openTaskNameEditorFromPoint: (point: { x: number, y: number }) => boolean })
-        .openTaskNameEditorFromPoint({ x: 280, y: 140 })
+      ;(root as unknown as { _openTaskNameEditorFromPoint: (point: { x: number, y: number }) => boolean })
+        ._openTaskNameEditorFromPoint({ x: 280, y: 140 })
       app.raph.run()
     }
 
@@ -4348,8 +4348,8 @@ describe('nova modeler minimal kernel', () => {
 
     const inputId = 'event-label-edit-root:task-name-editor:input'
     const openEditorAt = (point: { x: number, y: number }): InputApi => {
-      ;(root as unknown as { openTaskNameEditorFromPoint: (point: { x: number, y: number }) => boolean })
-        .openTaskNameEditorFromPoint(point)
+      ;(root as unknown as { _openTaskNameEditorFromPoint: (point: { x: number, y: number }) => boolean })
+        ._openTaskNameEditorFromPoint(point)
       app.raph.run()
       return app.components.requireApi<InputApi>(inputId)
     }
@@ -4426,8 +4426,8 @@ describe('nova modeler minimal kernel', () => {
 
     const inputId = 'gateway-label-edit-root:task-name-editor:input'
     const openEditorAt = (point: { x: number, y: number }): InputApi => {
-      ;(root as unknown as { openTaskNameEditorFromPoint: (point: { x: number, y: number }) => boolean })
-        .openTaskNameEditorFromPoint(point)
+      ;(root as unknown as { _openTaskNameEditorFromPoint: (point: { x: number, y: number }) => boolean })
+        ._openTaskNameEditorFromPoint(point)
       app.raph.run()
       return app.components.requireApi<InputApi>(inputId)
     }
@@ -4546,7 +4546,7 @@ describe('nova modeler minimal kernel', () => {
     }) as Root
     app.raph.run()
     app.raph.run()
-    const controller = (root as unknown as { controllerInstance: ReturnType<typeof createModelerController> }).controllerInstance
+    const controller = (root as unknown as { _controllerInstance: ReturnType<typeof createModelerController> })._controllerInstance
     const interaction = app.surfaces.find(item => item.name === 'external-label-selected-root:interaction')
     const schemaItems = () => interaction?.compileRenderFrame().items.map(item => item.schemaItem).filter(Boolean) ?? []
 
@@ -4600,8 +4600,8 @@ describe('nova modeler minimal kernel', () => {
     app.raph.run()
     app.raph.run()
 
-    ;(root as unknown as { openTaskNameEditorFromPoint: (point: { x: number, y: number }) => boolean })
-      .openTaskNameEditorFromPoint({ x: 184, y: 124 })
+    ;(root as unknown as { _openTaskNameEditorFromPoint: (point: { x: number, y: number }) => boolean })
+      ._openTaskNameEditorFromPoint({ x: 184, y: 124 })
     app.raph.run()
 
     const inputId = 'flow-label-edit-root:task-name-editor:input'
@@ -4688,7 +4688,7 @@ describe('nova modeler minimal kernel', () => {
       .map(item => item?.text) ?? []
     expect(labelTexts()).toEqual(expect.arrayContaining(['Assoc label', 'Message label', 'Data label']))
 
-    const controller = (root as unknown as { controllerInstance: ReturnType<typeof createModelerController> }).controllerInstance
+    const controller = (root as unknown as { _controllerInstance: ReturnType<typeof createModelerController> })._controllerInstance
     const context = controller.getPluginContext()
     const moveGesture = controller.getGestures().find(gesture => gesture.id === 'modeler-elements:external-label-move')
     const labelPoint = { x: 160, y: 150 }
@@ -4884,7 +4884,7 @@ describe('nova modeler minimal kernel', () => {
     const palette = app.components.require('palette-tooltip-root:palette') as unknown as {
       x: number
       y: number
-      createLayoutPlan: (options: unknown) => {
+      _createLayoutPlan: (options: unknown) => {
         entries: Array<{
           type: string
           item?: { id: string }
@@ -4893,12 +4893,12 @@ describe('nova modeler minimal kernel', () => {
           size?: number
         }>
       }
-      resolvePaletteLayoutOptions: () => unknown
+      _resolvePaletteLayoutOptions: () => unknown
       resolveNovaTooltipTarget: (input: { x: number, y: number }) => { tooltip?: unknown, rect?: { x: number, y: number, width: number, height: number } } | null
     }
     const resolveEntry = (id: string) => {
       const entry = palette
-        .createLayoutPlan(palette.resolvePaletteLayoutOptions())
+        ._createLayoutPlan(palette._resolvePaletteLayoutOptions())
         .entries
         .find(item => item.type === 'item' && item.item?.id === id)
       if (!entry || typeof entry.size !== 'number') {
@@ -6150,7 +6150,7 @@ describe('nova modeler minimal kernel', () => {
     app.raph.run()
     app.raph.run()
 
-    const controller = (root as unknown as { controllerInstance: ReturnType<typeof createModelerController> }).controllerInstance
+    const controller = (root as unknown as { _controllerInstance: ReturnType<typeof createModelerController> })._controllerInstance
     const context = controller.getPluginContext()
     expect(controller.getGestures().some(gesture => gesture.hitTest?.(
       context,
@@ -6208,7 +6208,7 @@ describe('nova modeler minimal kernel', () => {
     app.raph.run()
     app.raph.run()
 
-    const controller = (root as unknown as { controllerInstance: ReturnType<typeof createModelerController> }).controllerInstance
+    const controller = (root as unknown as { _controllerInstance: ReturnType<typeof createModelerController> })._controllerInstance
     const context = controller.getPluginContext()
     app.handleEvent('keydown', new KeyboardEvent('keydown', { key: 'Shift' }))
     expect(context.tools.getActiveId()).toBe('marqueeSelection')
@@ -6424,14 +6424,14 @@ describe('nova modeler minimal kernel', () => {
 
     expect(app.events.hitTest(44, 44)?.componentId).toBe('palette-tool-root:palette')
     app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 44, clientY: 44, button: 0 }))
-    expect((root as unknown as { controllerInstance: ReturnType<typeof createModelerController> }).controllerInstance
+    expect((root as unknown as { _controllerInstance: ReturnType<typeof createModelerController> })._controllerInstance
       .getPluginContext().tools.getActiveId()).toBe('marqueeSelection')
     app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 44, clientY: 44, button: 0 }))
     app.raph.run()
-    expect((root as unknown as { controllerInstance: ReturnType<typeof createModelerController> }).controllerInstance
+    expect((root as unknown as { _controllerInstance: ReturnType<typeof createModelerController> })._controllerInstance
       .getPluginContext().tools.getActiveId()).toBe('marqueeSelection')
 
-    const controller = (root as unknown as { controllerInstance: ReturnType<typeof createModelerController> }).controllerInstance
+    const controller = (root as unknown as { _controllerInstance: ReturnType<typeof createModelerController> })._controllerInstance
     const context = controller.getPluginContext()
     const startEvent = offsetMouseEvent('mousedown', 80, 80)
     const marqueeGesture = controller.getGestures().find(gesture => gesture.hitTest?.(
@@ -6556,7 +6556,7 @@ describe('nova modeler minimal kernel', () => {
     app.raph.run()
     app.raph.run()
 
-    const controller = (root as unknown as { controllerInstance: ReturnType<typeof createModelerController> }).controllerInstance
+    const controller = (root as unknown as { _controllerInstance: ReturnType<typeof createModelerController> })._controllerInstance
     expect(controller.getPluginContext().tools.getActiveId()).toBeNull()
     app.handleEvent('keydown', new KeyboardEvent('keydown', { key: 'Shift' }))
     expect(controller.getPluginContext().tools.getActiveId()).toBe('marqueeSelection')
@@ -6632,18 +6632,18 @@ describe('nova modeler minimal kernel', () => {
     app.raph.run()
     app.raph.run()
 
-    const controller = (root as unknown as { controllerInstance: ReturnType<typeof createModelerController> }).controllerInstance
+    const controller = (root as unknown as { _controllerInstance: ReturnType<typeof createModelerController> })._controllerInstance
     const controls = app.surfaces.find(item => item.name === 'palette-root:controls')
     const paletteItems = controls?.compileRenderFrame().items.map(item => item.schemaItem).filter(Boolean) ?? []
     expect(paletteItems.some(item => item.type === 'line' && item.styles?.color === '#1f2937')).toBe(true)
     const palette = app.components.require('palette-root:palette') as unknown as {
       x: number
       y: number
-      createLayoutPlan: (options: unknown) => { entries: Array<{ type: string, item?: { id: string }, x: number, y: number, size: number }> }
-      resolvePaletteLayoutOptions: () => unknown
+      _createLayoutPlan: (options: unknown) => { entries: Array<{ type: string, item?: { id: string }, x: number, y: number, size: number }> }
+      _resolvePaletteLayoutOptions: () => unknown
     }
     const resolvePaletteItemPoint = (itemId: string) => {
-      const entry = palette.createLayoutPlan(palette.resolvePaletteLayoutOptions()).entries.find(item => item.type === 'item' && item.item?.id === itemId)
+      const entry = palette._createLayoutPlan(palette._resolvePaletteLayoutOptions()).entries.find(item => item.type === 'item' && item.item?.id === itemId)
       if (!entry) {
         throw new Error(`Expected palette item ${itemId}`)
       }
@@ -6770,7 +6770,7 @@ describe('nova modeler minimal kernel', () => {
     root.applyCommand({ type: 'select', ids: [flow.id] })
     app.raph.run()
     expect(root.hitTest({ x: 202, y: 124 })).toEqual({ type: 'edge-segment-handle', elementId: flow.id, segmentIndex: 1 })
-    const controller = (root as unknown as { controllerInstance: ReturnType<typeof createModelerController> }).controllerInstance
+    const controller = (root as unknown as { _controllerInstance: ReturnType<typeof createModelerController> })._controllerInstance
     MODEL_ELEMENTS_RUNTIME.edgeSegmentHover.set(MODEL_ELEMENTS_RUNTIME.edges.createSegmentHandleAtPoint(
       controller.getPluginContext(),
       flow,
@@ -6930,7 +6930,7 @@ describe('nova modeler minimal kernel', () => {
     app.raph.run()
     interaction = app.surfaces.find(item => item.name === 'flow-context-pad-root:interaction')
     links = app.surfaces.find(item => item.name === 'flow-context-pad-root:links')
-    expect((root as unknown as { controllerInstance: ReturnType<typeof createModelerController> }).controllerInstance.getPluginContext().tools.getActiveId()).toBeNull()
+    expect((root as unknown as { _controllerInstance: ReturnType<typeof createModelerController> })._controllerInstance.getPluginContext().tools.getActiveId()).toBeNull()
     expect(links?.children.some(child => (child as { componentId?: string }).componentId === 'bpmn-flow-preview:preview')).toBe(false)
     expect(root.getApi().getModel().elements.filter(element => element.type === 'bpmn.flow')).toHaveLength(0)
 
@@ -6957,7 +6957,7 @@ describe('nova modeler minimal kernel', () => {
     })
     registerModeler(app.schema)
     const surface = app.createSurface('modeler')
-    const root = app.schema.createNode(surface, {
+    const _root = app.schema.createNode(surface, {
       type: Modeler.Root,
       id: 'palette-placement-root',
       props: {
@@ -7048,11 +7048,11 @@ describe('nova modeler minimal kernel', () => {
     const palette = app.components.require('palette-drag-root:palette') as unknown as {
       x: number
       y: number
-      createLayoutPlan: (options: unknown) => { entries: Array<{ type: string, x: number, y: number, width: number, height: number }> }
-      resolvePaletteLayoutOptions: () => unknown
+      _createLayoutPlan: (options: unknown) => { entries: Array<{ type: string, x: number, y: number, width: number, height: number }> }
+      _resolvePaletteLayoutOptions: () => unknown
     }
     const resolveGripPoint = () => {
-      const grip = palette.createLayoutPlan(palette.resolvePaletteLayoutOptions()).entries.find(entry => entry.type === 'grip')
+      const grip = palette._createLayoutPlan(palette._resolvePaletteLayoutOptions()).entries.find(entry => entry.type === 'grip')
       if (!grip) {
         throw new Error('Expected palette grip')
       }

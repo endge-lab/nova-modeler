@@ -15,8 +15,8 @@ export abstract class PluginBase implements ModelerPlugin {
   abstract readonly id: string
 
   protected context!: ModelerPluginContext
-  private readonly disposers: Array<() => void> = []
-  private nodeId = 0
+  private readonly _disposers: Array<() => void> = []
+  private _nodeId = 0
 
   /**
    * Подключает plugin к host-контексту моделлера.
@@ -30,7 +30,7 @@ export abstract class PluginBase implements ModelerPlugin {
    * Отключает plugin и очищает все зарегистрированные ресурсы.
    */
   dispose(): void {
-    for (const dispose of this.disposers.splice(0)) {
+    for (const dispose of this._disposers.splice(0)) {
       dispose()
     }
     this.onDispose()
@@ -50,7 +50,7 @@ export abstract class PluginBase implements ModelerPlugin {
    * Регистрирует disposer, который будет вызван при отключении plugin.
    */
   protected addDisposer(dispose: () => void): void {
-    this.disposers.push(dispose)
+    this._disposers.push(dispose)
   }
 
   /**
@@ -59,7 +59,7 @@ export abstract class PluginBase implements ModelerPlugin {
   protected mount(layer: ModelerLayerName, schema: NovaTemplateChildSchema): NovaNode<any> {
     const node = this.context.layers.mount(layer, {
       ...schema,
-      id: schema.id ?? `${this.id}:${layer}:${this.nextNodeId()}`,
+      id: schema.id ?? `${this.id}:${layer}:${this._nextNodeId()}`,
     })
     this.addDisposer(() => node.remove())
     return node
@@ -82,8 +82,8 @@ export abstract class PluginBase implements ModelerPlugin {
   /**
    * Возвращает следующий локальный id для mounted node.
    */
-  private nextNodeId(): number {
-    this.nodeId += 1
-    return this.nodeId
+  private _nextNodeId(): number {
+    this._nodeId += 1
+    return this._nodeId
   }
 }

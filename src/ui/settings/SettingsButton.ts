@@ -45,9 +45,9 @@ export class SettingsButton<E extends EventList = Record<string, any>>
   extends NovaComponentNode<ModelerSettingsButtonResolvedProps, ModelerSettingsButtonApi, Record<string, never>, ModelerSettingsButtonProps, E> {
   readonly [NOVA_UI_LAYOUT_TARGET] = true as const
 
-  private readonly childRuntime: NovaTemplateRuntime<E>
-  private slots: NovaElementSlots = {}
-  private externalLayout = false
+  private readonly _childRuntime: NovaTemplateRuntime<E>
+  private _slots: NovaElementSlots = {}
+  private _externalLayout = false
 
   @Prop.object<ModelerSettingsDialogPayload>()
   declare payload?: ModelerSettingsDialogPayload
@@ -60,16 +60,16 @@ export class SettingsButton<E extends EventList = Record<string, any>>
     options: { componentId?: string, slots?: NovaElementSlots } = {},
   ) {
     super(app, surface, descriptor, props, options)
-    this.childRuntime = new NovaTemplateRuntime(this)
-    this.slots = options.slots ?? {}
+    this._childRuntime = new NovaTemplateRuntime(this)
+    this._slots = options.slots ?? {}
     this.options({
       width: props.width,
       height: props.height,
       interactive: props.visible,
       zIndex: props.zIndex,
     })
-    this.setupEvents()
-    this.syncChild()
+    this._setupEvents()
+    this._syncChild()
   }
 
   static normalizeProps(props: ModelerSettingsButtonProps = {}): ModelerSettingsButtonResolvedProps {
@@ -91,10 +91,10 @@ export class SettingsButton<E extends EventList = Record<string, any>>
 
   override getApi(): ModelerSettingsButtonApi {
     return {
-      open: event => this.open(event),
-      close: event => this.close(event),
-      toggle: event => this.toggle(event),
-      isOpen: () => this.isOpen(),
+      open: event => this._open(event),
+      close: event => this._close(event),
+      toggle: event => this._toggle(event),
+      isOpen: () => this._isOpen(),
       setProps: patch => this.setProps(patch),
       getProps: () => this.props,
     }
@@ -103,21 +103,21 @@ export class SettingsButton<E extends EventList = Record<string, any>>
   override setProps(patch: ModelerSettingsButtonProps): this {
     super.setProps(patch as Partial<ModelerSettingsButtonResolvedProps>)
     this.props = SettingsButton.normalizeProps(this.props)
-    if (!this.externalLayout) {
-      this.syncFrame()
+    if (!this._externalLayout) {
+      this._syncFrame()
     }
-    this.syncChild()
+    this._syncChild()
     return this
   }
 
   setSlots(slots: NovaElementSlots = {}): this {
-    this.slots = { ...slots }
-    this.syncChild()
+    this._slots = { ...slots }
+    this._syncChild()
     return this
   }
 
   applyLayoutRect(rect: NovaUiLayoutRect): boolean {
-    this.externalLayout = true
+    this._externalLayout = true
     const sizeChanged = this.width !== rect.width || this.height !== rect.height
     const changed = this.x !== rect.x || this.y !== rect.y || sizeChanged
     this.options({
@@ -131,7 +131,7 @@ export class SettingsButton<E extends EventList = Record<string, any>>
     if (changed) {
       this.dirty({ matrix: true, update: sizeChanged, render: true })
     }
-    this.syncChild()
+    this._syncChild()
     return changed
   }
 
@@ -141,10 +141,10 @@ export class SettingsButton<E extends EventList = Record<string, any>>
 
   update(): void {
     super.update()
-    if (!this.externalLayout) {
-      this.syncFrame()
+    if (!this._externalLayout) {
+      this._syncFrame()
     }
-    this.syncChild()
+    this._syncChild()
   }
 
   render(): void {
@@ -162,43 +162,43 @@ export class SettingsButton<E extends EventList = Record<string, any>>
           },
         }] as NovaSchema
       : [] as unknown as NovaSchema)
-    this.syncChild()
+    this._syncChild()
   }
 
   protected override onUnmount(): void {
-    this.childRuntime.dispose()
+    this._childRuntime.dispose()
     super.onUnmount()
   }
 
-  private open(event?: Event): void {
-    this.createController().open(this.createPayload())
+  private _open(event?: Event): void {
+    this._createController().open(this._createPayload())
     this.dirty({ render: true })
     event?.preventDefault?.()
   }
 
-  private close(event?: Event): void {
-    this.createController().close(event)
+  private _close(event?: Event): void {
+    this._createController().close(event)
     this.dirty({ render: true })
   }
 
-  private toggle(event?: Event): void {
-    this.createController().toggle(this.createPayload(), event)
+  private _toggle(event?: Event): void {
+    this._createController().toggle(this._createPayload(), event)
     this.dirty({ render: true })
   }
 
-  private isOpen(): boolean {
-    return this.createController().isOpen()
+  private _isOpen(): boolean {
+    return this._createController().isOpen()
   }
 
-  private createController() {
+  private _createController() {
     return createModelerSettingsController({
-      root: () => this.resolveRootApi(),
+      root: () => this._resolveRootApi(),
       type: this.props.type,
       id: this.props.dialogId,
     })
   }
 
-  private createPayload(): ModelerSettingsDialogPayload {
+  private _createPayload(): ModelerSettingsDialogPayload {
     const payload = this.props.payloadFactory?.() ?? this.props.payload ?? {}
     const userOpenChange = payload.onOpenChange as ((open: boolean, event?: Event) => void) | undefined
     return {
@@ -206,35 +206,35 @@ export class SettingsButton<E extends EventList = Record<string, any>>
       onOpenChange: (open: boolean, event?: Event) => {
         userOpenChange?.(open, event)
         this.dirty({ render: true })
-        this.syncChild()
+        this._syncChild()
       },
     }
   }
 
-  private resolveRootApi(): RootApi | null {
+  private _resolveRootApi(): RootApi | null {
     return findNovaUiRoot(this)?.getApi?.()
       ?? (this.props.rootId ? this.nova.components.api<RootApi>(this.props.rootId) : undefined)
       ?? null
   }
 
-  private syncChild(): void {
+  private _syncChild(): void {
     if (!this.props.visible) {
-      this.childRuntime.reconcile([])
+      this._childRuntime.reconcile([])
       return
     }
     const slotProps: ModelerSettingsButtonSlotProps = {
-      selected: this.isOpen(),
-      toggle: event => this.toggle(event),
-      open: event => this.open(event),
-      close: event => this.close(event),
+      selected: this._isOpen(),
+      toggle: event => this._toggle(event),
+      open: event => this._open(event),
+      close: event => this._close(event),
     }
-    const custom = this.slots.default
+    const custom = this._slots.default
     if (custom) {
       const schema = Nova.trackNode(this, () => custom(slotProps), { mode: 'append' })
-      this.childRuntime.reconcile(normalizeChildren(schema))
+      this._childRuntime.reconcile(normalizeChildren(schema))
       return
     }
-    this.childRuntime.reconcile([{
+    this._childRuntime.reconcile([{
       type: NovaUIKit.Button,
       id: `${this.componentId}:button`,
       props: {
@@ -245,12 +245,12 @@ export class SettingsButton<E extends EventList = Record<string, any>>
         width: this.width,
         height: this.height,
         selected: slotProps.selected,
-        onPress: (event?: Event) => this.toggle(event),
+        onPress: (event?: Event) => this._toggle(event),
       },
     }])
   }
 
-  private syncFrame(): void {
+  private _syncFrame(): void {
     this.options({
       width: this.props.width,
       height: this.props.height,
@@ -259,9 +259,9 @@ export class SettingsButton<E extends EventList = Record<string, any>>
     })
   }
 
-  private setupEvents(): void {
+  private _setupEvents(): void {
     this.on('mousedown', (event) => {
-      this.toggle(event)
+      this._toggle(event)
       return false
     })
   }

@@ -27,7 +27,7 @@ const PNG_MIME_TYPE = 'image/png'
  * Рисует модель на белый tight canvas и отдает PNG Blob.
  */
 export class ModelerPngExporter {
-  private readonly geometry = new ModelerExportGeometry()
+  private readonly _geometry = new ModelerExportGeometry()
 
   /**
    * Создает PNG Blob только с элементами модели.
@@ -35,7 +35,7 @@ export class ModelerPngExporter {
   async export(context: ModelerExportContext, options: ModelerPngExportOptions = {}): Promise<Blob> {
     const padding = Math.max(0, options.padding ?? DEFAULT_PADDING)
     const scale = Math.max(0.1, options.scale ?? 1)
-    const bounds = this.geometry.resolveContentBounds(context.model, context.pluginContext)
+    const bounds = this._geometry.resolveContentBounds(context.model, context.pluginContext)
     const width = Math.max(1, Math.ceil((bounds.width + padding * 2) * scale))
     const height = Math.max(1, Math.ceil((bounds.height + padding * 2) * scale))
     const canvas = document.createElement('canvas')
@@ -50,49 +50,49 @@ export class ModelerPngExporter {
     ctx.fillRect(0, 0, width, height)
     ctx.scale(scale, scale)
     ctx.translate(padding - bounds.x, padding - bounds.y)
-    this.renderElements(ctx, context, bounds)
+    this._renderElements(ctx, context, bounds)
     ctx.restore()
     return canvasToBlob(canvas, PNG_MIME_TYPE)
   }
 
-  private renderElements(ctx: CanvasRenderingContext2D, context: ModelerExportContext, bounds: ModelerRect): void {
+  private _renderElements(ctx: CanvasRenderingContext2D, context: ModelerExportContext, bounds: ModelerRect): void {
     const ordered = [...context.model.elements].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0))
     for (const element of ordered) {
       if (isModelerEdgeElement(element)) {
-        this.renderEdge(ctx, context, element)
+        this._renderEdge(ctx, context, element)
       }
     }
     for (const element of ordered) {
       if (!isModelerEdgeElement(element)) {
-        this.renderNode(ctx, element, bounds)
+        this._renderNode(ctx, element, bounds)
       }
     }
   }
 
-  private renderNode(ctx: CanvasRenderingContext2D, element: ModelerElement, bounds: ModelerRect): void {
+  private _renderNode(ctx: CanvasRenderingContext2D, element: ModelerElement, bounds: ModelerRect): void {
     if (element.type === BPMN_TASK_TYPE) {
-      this.renderTask(ctx, element as BpmnTaskElement, bounds)
+      this._renderTask(ctx, element as BpmnTaskElement, bounds)
       return
     }
     if (element.type === BPMN_SUB_PROCESS_TYPE || element.type === BPMN_CALL_ACTIVITY_TYPE) {
-      this.renderTask(ctx, element as BpmnTaskElement, bounds)
+      this._renderTask(ctx, element as BpmnTaskElement, bounds)
       return
     }
     if (element.type === BPMN_EVENT_TYPE) {
-      this.renderEvent(ctx, element)
+      this._renderEvent(ctx, element)
       return
     }
     if (element.type === BPMN_GATEWAY_TYPE) {
-      this.renderGateway(ctx, element as BpmnGatewayElement)
+      this._renderGateway(ctx, element as BpmnGatewayElement)
       return
     }
     if (element.type === BASIC_RECT_TYPE) {
-      this.renderRect(ctx, element)
+      this._renderRect(ctx, element)
     }
   }
 
-  private renderTask(ctx: CanvasRenderingContext2D, element: BpmnTaskElement, bounds: ModelerRect): void {
-    this.renderRect(ctx, element, 8)
+  private _renderTask(ctx: CanvasRenderingContext2D, element: BpmnTaskElement, bounds: ModelerRect): void {
+    this._renderRect(ctx, element, 8)
     const name = String(element.data?.name ?? '')
     if (!name) {
       return
@@ -112,7 +112,7 @@ export class ModelerPngExporter {
     void bounds
   }
 
-  private renderRect(ctx: CanvasRenderingContext2D, element: ModelerElement, radius = Number(element.style?.radius ?? 6)): void {
+  private _renderRect(ctx: CanvasRenderingContext2D, element: ModelerElement, radius = Number(element.style?.radius ?? 6)): void {
     ctx.save()
     ctx.fillStyle = String(element.style?.fill ?? '#ffffff')
     ctx.strokeStyle = String(element.style?.stroke ?? '#111827')
@@ -123,7 +123,7 @@ export class ModelerPngExporter {
     ctx.restore()
   }
 
-  private renderEvent(ctx: CanvasRenderingContext2D, element: ModelerElement): void {
+  private _renderEvent(ctx: CanvasRenderingContext2D, element: ModelerElement): void {
     ctx.save()
     ctx.fillStyle = String(element.style?.fill ?? '#ffffff')
     ctx.strokeStyle = String(element.style?.stroke ?? '#111827')
@@ -143,7 +143,7 @@ export class ModelerPngExporter {
     ctx.restore()
   }
 
-  private renderGateway(ctx: CanvasRenderingContext2D, element: BpmnGatewayElement): void {
+  private _renderGateway(ctx: CanvasRenderingContext2D, element: BpmnGatewayElement): void {
     const cx = element.x + element.width / 2
     const cy = element.y + element.height / 2
     ctx.save()
@@ -158,11 +158,11 @@ export class ModelerPngExporter {
     ctx.closePath()
     ctx.fill()
     ctx.stroke()
-    this.renderGatewayMarker(ctx, element, cx, cy)
+    this._renderGatewayMarker(ctx, element, cx, cy)
     ctx.restore()
   }
 
-  private renderGatewayMarker(ctx: CanvasRenderingContext2D, element: BpmnGatewayElement, cx: number, cy: number): void {
+  private _renderGatewayMarker(ctx: CanvasRenderingContext2D, element: BpmnGatewayElement, cx: number, cy: number): void {
     const type = normalizeBpmnGatewayType(element.data?.gatewayType)
     ctx.strokeStyle = '#111827'
     ctx.lineWidth = 3
@@ -182,11 +182,11 @@ export class ModelerPngExporter {
     }
   }
 
-  private renderEdge(ctx: CanvasRenderingContext2D, context: ModelerExportContext, element: ModelerEdgeElement): void {
+  private _renderEdge(ctx: CanvasRenderingContext2D, context: ModelerExportContext, element: ModelerEdgeElement): void {
     if (element.type !== BPMN_FLOW_TYPE) {
       return
     }
-    const path = this.geometry.resolveEdgePath(context.model, element, context.pluginContext)
+    const path = this._geometry.resolveEdgePath(context.model, element, context.pluginContext)
     if (path.length < 2) {
       return
     }
@@ -204,11 +204,11 @@ export class ModelerPngExporter {
     }
     ctx.stroke()
     ctx.setLineDash([])
-    this.renderArrow(ctx, path[path.length - 2]!, path[path.length - 1]!)
+    this._renderArrow(ctx, path[path.length - 2]!, path[path.length - 1]!)
     ctx.restore()
   }
 
-  private renderArrow(ctx: CanvasRenderingContext2D, from: ModelerPoint, to: ModelerPoint): void {
+  private _renderArrow(ctx: CanvasRenderingContext2D, from: ModelerPoint, to: ModelerPoint): void {
     const angle = Math.atan2(to.y - from.y, to.x - from.x)
     const size = 9
     ctx.beginPath()

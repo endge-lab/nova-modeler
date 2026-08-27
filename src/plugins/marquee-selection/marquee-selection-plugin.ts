@@ -12,33 +12,33 @@ import { PluginBase } from '@/model/plugin-runtime/PluginBase'
  * Управляет внешним состоянием marquee selection plugin.
  */
 export class MarqueeSelectionControllerModule implements MarqueeSelectionController {
-  private enabledValue: boolean
-  private readonly adapters = new Set<MarqueeSelectionControllerAdapter>()
+  private _enabledValue: boolean
+  private readonly _adapters = new Set<MarqueeSelectionControllerAdapter>()
 
-  constructor(private readonly options: MarqueeSelectionControllerOptions = {}) {
-    this.enabledValue = options.enabled ?? true
+  constructor(private readonly _options: MarqueeSelectionControllerOptions = {}) {
+    this._enabledValue = _options.enabled ?? true
   }
 
   get enabled(): boolean {
-    return this.enabledValue
+    return this._enabledValue
   }
 
   setEnabled(enabled: boolean): void {
-    if (this.enabledValue === enabled) {
+    if (this._enabledValue === enabled) {
       return
     }
-    this.enabledValue = enabled
-    this.options.onEnabledChange?.(enabled)
-    this.adapters.forEach(adapter => adapter.invalidate())
+    this._enabledValue = enabled
+    this._options.onEnabledChange?.(enabled)
+    this._adapters.forEach(adapter => adapter.invalidate())
   }
 
   toggle(): void {
-    this.setEnabled(!this.enabledValue)
+    this.setEnabled(!this._enabledValue)
   }
 
   __bind(adapter: MarqueeSelectionControllerAdapter): () => void {
-    this.adapters.add(adapter)
-    return () => this.adapters.delete(adapter)
+    this._adapters.add(adapter)
+    return () => this._adapters.delete(adapter)
   }
 }
 
@@ -47,12 +47,12 @@ export class MarqueeSelectionControllerModule implements MarqueeSelectionControl
  */
 export class MarqueeSelectionPlugin extends PluginBase {
   readonly id: string
-  private node: NovaNode<any> | null = null
-  private disposeController: (() => void) | undefined
+  private _node: NovaNode<any> | null = null
+  private _disposeController: (() => void) | undefined
 
-  constructor(private readonly options: MarqueeSelectionPluginOptions = {}) {
+  constructor(private readonly _options: MarqueeSelectionPluginOptions = {}) {
     super()
-    this.id = options.id ?? 'marquee-selection'
+    this.id = _options.id ?? 'marquee-selection'
   }
 
   /**
@@ -95,17 +95,17 @@ export class MarqueeSelectionPlugin extends PluginBase {
       defaults: [{ key: 'm' }],
       scope: 'canvas',
     }))
-    this.node = this.mount('interaction', {
+    this._node = this.mount('interaction', {
       type: Modeler.MarqueeSelection,
       id: `${this.id}:node`,
-      props: this.createNodeProps(),
+      props: this._createNodeProps(),
     })
-    this.disposeController = this.options.controller?.__bind({
-      invalidate: () => this.syncNodeProps(),
-      onSelectionComplete: ids => this.options.onSelectionComplete?.(ids),
+    this._disposeController = this._options.controller?.__bind({
+      invalidate: () => this._syncNodeProps(),
+      onSelectionComplete: ids => this._options.onSelectionComplete?.(ids),
     })
-    if (this.disposeController) {
-      this.addDisposer(this.disposeController)
+    if (this._disposeController) {
+      this.addDisposer(this._disposeController)
     }
   }
 
@@ -113,26 +113,26 @@ export class MarqueeSelectionPlugin extends PluginBase {
    * Сбрасывает локальные ссылки.
    */
   protected onDispose(): void {
-    this.node = null
-    this.disposeController = undefined
+    this._node = null
+    this._disposeController = undefined
   }
 
   /**
    * Синхронизирует props mounted node при изменении controller.
    */
-  private syncNodeProps(): void {
-    const node = this.node as (NovaNode<any> & { setProps?: (patch: Record<string, unknown>) => unknown }) | null
-    node?.setProps?.(this.createNodeProps())
+  private _syncNodeProps(): void {
+    const node = this._node as (NovaNode<any> & { setProps?: (patch: Record<string, unknown>) => unknown }) | null
+    node?.setProps?.(this._createNodeProps())
   }
 
   /**
    * Собирает props для component node.
    */
-  private createNodeProps(): Record<string, unknown> {
+  private _createNodeProps(): Record<string, unknown> {
     return {
-      enabled: this.options.controller?.enabled ?? this.options.enabled ?? true,
-      minDragPx: this.options.minDragPx,
-      onSelectionComplete: this.options.onSelectionComplete,
+      enabled: this._options.controller?.enabled ?? this._options.enabled ?? true,
+      minDragPx: this._options.minDragPx,
+      onSelectionComplete: this._options.onSelectionComplete,
     }
   }
 }

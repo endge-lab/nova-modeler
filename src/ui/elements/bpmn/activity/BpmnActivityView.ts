@@ -128,18 +128,18 @@ export class BpmnActivityView<E extends EventList = Record<string, any>>
 
   render(): void {
     super.render()
-    this.renderer.schema(this.createActivitySchema())
+    this.renderer.schema(this._createActivitySchema())
   }
 
-  private createActivitySchema(): NovaSchema {
+  private _createActivitySchema(): NovaSchema {
     const element = this.props.element
     const style = element.style ?? {}
     const selected = this.props.selected
     const borderColor = selected
-      ? String(style.selectedStroke ?? this.resolveThemeColor('bpmnTaskSelectedStroke', 'elementSelectedStroke'))
-      : String(style.stroke ?? this.resolveThemeColor('bpmnTaskStroke', 'elementStroke'))
-    const baseStrokeWidth = Number(style.strokeWidth ?? this.resolveThemeNumber('bpmnTaskStrokeWidth', 'elementStrokeWidth'))
-    const radius = Number(style.radius ?? this.resolveThemeNumber('bpmnTaskRadius'))
+      ? String(style.selectedStroke ?? this._resolveThemeColor('bpmnTaskSelectedStroke', 'elementSelectedStroke'))
+      : String(style.stroke ?? this._resolveThemeColor('bpmnTaskStroke', 'elementStroke'))
+    const baseStrokeWidth = Number(style.strokeWidth ?? this._resolveThemeNumber('bpmnTaskStrokeWidth', 'elementStrokeWidth'))
+    const radius = Number(style.radius ?? this._resolveThemeNumber('bpmnTaskRadius'))
     const subProcessType = element.type === BPMN_SUB_PROCESS_TYPE
       ? normalizeBpmnSubProcessType(element.data?.subProcessType)
       : 'embedded'
@@ -150,30 +150,30 @@ export class BpmnActivityView<E extends EventList = Record<string, any>>
       width: this.width,
       height: this.height,
       styles: {
-        background: String(style.fill ?? this.resolveThemeColor('bpmnTaskFill', 'elementFill')),
+        background: String(style.fill ?? this._resolveThemeColor('bpmnTaskFill', 'elementFill')),
         border: {
           color: borderColor,
           width: element.type === BPMN_CALL_ACTIVITY_TYPE ? Math.max(3, baseStrokeWidth * 1.8) : baseStrokeWidth,
           radius,
           dashPattern: subProcessType === 'event' ? [6, 4] : undefined,
         },
-        opacity: Number(style.opacity ?? this.resolveThemeNumber('elementOpacity')),
+        opacity: Number(style.opacity ?? this._resolveThemeNumber('elementOpacity')),
       },
     }]
 
     if (subProcessType === 'transaction') {
-      this.appendInnerBorder(schema, borderColor, radius)
+      this._appendInnerBorder(schema, borderColor, radius)
     }
     if (!this.props.hideName) {
-      this.appendActivityName(schema)
+      this._appendActivityName(schema)
     }
     if (element.type === BPMN_SUB_PROCESS_TYPE) {
-      this.appendSubProcessMarkers(schema, subProcessType)
+      this._appendSubProcessMarkers(schema, subProcessType)
     }
     return schema
   }
 
-  private appendInnerBorder(schema: NovaSchema, color: string, radius: number): void {
+  private _appendInnerBorder(schema: NovaSchema, color: string, radius: number): void {
     const inset = 4
     schema.push({
       type: 'rect',
@@ -192,14 +192,14 @@ export class BpmnActivityView<E extends EventList = Record<string, any>>
     })
   }
 
-  private appendActivityName(schema: NovaSchema): void {
+  private _appendActivityName(schema: NovaSchema): void {
     const layout = resolveBpmnActivityNameLayout({
       name: this.props.element.data?.name,
       width: this.width,
       height: this.height,
       data: this.props.element.data,
     })
-    const color = this.resolveThemeColor('bpmnTaskTextColor')
+    const color = this._resolveThemeColor('bpmnTaskTextColor')
     for (const line of layout.lines) {
       schema.push({
         type: 'text',
@@ -224,19 +224,19 @@ export class BpmnActivityView<E extends EventList = Record<string, any>>
     }
   }
 
-  private appendSubProcessMarkers(schema: NovaSchema, subProcessType: string): void {
+  private _appendSubProcessMarkers(schema: NovaSchema, subProcessType: string): void {
     const markerSize = Math.max(1, Math.min(ACTIVITY_MARKER_SIZE, this.height * 0.14))
     const markerY = this.height / 2 - markerSize - this.height * 0.02
     if (subProcessType === 'adHoc') {
-      this.appendAdHocMarker(schema, -markerSize - markerSize * 0.3, markerY, markerSize)
-      this.appendCollapsedMarker(schema, markerSize * 0.3, markerY, markerSize)
+      this._appendAdHocMarker(schema, -markerSize - markerSize * 0.3, markerY, markerSize)
+      this._appendCollapsedMarker(schema, markerSize * 0.3, markerY, markerSize)
       return
     }
-    this.appendCollapsedMarker(schema, -markerSize / 2, markerY, markerSize)
+    this._appendCollapsedMarker(schema, -markerSize / 2, markerY, markerSize)
   }
 
-  private appendCollapsedMarker(schema: NovaSchema, x: number, y: number, size: number): void {
-    const color = this.resolveThemeColor('bpmnTaskMarkerStroke')
+  private _appendCollapsedMarker(schema: NovaSchema, x: number, y: number, size: number): void {
+    const color = this._resolveThemeColor('bpmnTaskMarkerStroke')
     const centerX = x + size / 2
     const centerY = y + size / 2
     const strokeWidth = Math.max(0.5, 1.4 * this.props.viewport.scale)
@@ -255,7 +255,7 @@ export class BpmnActivityView<E extends EventList = Record<string, any>>
     schema.push({ type: 'line', x1: centerX, y1: centerY - size * 0.28, x2: centerX, y2: centerY + size * 0.28, styles: { color, width: strokeWidth } })
   }
 
-  private appendAdHocMarker(schema: NovaSchema, x: number, y: number, size: number): void {
+  private _appendAdHocMarker(schema: NovaSchema, x: number, y: number, size: number): void {
     schema.push({
       type: 'text',
       text: '~',
@@ -264,7 +264,7 @@ export class BpmnActivityView<E extends EventList = Record<string, any>>
       width: size,
       height: size,
       styles: {
-        color: this.resolveThemeColor('bpmnTaskMarkerStroke'),
+        color: this._resolveThemeColor('bpmnTaskMarkerStroke'),
         font: {
           family: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
           size: Math.max(1, 18 * this.props.viewport.scale),
@@ -275,23 +275,23 @@ export class BpmnActivityView<E extends EventList = Record<string, any>>
     })
   }
 
-  private resolveThemeColor(token: ModelerThemeTokenKey, fallbackToken?: ModelerThemeTokenKey): string {
+  private _resolveThemeColor(token: ModelerThemeTokenKey, fallbackToken?: ModelerThemeTokenKey): string {
     const fallback = fallbackToken
-      ? String(this.resolveThemeValue(fallbackToken))
+      ? String(this._resolveThemeValue(fallbackToken))
       : String(MODELER_THEME_FALLBACKS[token])
     return this.nova.theme.resolve(MODELER_THEME_TOKENS[token], fallback) ?? fallback
   }
 
-  private resolveThemeNumber(token: ModelerThemeTokenKey, fallbackToken?: ModelerThemeTokenKey): number {
+  private _resolveThemeNumber(token: ModelerThemeTokenKey, fallbackToken?: ModelerThemeTokenKey): number {
     const fallback = fallbackToken
-      ? this.resolveThemeNumber(fallbackToken)
+      ? this._resolveThemeNumber(fallbackToken)
       : Number(MODELER_THEME_FALLBACKS[token])
     const raw = this.nova.theme.resolve(MODELER_THEME_TOKENS[token], String(fallback)) ?? fallback
     const value = typeof raw === 'number' ? raw : Number(raw)
     return Number.isFinite(value) ? value : fallback
   }
 
-  private resolveThemeValue(token: ModelerThemeTokenKey): string | number {
+  private _resolveThemeValue(token: ModelerThemeTokenKey): string | number {
     const fallback = MODELER_THEME_FALLBACKS[token]
     return this.nova.theme.resolve(
       MODELER_THEME_TOKENS[token],

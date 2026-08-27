@@ -95,26 +95,26 @@ export class PortView<E extends EventList = Record<string, any>>
       radius: this.props.radius,
       styles: {
         background: this.props.highlighted
-          ? this.resolveThemeColor('bpmnFlowMarkerFill')
-          : this.resolveThemeColor('elementPortFill'),
+          ? this._resolveThemeColor('bpmnFlowMarkerFill')
+          : this._resolveThemeColor('elementPortFill'),
         border: {
           color: this.props.highlighted
-            ? this.resolveThemeColor('bpmnFlowPreviewStroke')
-            : this.resolveThemeColor('elementPortStroke'),
+            ? this._resolveThemeColor('bpmnFlowPreviewStroke')
+            : this._resolveThemeColor('elementPortStroke'),
           width: this.props.highlighted
-            ? Math.max(2, this.resolveThemeNumber('elementPortStrokeWidth') + 1)
-            : this.resolveThemeNumber('elementPortStrokeWidth'),
+            ? Math.max(2, this._resolveThemeNumber('elementPortStrokeWidth') + 1)
+            : this._resolveThemeNumber('elementPortStrokeWidth'),
         },
       },
     }] as NovaSchema)
   }
 
-  private resolveThemeColor(token: ModelerThemeTokenKey): string {
+  private _resolveThemeColor(token: ModelerThemeTokenKey): string {
     const fallback = String(MODELER_THEME_FALLBACKS[token])
     return this.nova.theme.resolve(MODELER_THEME_TOKENS[token], fallback) ?? fallback
   }
 
-  private resolveThemeNumber(token: ModelerThemeTokenKey): number {
+  private _resolveThemeNumber(token: ModelerThemeTokenKey): number {
     const fallback = Number(MODELER_THEME_FALLBACKS[token])
     const raw = this.nova.theme.resolve(MODELER_THEME_TOKENS[token], String(fallback)) ?? fallback
     const value = typeof raw === 'number' ? raw : Number(raw)

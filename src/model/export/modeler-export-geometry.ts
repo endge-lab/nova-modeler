@@ -22,12 +22,12 @@ export class ModelerExportGeometry {
     }
     const lookup = new Map(model.elements.map(element => [element.id, element]))
     const sourceReference = edge.waypoints[0]
-      ?? this.resolveEndpointReference(lookup.get(edge.target.elementId ?? ''), edge.target.point)
+      ?? this._resolveEndpointReference(lookup.get(edge.target.elementId ?? ''), edge.target.point)
       ?? edge.source.point
       ?? { x: 0, y: 0 }
-    const source = this.resolveEndpointPoint(lookup.get(edge.source.elementId ?? ''), edge.source.point, sourceReference)
+    const source = this._resolveEndpointPoint(lookup.get(edge.source.elementId ?? ''), edge.source.point, sourceReference)
     const targetReference = edge.waypoints[edge.waypoints.length - 1] ?? source
-    const target = this.resolveEndpointPoint(lookup.get(edge.target.elementId ?? ''), edge.target.point, targetReference)
+    const target = this._resolveEndpointPoint(lookup.get(edge.target.elementId ?? ''), edge.target.point, targetReference)
     return [
       source,
       ...edge.waypoints.map(point => ({ x: point.x, y: point.y })),
@@ -42,14 +42,14 @@ export class ModelerExportGeometry {
     let bounds: ModelerRect | null = null
     for (const element of model.elements) {
       const elementBounds = isModelerEdgeElement(element)
-        ? this.resolvePathBounds(this.resolveEdgePath(model, element, context))
-        : this.resolveElementBounds(element)
+        ? this._resolvePathBounds(this.resolveEdgePath(model, element, context))
+        : this._resolveElementBounds(element)
       bounds = bounds ? unionRects(bounds, elementBounds) : elementBounds
     }
     return bounds ?? { x: 0, y: 0, width: 1, height: 1 }
   }
 
-  private resolveElementBounds(element: ModelerElement): ModelerRect {
+  private _resolveElementBounds(element: ModelerElement): ModelerRect {
     return {
       x: element.x,
       y: element.y,
@@ -58,7 +58,7 @@ export class ModelerExportGeometry {
     }
   }
 
-  private resolvePathBounds(path: Array<ModelerPoint>): ModelerRect {
+  private _resolvePathBounds(path: Array<ModelerPoint>): ModelerRect {
     if (path.length === 0) {
       return { x: 0, y: 0, width: 1, height: 1 }
     }
@@ -80,14 +80,14 @@ export class ModelerExportGeometry {
     }
   }
 
-  private resolveEndpointReference(element: ModelerElement | undefined, point: ModelerPoint | undefined): ModelerPoint | undefined {
+  private _resolveEndpointReference(element: ModelerElement | undefined, point: ModelerPoint | undefined): ModelerPoint | undefined {
     if (element) {
-      return this.elementCenter(element)
+      return this._elementCenter(element)
     }
     return point ? { ...point } : undefined
   }
 
-  private resolveEndpointPoint(
+  private _resolveEndpointPoint(
     element: ModelerElement | undefined,
     point: ModelerPoint | undefined,
     reference: ModelerPoint | undefined,
@@ -98,7 +98,7 @@ export class ModelerExportGeometry {
     return MODEL_ELEMENTS_RUNTIME.anchors.resolveElementAnchor(element, reference)
   }
 
-  private elementCenter(element: ModelerElement): ModelerPoint {
+  private _elementCenter(element: ModelerElement): ModelerPoint {
     return {
       x: element.x + element.width / 2,
       y: element.y + element.height / 2,

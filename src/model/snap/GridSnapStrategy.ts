@@ -14,10 +14,10 @@ export class GridSnapStrategy implements ModelerSnapStrategy {
    * Привязывает точку к ближайшей grid-точке.
    */
   snapPoint(input: ModelerSnapPointInput): ModelerPoint {
-    const step = this.resolveStep(input.gridSize)
+    const step = this._resolveStep(input.gridSize)
     return {
-      x: this.snapValue(input.point.x, step),
-      y: this.snapValue(input.point.y, step),
+      x: this._snapValue(input.point.x, step),
+      y: this._snapValue(input.point.y, step),
     }
   }
 
@@ -25,7 +25,7 @@ export class GridSnapStrategy implements ModelerSnapStrategy {
    * Привязывает resize bounds к grid с учетом активной стороны.
    */
   snapResize(input: ModelerSnapResizeInput): ModelerRect {
-    const step = this.resolveStep(input.gridSize)
+    const step = this._resolveStep(input.gridSize)
     const fixedRight = input.source.x + input.source.width
     const fixedBottom = input.source.y + input.source.height
     const rawRight = input.bounds.x + input.bounds.width
@@ -38,14 +38,14 @@ export class GridSnapStrategy implements ModelerSnapStrategy {
     if (input.handle.includes('w')) {
       x = Math.min(
         fixedRight - input.minSize.minWidth,
-        this.snapValue(input.bounds.x, step),
+        this._snapValue(input.bounds.x, step),
       )
       width = fixedRight - x
     }
     else if (input.handle.includes('e')) {
       width = Math.max(
         input.minSize.minWidth,
-        this.snapValue(rawRight, step) - input.source.x,
+        this._snapValue(rawRight, step) - input.source.x,
       )
       x = input.source.x
     }
@@ -53,14 +53,14 @@ export class GridSnapStrategy implements ModelerSnapStrategy {
     if (input.handle.includes('n')) {
       y = Math.min(
         fixedBottom - input.minSize.minHeight,
-        this.snapValue(input.bounds.y, step),
+        this._snapValue(input.bounds.y, step),
       )
       height = fixedBottom - y
     }
     else if (input.handle.includes('s')) {
       height = Math.max(
         input.minSize.minHeight,
-        this.snapValue(rawBottom, step) - input.source.y,
+        this._snapValue(rawBottom, step) - input.source.y,
       )
       y = input.source.y
     }
@@ -76,14 +76,14 @@ export class GridSnapStrategy implements ModelerSnapStrategy {
   /**
    * Возвращает безопасный шаг grid.
    */
-  private resolveStep(gridSize: number): number {
+  private _resolveStep(gridSize: number): number {
     return Number.isFinite(gridSize) && gridSize > 0 ? gridSize : 1
   }
 
   /**
    * Округляет значение до ближайшего шага grid.
    */
-  private snapValue(value: number, step: number): number {
+  private _snapValue(value: number, step: number): number {
     return Math.round(value / step) * step
   }
 }

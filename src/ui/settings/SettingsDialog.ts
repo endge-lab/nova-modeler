@@ -42,9 +42,9 @@ export class SettingsDialog<E extends EventList = Record<string, any>>
   implements NovaUiLayoutTarget {
   readonly [NOVA_UI_LAYOUT_TARGET] = true as const
 
-  private readonly sourceId: string
-  private readonly registry: ModelerSettingsRegistry
-  private readonly api: ModelerSettingsDialogApi
+  private readonly _sourceId: string
+  private readonly _registry: ModelerSettingsRegistry
+  private readonly _api: ModelerSettingsDialogApi
 
   /**
    * Создает registry-node для modeler settings dialog.
@@ -61,15 +61,15 @@ export class SettingsDialog<E extends EventList = Record<string, any>>
     } = {},
   ) {
     super(app, surface, descriptor, props, options)
-    this.sourceId = options.componentId ?? this.id
-    this.registry = ModelerSettingsRegistry.fromSchemas([
+    this._sourceId = options.componentId ?? this.id
+    this._registry = ModelerSettingsRegistry.fromSchemas([
       ...(options.children ?? []),
       ...(options.slots?.default?.({}) ?? []),
     ])
-    this.api = {
+    this._api = {
       setProps: patch => this.setProps(patch),
       getProps: () => this.props,
-      getRegistry: () => this.registry,
+      getRegistry: () => this._registry,
     }
     this.visible = false
     this.options({ interactive: false })
@@ -79,7 +79,7 @@ export class SettingsDialog<E extends EventList = Record<string, any>>
    * Возвращает публичный API registry-node.
    */
   override getApi(): ModelerSettingsDialogApi {
-    return this.api
+    return this._api
   }
 
   /**
@@ -127,14 +127,14 @@ export class SettingsDialog<E extends EventList = Record<string, any>>
    */
   protected override onMount(): void {
     super.onMount()
-    this.syncRootDefinition()
+    this._syncRootDefinition()
   }
 
   /**
    * Снимает dialog template при удалении registry-node.
    */
   protected override onUnmount(): void {
-    findNovaUiRoot(this)?.getApi?.().unregisterDialogDefinitions(this.sourceId)
+    findNovaUiRoot(this)?.getApi?.().unregisterDialogDefinitions(this._sourceId)
     super.onUnmount()
   }
 
@@ -146,25 +146,25 @@ export class SettingsDialog<E extends EventList = Record<string, any>>
     super.onPropsChanged(changedKeys)
     this.visible = false
     this.options({ interactive: false })
-    this.syncRootDefinition()
+    this._syncRootDefinition()
   }
 
   /**
    * Передает definition ближайшему UI Kit Root.
    */
-  private syncRootDefinition(): void {
+  private _syncRootDefinition(): void {
     const definition: DialogDefinition = {
       type: this.props.type,
-      props: this.createDialogProps(),
-      slot: slot => this.createDialogBody(slot),
+      props: this._createDialogProps(),
+      slot: slot => this._createDialogBody(slot),
     }
-    findNovaUiRoot(this)?.getApi?.().registerDialogDefinitions(this.sourceId, [definition])
+    findNovaUiRoot(this)?.getApi?.().registerDialogDefinitions(this._sourceId, [definition])
   }
 
   /**
    * Создает базовые props для UI Kit Dialog.
    */
-  private createDialogProps(): DialogProps {
+  private _createDialogProps(): DialogProps {
     return {
       title: this.props.title,
       description: this.props.description,
@@ -195,11 +195,11 @@ export class SettingsDialog<E extends EventList = Record<string, any>>
   /**
    * Создает body schema с левой навигацией и секциями выбранной категории.
    */
-  private createDialogBody(slot: DialogSlotContext): Array<NovaElementSchema<any>> {
+  private _createDialogBody(slot: DialogSlotContext): Array<NovaElementSchema<any>> {
     const dialogProps = slot.props as DialogProps & { width: number, height: number }
-    const categories = this.registry.getCategories()
-    const activeCategory = this.resolveActiveCategory(slot, categories)
-    const sections = activeCategory ? this.registry.getSections(activeCategory.id) : []
+    const categories = this._registry.getCategories()
+    const activeCategory = this._resolveActiveCategory(slot, categories)
+    const sections = activeCategory ? this._registry.getSections(activeCategory.id) : []
 
     return [{
       type: NovaUIKit.Flex,
@@ -212,8 +212,8 @@ export class SettingsDialog<E extends EventList = Record<string, any>>
         clip: true,
       },
       children: [
-        this.createCategoriesPane(slot, categories, activeCategory?.id),
-        this.createSectionsPane(slot, activeCategory, sections),
+        this._createCategoriesPane(slot, categories, activeCategory?.id),
+        this._createSectionsPane(slot, activeCategory, sections),
       ],
     }]
   }
@@ -221,7 +221,7 @@ export class SettingsDialog<E extends EventList = Record<string, any>>
   /**
    * Создает левый список категорий.
    */
-  private createCategoriesPane(
+  private _createCategoriesPane(
     slot: DialogSlotContext,
     categories: Array<ModelerSettingsCategoryDefinition>,
     activeCategoryId: string | undefined,
@@ -262,7 +262,7 @@ export class SettingsDialog<E extends EventList = Record<string, any>>
   /**
    * Создает правую область секций.
    */
-  private createSectionsPane(
+  private _createSectionsPane(
     slot: DialogSlotContext,
     category: ModelerSettingsCategoryDefinition | undefined,
     sections: Array<ModelerSettingsSectionDefinition>,
@@ -284,11 +284,11 @@ export class SettingsDialog<E extends EventList = Record<string, any>>
     }
 
     if (sections.length === 0) {
-      children.push(this.createEmptyState(slot))
+      children.push(this._createEmptyState(slot))
     }
     else {
       for (const section of sections) {
-        children.push(...this.createSection(slot, category, section))
+        children.push(...this._createSection(slot, category, section))
       }
     }
 
@@ -312,12 +312,12 @@ export class SettingsDialog<E extends EventList = Record<string, any>>
   /**
    * Создает одну секцию настроек.
    */
-  private createSection(
+  private _createSection(
     slot: DialogSlotContext,
     category: ModelerSettingsCategoryDefinition | undefined,
     section: ModelerSettingsSectionDefinition,
   ): Array<NovaElementSchema<any>> {
-    const sectionContext = this.createSectionContext(slot, category, section)
+    const sectionContext = this._createSectionContext(slot, category, section)
     const body = section.slot?.(sectionContext) ?? section.children
     return [
       {
@@ -339,7 +339,7 @@ export class SettingsDialog<E extends EventList = Record<string, any>>
   /**
    * Создает scope для пользовательского slot секции.
    */
-  private createSectionContext(
+  private _createSectionContext(
     slot: DialogSlotContext,
     category: ModelerSettingsCategoryDefinition | undefined,
     section: ModelerSettingsSectionDefinition,
@@ -362,7 +362,7 @@ export class SettingsDialog<E extends EventList = Record<string, any>>
   /**
    * Создает состояние пустой категории.
    */
-  private createEmptyState(slot: DialogSlotContext): NovaElementSchema<any> {
+  private _createEmptyState(slot: DialogSlotContext): NovaElementSchema<any> {
     return {
       type: NovaUIKit.TextBlock,
       id: `${slot.id}:settings-empty`,
@@ -379,7 +379,7 @@ export class SettingsDialog<E extends EventList = Record<string, any>>
   /**
    * Возвращает активную категорию с fallback на первую видимую.
    */
-  private resolveActiveCategory(
+  private _resolveActiveCategory(
     slot: DialogSlotContext,
     categories: Array<ModelerSettingsCategoryDefinition>,
   ): ModelerSettingsCategoryDefinition | undefined {

@@ -199,9 +199,9 @@ describe('nova modeler minimal benchmarks', () => {
     containers.compileRenderFrame()
     const recipeLayer = app.components.require('modeler-elements:bpmn-container-recipe-layer') as unknown as {
       render: () => void
-      batchRuntime: { getFillBatch: () => { revision?: number } }
+      _batchRuntime: { getFillBatch: () => { revision?: number } }
     }
-    const firstFillRevision = recipeLayer.batchRuntime.getFillBatch().revision
+    const firstFillRevision = recipeLayer._batchRuntime.getFillBatch().revision
     const renderSpy = vi.spyOn(recipeLayer, 'render')
     for (const participant of participants) {
       expect(app.components.get(`${participant.id}:view`)).toBeUndefined()
@@ -224,7 +224,7 @@ describe('nova modeler minimal benchmarks', () => {
     const elapsed = performance.now() - started
 
     expect(renderSpy.mock.calls.length).toBeLessThanOrEqual(10)
-    expect(recipeLayer.batchRuntime.getFillBatch().revision).toBeGreaterThanOrEqual(firstFillRevision ?? 0)
+    expect(recipeLayer._batchRuntime.getFillBatch().revision).toBeGreaterThanOrEqual(firstFillRevision ?? 0)
     expect(totalNodeRenderCalls).toBeLessThanOrEqual(20)
     expect(maxCompilerMs).toBeLessThan(1)
     expect(elapsed).toBeLessThan(900)
@@ -591,7 +591,7 @@ describe('nova modeler minimal benchmarks', () => {
       createLayout: (...args: Array<unknown>) => unknown
       resolveWorldBounds: (...args: Array<unknown>) => unknown
       resolveEdgeWorldBounds: (...args: Array<unknown>) => unknown
-      resolveExternalLabelWorldBounds: (...args: Array<unknown>) => unknown
+      _resolveExternalLabelWorldBounds: (...args: Array<unknown>) => unknown
       afterModelCommit: (...args: Array<unknown>) => unknown
       clampViewport: (...args: Array<unknown>) => unknown
     }
@@ -604,7 +604,7 @@ describe('nova modeler minimal benchmarks', () => {
       instrumentMethod(target, 'createLayout'),
       instrumentMethod(target, 'resolveWorldBounds'),
       instrumentMethod(target, 'resolveEdgeWorldBounds'),
-      instrumentMethod(target, 'resolveExternalLabelWorldBounds'),
+      instrumentMethod(target, '_resolveExternalLabelWorldBounds'),
     ]
     const setViewportSamples = measureViewportCommits(viewports, (viewport) => {
       controller.setViewport(viewport)
@@ -626,7 +626,7 @@ describe('nova modeler minimal benchmarks', () => {
     expect(report.internals.find(item => item.name === 'recomputeLayout')?.calls).toBe(0)
     expect(report.internals.find(item => item.name === 'createLayout')?.calls).toBe(0)
     expect(report.internals.find(item => item.name === 'resolveWorldBounds')?.calls).toBe(0)
-    expect(report.internals.find(item => item.name === 'resolveExternalLabelWorldBounds')?.calls).toBe(0)
+    expect(report.internals.find(item => item.name === '_resolveExternalLabelWorldBounds')?.calls).toBe(0)
   })
 
   diagnosticsIt('diagnoses full insurance Nova runtime stages by surface', () => {
@@ -662,11 +662,11 @@ describe('nova modeler minimal benchmarks', () => {
     const backendInstrumentation = instrumentBackendReplay(app)
     const containerRecipeLayer = app.components.require('modeler-elements:bpmn-container-recipe-layer') as unknown as {
       render: () => void
-      batchRuntime: BpmnBatchRuntime
+      _batchRuntime: BpmnBatchRuntime
     }
     const nodeRecipeLayer = app.components.require('modeler-elements:bpmn-recipe-layer') as unknown as {
       render: () => void
-      batchRuntime: BpmnBatchRuntime
+      _batchRuntime: BpmnBatchRuntime
     }
     const containerRenderSpy = vi.spyOn(containerRecipeLayer, 'render')
     const nodeRenderSpy = vi.spyOn(nodeRecipeLayer, 'render')
@@ -698,8 +698,8 @@ describe('nova modeler minimal benchmarks', () => {
       recipeLayers: {
         containerRenderCalls: containerRenderSpy.mock.calls.length,
         nodeRenderCalls: nodeRenderSpy.mock.calls.length,
-        containerDiagnostics: containerRecipeLayer.batchRuntime.getDiagnostics(),
-        nodeDiagnostics: nodeRecipeLayer.batchRuntime.getDiagnostics(),
+        containerDiagnostics: containerRecipeLayer._batchRuntime.getDiagnostics(),
+        nodeDiagnostics: nodeRecipeLayer._batchRuntime.getDiagnostics(),
       },
     }
     console.info(`\n[nova-modeler diagnostics:runtime]\n${JSON.stringify(report, null, 2)}`)

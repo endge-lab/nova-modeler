@@ -8,27 +8,27 @@ import {
  * Управляет открытием package-level диалога настроек Modeler.
  */
 export class ModelerSettingsController {
-  private readonly rootResolver: ModelerSettingsControllerOptions['root']
-  private readonly type: string
-  private readonly id: string
+  private readonly _rootResolver: ModelerSettingsControllerOptions['root']
+  private readonly _type: string
+  private readonly _id: string
 
   /**
    * Создает controller поверх Root dialog API из Nova UI Kit.
    */
   constructor(options: ModelerSettingsControllerOptions) {
-    this.rootResolver = options.root
-    this.type = options.type ?? MODELER_SETTINGS_DIALOG_TYPE
-    this.id = options.id ?? this.type
+    this._rootResolver = options.root
+    this._type = options.type ?? MODELER_SETTINGS_DIALOG_TYPE
+    this._id = options.id ?? this._type
   }
 
   /**
    * Открывает диалог и заменяет payload текущим снимком настроек.
    */
   open(payload: ModelerSettingsDialogPayload = {}): string | null {
-    return this.rootResolver()?.openDialog({
+    return this._rootResolver()?.openDialog({
       ...payload,
-      id: this.id,
-      type: this.type,
+      id: this._id,
+      type: this._type,
     }) ?? null
   }
 
@@ -36,7 +36,7 @@ export class ModelerSettingsController {
    * Закрывает диалог настроек.
    */
   close(event?: Event): void {
-    this.rootResolver()?.closeDialog(this.id, event)
+    this._rootResolver()?.closeDialog(this._id, event)
   }
 
   /**
@@ -58,14 +58,14 @@ export class ModelerSettingsController {
     if (!this.isOpen()) {
       return
     }
-    this.rootResolver()?.updateDialog(this.id, payload)
+    this._rootResolver()?.updateDialog(this._id, payload)
   }
 
   /**
    * Проверяет, открыт ли диалог настроек.
    */
   isOpen(): boolean {
-    return this.rootResolver()?.getOpenDialogIds().includes(this.id) ?? false
+    return this._rootResolver()?.getOpenDialogIds().includes(this._id) ?? false
   }
 }
 

@@ -26,43 +26,43 @@ export interface ElementsAvailableConnectionPort extends ModelerPort {
 }
 
 export class ElementsConnection {
-  private state: ElementsConnectionState | null = null
-  private readonly listeners = new Set<() => void>()
+  private _state: ElementsConnectionState | null = null
+  private readonly _listeners = new Set<() => void>()
 
   constructor(
-    private readonly geometry: ElementsGeometry,
-    private readonly ports: ElementsPorts,
-    private readonly anchors: ConnectionAnchorResolver,
+    private readonly _geometry: ElementsGeometry,
+    private readonly _ports: ElementsPorts,
+    private readonly _anchors: ConnectionAnchorResolver,
   ) {}
 
   begin(state: ElementsConnectionState): void {
-    this.state = cloneState(state)
-    this.notify()
+    this._state = cloneState(state)
+    this._notify()
   }
 
   update(patch: Partial<ElementsConnectionState>): void {
-    if (!this.state) {
+    if (!this._state) {
       return
     }
-    this.state = cloneState({ ...this.state, ...patch })
-    this.notify()
+    this._state = cloneState({ ...this._state, ...patch })
+    this._notify()
   }
 
   get(): ElementsConnectionState | null {
-    return this.state ? cloneState(this.state) : null
+    return this._state ? cloneState(this._state) : null
   }
 
   clear(): void {
-    if (!this.state) {
+    if (!this._state) {
       return
     }
-    this.state = null
-    this.notify()
+    this._state = null
+    this._notify()
   }
 
   subscribe(listener: () => void): () => void {
-    this.listeners.add(listener)
-    return () => this.listeners.delete(listener)
+    this._listeners.add(listener)
+    return () => this._listeners.delete(listener)
   }
 
   createEndpoint(elementId: string, portId: string, point: ModelerPoint): ModelerEdgeEndpoint {
@@ -82,8 +82,8 @@ export class ElementsConnection {
     if (!element) {
       return null
     }
-    if (this.anchors.isVirtualAnchorElement(element)) {
-      const point = this.anchors.resolveElementAnchor(element, referencePoint)
+    if (this._anchors.isVirtualAnchorElement(element)) {
+      const point = this._anchors.resolveElementAnchor(element, referencePoint)
       return {
         endpoint: {
           elementId,
@@ -92,12 +92,12 @@ export class ElementsConnection {
         point,
       }
     }
-    const ports = this.getElementPorts(context, element)
+    const ports = this._getElementPorts(context, element)
     if (ports.length === 0) {
       return null
     }
     const port = referencePoint
-      ? this.nearestPort(ports, referencePoint)
+      ? this._nearestPort(ports, referencePoint)
       : ports.find(item => item.id === 'right') ?? ports[0]!
     return {
       endpoint: this.createEndpoint(elementId, port.id, port),
@@ -111,8 +111,8 @@ export class ElementsConnection {
     if (!element) {
       return null
     }
-    return this.anchors.isVirtualAnchorElement(element)
-      ? this.anchors.resolveElementAnchor(element, referencePoint)
+    return this._anchors.isVirtualAnchorElement(element)
+      ? this._anchors.resolveElementAnchor(element, referencePoint)
       : this.createEndpointFromElement(context, elementId, referencePoint)?.point ?? null
   }
 
@@ -121,7 +121,7 @@ export class ElementsConnection {
     if (!element) {
       return null
     }
-    const port = this.getElementPorts(context, element).find(item => item.id === portId)
+    const port = this._getElementPorts(context, element).find(item => item.id === portId)
     return port ? { x: port.x, y: port.y } : null
   }
 
@@ -130,7 +130,7 @@ export class ElementsConnection {
     target: { type: string, elementId?: string, portId?: string, id?: string },
     fallbackPoint: ModelerPoint,
   ): { endpoint: ModelerEdgeEndpoint, point: ModelerPoint, elementId?: string, portId?: string } {
-    const state = this.state
+    const state = this._state
     if (!state) {
       return { endpoint: { point: fallbackPoint }, point: fallbackPoint }
     }
@@ -158,7 +158,7 @@ export class ElementsConnection {
   }
 
   getAvailableTargetPorts(context: ModelerPluginContext): Array<ElementsAvailableConnectionPort> {
-    if (!this.state) {
+    if (!this._state) {
       return []
     }
     const result: Array<ElementsAvailableConnectionPort> = []
@@ -169,13 +169,13 @@ export class ElementsConnection {
       if (!this.canCompleteElement(context, element.id)) {
         continue
       }
-      for (const port of this.getElementPorts(context, element)) {
+      for (const port of this._getElementPorts(context, element)) {
         if (!this.canComplete(context, element.id, port.id)) {
           continue
         }
         result.push({
           ...port,
-          highlighted: this.state.targetElementId === element.id && this.state.targetPortId === port.id,
+          highlighted: this._state.targetElementId === element.id && this._state.targetPortId === port.id,
         })
       }
     }
@@ -194,10 +194,10 @@ export class ElementsConnection {
   }
 
   canComplete(context: ModelerPluginContext, elementId: string, portId: string): boolean {
-    if (!this.state) {
+    if (!this._state) {
       return false
     }
-    if (this.state.sourceElementId === elementId) {
+    if (this._state.sourceElementId === elementId) {
       return false
     }
     const element = context.getModel().elements.find(item => item.id === elementId)
@@ -208,7 +208,7 @@ export class ElementsConnection {
     return Boolean(definition)
       && definition?.capabilities?.connectable !== false
       && definition?.capabilities?.connectable?.incoming !== false
-      && this.getElementPorts(context, element).some(port => port.id === portId)
+      && this._getElementPorts(context, element).some(port => port.id === portId)
   }
 
   canCompleteElement(context: ModelerPluginContext, elementId: string): boolean {
@@ -216,14 +216,14 @@ export class ElementsConnection {
     if (!element || isModelerEdgeElement(element)) {
       return false
     }
-    if (this.state?.sourceElementId === elementId) {
+    if (this._state?.sourceElementId === elementId) {
       return false
     }
     const definition = context.getElementRegistry().get(element.type)
     return Boolean(definition)
       && definition?.capabilities?.connectable !== false
       && definition?.capabilities?.connectable?.incoming !== false
-      && (this.anchors.isVirtualAnchorElement(element) || this.getElementPorts(context, element).length > 0)
+      && (this._anchors.isVirtualAnchorElement(element) || this._getElementPorts(context, element).length > 0)
   }
 
   midpoint(a: ModelerPoint, b: ModelerPoint): ModelerPoint {
@@ -233,20 +233,20 @@ export class ElementsConnection {
     }
   }
 
-  private getElementPorts(context: ModelerPluginContext, element: ModelerElement): Array<ModelerPort> {
+  private _getElementPorts(context: ModelerPluginContext, element: ModelerElement): Array<ModelerPort> {
     const definition = context.getElementRegistry().get(element.type)
     if (!definition) {
       return []
     }
-    return this.ports.createElementPorts(element, definition.getPorts?.(context, element) ?? [])
+    return this._ports.createElementPorts(element, definition.getPorts?.(context, element) ?? [])
   }
 
-  private nearestPort(ports: Array<ModelerPort>, point: ModelerPoint): ModelerPort {
-    return ports.reduce((best, port) => this.geometry.distance(port, point) < this.geometry.distance(best, point) ? port : best, ports[0]!)
+  private _nearestPort(ports: Array<ModelerPort>, point: ModelerPoint): ModelerPort {
+    return ports.reduce((best, port) => this._geometry.distance(port, point) < this._geometry.distance(best, point) ? port : best, ports[0]!)
   }
 
-  private notify(): void {
-    for (const listener of this.listeners) {
+  private _notify(): void {
+    for (const listener of this._listeners) {
       listener()
     }
   }

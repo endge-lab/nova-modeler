@@ -101,10 +101,10 @@ const DOWNLOAD_CONTROLS_CURSOR_RULES: NovaCursorDeclaration = [
 })
 export class DownloadControls<E extends EventList = Record<string, any>>
   extends NovaComponentNode<DownloadControlsResolvedProps, DownloadControlsApi, Record<string, never>, DownloadControlsProps, E> {
-  private readonly childRuntime: NovaTemplateRuntime<E>
-  private openMenu = false
-  private hoveredItemId: string | null = null
-  private hoveredButton = false
+  private readonly _childRuntime: NovaTemplateRuntime<E>
+  private _openMenu = false
+  private _hoveredItemId: string | null = null
+  private _hoveredButton = false
 
   constructor(
     app: NovaApp<E>,
@@ -114,15 +114,15 @@ export class DownloadControls<E extends EventList = Record<string, any>>
     options: { componentId?: string } = {},
   ) {
     super(app, surface, descriptor, props, options)
-    this.childRuntime = new NovaTemplateRuntime(this)
+    this._childRuntime = new NovaTemplateRuntime(this)
     this.options({
       interactive: props.visible,
       zIndex: props.zIndex,
       cursor: DOWNLOAD_CONTROLS_CURSOR_RULES,
       cursorContext: { downloadControlsCursor: 'none' },
     })
-    this.syncFrame()
-    this.setupEvents()
+    this._syncFrame()
+    this._setupEvents()
   }
 
   static normalizeProps(props: DownloadControlsProps = {}): DownloadControlsResolvedProps {
@@ -136,9 +136,9 @@ export class DownloadControls<E extends EventList = Record<string, any>>
 
   override getApi(): DownloadControlsApi {
     return {
-      open: () => this.setOpen(true),
-      close: () => this.setOpen(false),
-      toggle: () => this.setOpen(!this.openMenu),
+      open: () => this._setOpen(true),
+      close: () => this._setOpen(false),
+      toggle: () => this._setOpen(!this._openMenu),
       setProps: patch => this.setProps(patch),
       getProps: () => this.props,
     }
@@ -147,48 +147,48 @@ export class DownloadControls<E extends EventList = Record<string, any>>
   override setProps(patch: DownloadControlsProps): this {
     super.setProps(patch as Partial<DownloadControlsResolvedProps>)
     this.props = DownloadControls.normalizeProps(this.props)
-    this.syncFrame()
+    this._syncFrame()
     return this
   }
 
   update(): void {
     super.update()
-    this.syncFrame()
+    this._syncFrame()
   }
 
   render(): void {
     super.render()
     if (!this.props.visible) {
       this.renderer.schema([])
-      this.childRuntime.reconcile([])
+      this._childRuntime.reconcile([])
       return
     }
     const schema: NovaSchema = []
-    if (this.openMenu) {
-      this.appendOutsideCapture(schema)
-      this.appendMenu(schema)
+    if (this._openMenu) {
+      this._appendOutsideCapture(schema)
+      this._appendMenu(schema)
     }
-    this.appendButtonPanel(schema)
+    this._appendButtonPanel(schema)
     this.renderer.schema(schema)
-    this.syncChild()
+    this._syncChild()
   }
 
   protected override onUnmount(): void {
-    this.childRuntime.dispose()
+    this._childRuntime.dispose()
     super.onUnmount()
   }
 
-  private setupEvents(): void {
+  private _setupEvents(): void {
     this.on('mouseenter', (event) => {
-      this.syncHover(event)
+      this._syncHover(event)
     })
     this.on('mousemove', (event) => {
-      this.syncHover(event)
+      this._syncHover(event)
     })
     this.on('mouseleave', () => {
-      this.hoveredButton = false
-      this.hoveredItemId = null
-      this.setCursor(null)
+      this._hoveredButton = false
+      this._hoveredItemId = null
+      this._setCursor(null)
       this.dirty({ render: true })
     })
     this.on('mousedown', (event) => {
@@ -197,62 +197,62 @@ export class DownloadControls<E extends EventList = Record<string, any>>
       }
       const point = this.events.getCanvasMousePosition(event)
       const [localX, localY] = this.toLocal(point.x, point.y)
-      if (this.containsButton(localX, localY)) {
-        this.setOpen(!this.openMenu)
+      if (this._containsButton(localX, localY)) {
+        this._setOpen(!this._openMenu)
         return false
       }
-      const item = this.resolveMenuItem(localX, localY)
+      const item = this._resolveMenuItem(localX, localY)
       if (item) {
-        this.runMenuAction(item)
-        this.setOpen(false)
+        this._runMenuAction(item)
+        this._setOpen(false)
         return false
       }
-      this.setOpen(false)
+      this._setOpen(false)
       return false
     })
   }
 
-  private syncHover(event: MouseEvent): void {
+  private _syncHover(event: MouseEvent): void {
     if (!this.props.visible) {
       return
     }
     const point = this.events.getCanvasMousePosition(event)
     const [localX, localY] = this.toLocal(point.x, point.y)
-    const nextButton = this.containsButton(localX, localY)
-    const nextItemId = this.resolveMenuItem(localX, localY)?.id ?? null
-    if (nextButton === this.hoveredButton && nextItemId === this.hoveredItemId) {
+    const nextButton = this._containsButton(localX, localY)
+    const nextItemId = this._resolveMenuItem(localX, localY)?.id ?? null
+    if (nextButton === this._hoveredButton && nextItemId === this._hoveredItemId) {
       return
     }
-    this.hoveredButton = nextButton
-    this.hoveredItemId = nextItemId
-    this.setCursor(nextButton || !!nextItemId ? 'button' : null)
+    this._hoveredButton = nextButton
+    this._hoveredItemId = nextItemId
+    this._setCursor(nextButton || !!nextItemId ? 'button' : null)
     this.dirty({ render: true })
   }
 
-  private setOpen(open: boolean): void {
-    if (this.openMenu === open) {
+  private _setOpen(open: boolean): void {
+    if (this._openMenu === open) {
       return
     }
-    this.openMenu = open
-    this.hoveredItemId = null
-    this.syncFrame()
+    this._openMenu = open
+    this._hoveredItemId = null
+    this._syncFrame()
     this.dirty({ matrix: true, update: true, render: true })
   }
 
-  private syncFrame(): void {
-    const size = this.resolveFrameSize()
+  private _syncFrame(): void {
+    const size = this._resolveFrameSize()
     this.options({
-      x: this.openMenu ? 0 : this.props.offset,
-      y: this.openMenu ? 0 : Math.max(0, this.surface.height - this.props.offset - size.height),
+      x: this._openMenu ? 0 : this.props.offset,
+      y: this._openMenu ? 0 : Math.max(0, this.surface.height - this.props.offset - size.height),
       width: size.width,
       height: size.height,
       interactive: this.props.visible,
-      zIndex: this.openMenu ? this.props.zIndex + 1 : this.props.zIndex,
+      zIndex: this._openMenu ? this.props.zIndex + 1 : this.props.zIndex,
     })
   }
 
-  private resolveFrameSize(): { width: number, height: number } {
-    if (this.openMenu) {
+  private _resolveFrameSize(): { width: number, height: number } {
+    if (this._openMenu) {
       return {
         width: this.surface.width,
         height: this.surface.height,
@@ -264,7 +264,7 @@ export class DownloadControls<E extends EventList = Record<string, any>>
     }
   }
 
-  private appendOutsideCapture(schema: NovaSchema): void {
+  private _appendOutsideCapture(schema: NovaSchema): void {
     schema.push({
       type: 'rect',
       x: 0,
@@ -282,8 +282,8 @@ export class DownloadControls<E extends EventList = Record<string, any>>
     })
   }
 
-  private appendButtonPanel(schema: NovaSchema): void {
-    const { buttonX, buttonY } = this.resolveLayout()
+  private _appendButtonPanel(schema: NovaSchema): void {
+    const { buttonX, buttonY } = this._resolveLayout()
     schema.push({
       type: 'rect',
       x: buttonX,
@@ -291,9 +291,9 @@ export class DownloadControls<E extends EventList = Record<string, any>>
       width: BUTTON_PANEL_SIZE,
       height: BUTTON_PANEL_SIZE,
       styles: {
-        background: this.resolveColor('paletteBackground'),
+        background: this._resolveColor('paletteBackground'),
         border: {
-          color: this.resolveColor('paletteBorderColor'),
+          color: this._resolveColor('paletteBorderColor'),
           width: 1,
           radius: 5,
         },
@@ -306,8 +306,8 @@ export class DownloadControls<E extends EventList = Record<string, any>>
       width: BUTTON_SIZE,
       height: BUTTON_SIZE,
       styles: {
-        background: this.hoveredButton || this.openMenu
-          ? this.resolveColor('paletteItemHoverBackground')
+        background: this._hoveredButton || this._openMenu
+          ? this._resolveColor('paletteItemHoverBackground')
           : 'rgba(0,0,0,0)',
         border: {
           color: 'rgba(0,0,0,0)',
@@ -327,9 +327,9 @@ export class DownloadControls<E extends EventList = Record<string, any>>
     })
   }
 
-  private appendMenu(schema: NovaSchema): void {
-    const menuHeight = this.resolveMenuHeight()
-    const { menuX, menuY } = this.resolveLayout()
+  private _appendMenu(schema: NovaSchema): void {
+    const menuHeight = this._resolveMenuHeight()
+    const { menuX, menuY } = this._resolveLayout()
     schema.push({
       type: 'rect',
       x: menuX,
@@ -337,9 +337,9 @@ export class DownloadControls<E extends EventList = Record<string, any>>
       width: MENU_WIDTH,
       height: menuHeight,
       styles: {
-        background: this.resolveColor('paletteBackground'),
+        background: this._resolveColor('paletteBackground'),
         border: {
-          color: this.resolveColor('paletteBorderColor'),
+          color: this._resolveColor('paletteBorderColor'),
           width: 1,
           radius: 6,
         },
@@ -347,16 +347,16 @@ export class DownloadControls<E extends EventList = Record<string, any>>
     })
   }
 
-  private syncChild(): void {
-    if (!this.openMenu || !this.props.visible) {
-      this.childRuntime.reconcile([])
+  private _syncChild(): void {
+    if (!this._openMenu || !this.props.visible) {
+      this._childRuntime.reconcile([])
       return
     }
-    this.childRuntime.reconcile([this.createMenuLayout()])
+    this._childRuntime.reconcile([this._createMenuLayout()])
   }
 
-  private createMenuLayout(): NovaTemplateChildSchema {
-    const { menuX, menuY } = this.resolveLayout()
+  private _createMenuLayout(): NovaTemplateChildSchema {
+    const { menuX, menuY } = this._resolveLayout()
     return {
       type: NovaUIKit.Flex,
       id: `${this.componentId}:menu-layout`,
@@ -371,7 +371,7 @@ export class DownloadControls<E extends EventList = Record<string, any>>
         justifyContent: 'start',
         clip: true,
       },
-      children: this.resolveMenuItems().map(item => ({
+      children: this._resolveMenuItems().map(item => ({
         type: NovaUIKit.Button,
         id: `${this.componentId}:menu-item:${item.id}`,
         layout: { width: 'fill', height: MENU_ITEM_HEIGHT },
@@ -384,25 +384,25 @@ export class DownloadControls<E extends EventList = Record<string, any>>
           size: 'md',
           width: item.width,
           height: item.height,
-          color: this.resolveColor('bpmnTaskTextColor'),
+          color: this._resolveColor('bpmnTaskTextColor'),
           fontFamily: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
           fontSize: 13,
           fontWeight: '600',
           background: 'rgba(0,0,0,0)',
-          hoverBackground: this.resolveColor('paletteItemHoverBackground'),
-          pressedBackground: this.resolveColor('paletteItemHoverBackground'),
+          hoverBackground: this._resolveColor('paletteItemHoverBackground'),
+          pressedBackground: this._resolveColor('paletteItemHoverBackground'),
           border: { color: 'rgba(0,0,0,0)', width: 0, radius: 4 },
           onPress: () => {
-            this.runMenuAction(item)
-            this.setOpen(false)
+            this._runMenuAction(item)
+            this._setOpen(false)
           },
         },
       })),
     }
   }
 
-  private resolveMenuItems(): Array<DownloadMenuItemLayout> {
-    const { menuX, menuY } = this.resolveLayout()
+  private _resolveMenuItems(): Array<DownloadMenuItemLayout> {
+    const { menuX, menuY } = this._resolveLayout()
     return MENU_ITEMS.map((item, index) => ({
       ...item,
       x: menuX + MENU_PADDING,
@@ -412,11 +412,11 @@ export class DownloadControls<E extends EventList = Record<string, any>>
     }))
   }
 
-  private resolveMenuItem(x: number, y: number): DownloadMenuItemLayout | null {
-    if (!this.openMenu) {
+  private _resolveMenuItem(x: number, y: number): DownloadMenuItemLayout | null {
+    if (!this._openMenu) {
       return null
     }
-    return this.resolveMenuItems().find(item => (
+    return this._resolveMenuItems().find(item => (
       x >= item.x
       && x <= item.x + item.width
       && y >= item.y
@@ -424,8 +424,8 @@ export class DownloadControls<E extends EventList = Record<string, any>>
     )) ?? null
   }
 
-  private containsButton(x: number, y: number): boolean {
-    const { buttonX, buttonY } = this.resolveLayout()
+  private _containsButton(x: number, y: number): boolean {
+    const { buttonX, buttonY } = this._resolveLayout()
     const controlX = buttonX + BUTTON_PANEL_PADDING
     const controlY = buttonY + BUTTON_PANEL_PADDING
     return x >= controlX
@@ -434,36 +434,36 @@ export class DownloadControls<E extends EventList = Record<string, any>>
       && y <= controlY + BUTTON_SIZE
   }
 
-  private resolveLayout(): DownloadControlsLayout {
-    const buttonX = this.openMenu ? this.props.offset : 0
-    const buttonY = this.openMenu
+  private _resolveLayout(): DownloadControlsLayout {
+    const buttonX = this._openMenu ? this.props.offset : 0
+    const buttonY = this._openMenu
       ? Math.max(0, this.surface.height - this.props.offset - BUTTON_PANEL_SIZE)
       : 0
     return {
       buttonX,
       buttonY,
-      menuX: this.openMenu ? this.props.offset : 0,
-      menuY: this.openMenu ? Math.max(0, buttonY - MENU_GAP - this.resolveMenuHeight()) : 0,
+      menuX: this._openMenu ? this.props.offset : 0,
+      menuY: this._openMenu ? Math.max(0, buttonY - MENU_GAP - this._resolveMenuHeight()) : 0,
     }
   }
 
-  private resolveMenuHeight(): number {
+  private _resolveMenuHeight(): number {
     return MENU_PADDING * 2 + MENU_ITEM_HEIGHT * MENU_ITEMS.length
   }
 
-  private runMenuAction(item: DownloadMenuItemLayout): void {
-    this.resolvePluginContext()?.actions.run(item.actionId)
+  private _runMenuAction(item: DownloadMenuItemLayout): void {
+    this._resolvePluginContext()?.actions.run(item.actionId)
   }
 
-  private resolvePluginContext(): ModelerPluginContext | undefined {
+  private _resolvePluginContext(): ModelerPluginContext | undefined {
     return this.props.controller?.getPluginContext() ?? this.injectOptional(MODELER_CONTEXT)
   }
 
-  private setCursor(cursor: 'button' | null): void {
+  private _setCursor(cursor: 'button' | null): void {
     this.options({ cursorContext: { downloadControlsCursor: cursor ?? 'none' } })
   }
 
-  private resolveColor(token: keyof typeof MODELER_THEME_FALLBACKS): string {
+  private _resolveColor(token: keyof typeof MODELER_THEME_FALLBACKS): string {
     const fallback = String(MODELER_THEME_FALLBACKS[token])
     return this.nova.theme.resolve(MODELER_THEME_TOKENS[token], fallback) ?? fallback
   }

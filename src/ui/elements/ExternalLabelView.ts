@@ -68,7 +68,7 @@ export class ExternalLabelView<E extends EventList = Record<string, any>>
   ) {
     super(app, surface, descriptor, props, options)
     this.options({ width: surface.width, height: surface.height, interactive: false })
-    this.syncViewportTransform()
+    this._syncViewportTransform()
   }
 
   static normalizeProps(props: ExternalLabelViewProps): ExternalLabelViewResolvedProps {
@@ -82,7 +82,7 @@ export class ExternalLabelView<E extends EventList = Record<string, any>>
 
   update(): void {
     super.update()
-    this.syncViewportTransform()
+    this._syncViewportTransform()
   }
 
   override setProps(patch: Partial<ExternalLabelViewResolvedProps>): this {
@@ -93,7 +93,7 @@ export class ExternalLabelView<E extends EventList = Record<string, any>>
     }
     if (changedKeys.every(key => key === 'viewport')) {
       this.props.viewport = patch.viewport ?? this.props.viewport
-      this.syncViewportTransform()
+      this._syncViewportTransform()
       this.notifySyncPortChanged('viewport', this.props.viewport)
       this.dirty({ matrix: true })
       return this
@@ -103,10 +103,10 @@ export class ExternalLabelView<E extends EventList = Record<string, any>>
 
   render(): void {
     super.render()
-    this.renderer.schema(this.createSchema())
+    this.renderer.schema(this._createSchema())
   }
 
-  private createSchema(): NovaSchema {
+  private _createSchema(): NovaSchema {
     const layout = this.props.layout
     const rect = layout.worldRect
     const schema: NovaSchema = []
@@ -147,7 +147,7 @@ export class ExternalLabelView<E extends EventList = Record<string, any>>
           height: line.height,
           clip: true,
           styles: {
-            color: this.resolveThemeColor('bpmnTaskTextColor'),
+            color: this._resolveThemeColor('bpmnTaskTextColor'),
             font: {
               family: layout.fontFamily,
               size: layout.worldFontSize ?? layout.fontSize,
@@ -161,12 +161,12 @@ export class ExternalLabelView<E extends EventList = Record<string, any>>
       }
     }
     if (this.props.selected) {
-      this.appendHandles(schema, rect)
+      this._appendHandles(schema, rect)
     }
     return schema
   }
 
-  private syncViewportTransform(): void {
+  private _syncViewportTransform(): void {
     const scale = Math.max(0.0001, this.props.viewport.scale)
     this.options({
       x: this.props.viewport.x,
@@ -179,7 +179,7 @@ export class ExternalLabelView<E extends EventList = Record<string, any>>
     })
   }
 
-  private appendHandles(schema: NovaSchema, rect: { x: number, y: number, width: number, height: number }): void {
+  private _appendHandles(schema: NovaSchema, rect: { x: number, y: number, width: number, height: number }): void {
     for (const handle of LABEL_HANDLES) {
       const point = resolveHandlePoint(rect, handle)
       schema.push({
@@ -189,23 +189,23 @@ export class ExternalLabelView<E extends EventList = Record<string, any>>
         width: LABEL_HANDLE_SIZE,
         height: LABEL_HANDLE_SIZE,
         styles: {
-          background: this.resolveThemeColor('elementHandleFill'),
+          background: this._resolveThemeColor('elementHandleFill'),
           border: {
-            color: this.resolveThemeColor('elementHandleStroke'),
-            width: this.resolveThemeNumber('elementHandleStrokeWidth'),
-            radius: this.resolveThemeNumber('elementHandleRadius'),
+            color: this._resolveThemeColor('elementHandleStroke'),
+            width: this._resolveThemeNumber('elementHandleStrokeWidth'),
+            radius: this._resolveThemeNumber('elementHandleRadius'),
           },
         },
       })
     }
   }
 
-  private resolveThemeColor(token: ModelerThemeTokenKey): string {
+  private _resolveThemeColor(token: ModelerThemeTokenKey): string {
     const fallback = String(MODELER_THEME_FALLBACKS[token])
     return this.nova.theme.resolve(MODELER_THEME_TOKENS[token], fallback) ?? fallback
   }
 
-  private resolveThemeNumber(token: ModelerThemeTokenKey): number {
+  private _resolveThemeNumber(token: ModelerThemeTokenKey): number {
     const fallback = Number(MODELER_THEME_FALLBACKS[token])
     const raw = this.nova.theme.resolve(MODELER_THEME_TOKENS[token], String(fallback)) ?? fallback
     const value = typeof raw === 'number' ? raw : Number(raw)

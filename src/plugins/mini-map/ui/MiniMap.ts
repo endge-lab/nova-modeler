@@ -70,7 +70,7 @@ export type MiniMapDescriptor = NovaComponentDescriptor<
 })
 export class MiniMap<E extends EventList = Record<string, any>>
   extends NovaComponentNode<MiniMapResolvedProps, Record<string, never>, Record<string, never>, MiniMapProps, E> {
-  private dragging = false
+  private _dragging = false
 
   constructor(
     app: NovaApp<E>,
@@ -82,7 +82,7 @@ export class MiniMap<E extends EventList = Record<string, any>>
     super(app, surface, descriptor, props, options)
     this.options({ width: surface.width, height: surface.height, interactive: props.visible, zIndex: 0 })
     this.addDisposer(app.theme.observe(this, { phase: 'render' }))
-    this.setupEvents()
+    this._setupEvents()
   }
 
   static normalizeProps(props: MiniMapProps = {}): MiniMapResolvedProps {
@@ -108,7 +108,7 @@ export class MiniMap<E extends EventList = Record<string, any>>
   }
 
   override containsPoint(x: number, y: number): boolean {
-    return this.props.visible && boundsContainsPoint(this.resolveMiniMapRect(), x, y)
+    return this.props.visible && boundsContainsPoint(this._resolveMiniMapRect(), x, y)
   }
 
   render(): void {
@@ -118,7 +118,7 @@ export class MiniMap<E extends EventList = Record<string, any>>
       this.renderer.schema([] as unknown as NovaSchema)
       return
     }
-    this.renderer.schema(createMiniMapSchema(this.resolveLayout(), this.resolveTheme()))
+    this.renderer.schema(createMiniMapSchema(this._resolveLayout(), this._resolveTheme()))
   }
 
   protected override onPropsChanged(): void {
@@ -126,37 +126,37 @@ export class MiniMap<E extends EventList = Record<string, any>>
     this.options({ interactive: this.props.visible })
   }
 
-  private setupEvents(): void {
+  private _setupEvents(): void {
     this.on('mousedown', (event) => {
       if (!this.props.draggableViewport || event.button !== 0) {
         return false
       }
-      this.dragging = true
-      this.panTo({ x: event.offsetX, y: event.offsetY })
+      this._dragging = true
+      this._panTo({ x: event.offsetX, y: event.offsetY })
       return false
     })
     this.on('mousemove', (event) => {
-      if (!this.dragging) {
+      if (!this._dragging) {
         return false
       }
-      this.panTo({ x: event.offsetX, y: event.offsetY })
+      this._panTo({ x: event.offsetX, y: event.offsetY })
       return false
     })
     this.on('mouseup', () => {
-      this.dragging = false
+      this._dragging = false
       return false
     })
     this.on('mouseleave', () => {
-      this.dragging = false
+      this._dragging = false
     })
   }
 
-  private panTo(point: ModelerPoint): void {
+  private _panTo(point: ModelerPoint): void {
     const context = this.inject(MODELER_CONTEXT)
     if (!context) {
       return
     }
-    const mini = this.resolveLayout()
+    const mini = this._resolveLayout()
     const layout = context.getLayout()
     const nx = clamp01((point.x - mini.content.x) / Math.max(1, mini.content.width))
     const ny = clamp01((point.y - mini.content.y) / Math.max(1, mini.content.height))
@@ -170,7 +170,7 @@ export class MiniMap<E extends EventList = Record<string, any>>
     })
   }
 
-  private resolveLayout(): MiniMapLayout {
+  private _resolveLayout(): MiniMapLayout {
     const context = this.inject(MODELER_CONTEXT)
     const store = this.injectOptional(MODELER_STORE)
     const baseLayout = context?.getLayout() ?? {
@@ -189,11 +189,11 @@ export class MiniMap<E extends EventList = Record<string, any>>
     if (store) {
       layout.viewport = store.viewport.toJSON()
     }
-    const rect = this.resolveMiniMapRect()
+    const rect = this._resolveMiniMapRect()
     return createMiniMapLayout(layout, rect.width, rect.height, 0, 'top-left', rect)
   }
 
-  private resolveMiniMapRect(): ModelerRect {
+  private _resolveMiniMapRect(): ModelerRect {
     const inset = this.props.inset
     if ((this.props.position === 'fixed' || this.props.position === 'absolute') && inset) {
       const x = typeof inset.left === 'number'
@@ -213,17 +213,17 @@ export class MiniMap<E extends EventList = Record<string, any>>
     return { x, y, width: this.props.width, height: this.props.height }
   }
 
-  private resolveTheme(): MiniMapTheme {
+  private _resolveTheme(): MiniMapTheme {
     return {
-      background: this.resolveColor('miniMapBackground'),
-      borderColor: this.resolveColor('miniMapBorderColor'),
-      contentBackground: this.resolveColor('miniMapContentBackground'),
-      viewportBackground: this.resolveColor('miniMapViewportBackground'),
-      viewportBorderColor: this.resolveColor('miniMapViewportBorderColor'),
+      background: this._resolveColor('miniMapBackground'),
+      borderColor: this._resolveColor('miniMapBorderColor'),
+      contentBackground: this._resolveColor('miniMapContentBackground'),
+      viewportBackground: this._resolveColor('miniMapViewportBackground'),
+      viewportBorderColor: this._resolveColor('miniMapViewportBorderColor'),
     }
   }
 
-  private resolveColor(token: keyof typeof MODELER_THEME_FALLBACKS): string {
+  private _resolveColor(token: keyof typeof MODELER_THEME_FALLBACKS): string {
     const fallback = String(MODELER_THEME_FALLBACKS[token])
     return this.nova.theme.resolve(MODELER_THEME_TOKENS[token], fallback) ?? fallback
   }

@@ -4,11 +4,11 @@ import type { ModelerCommitChange } from '@/domain/types'
  * Хранит внутренние версии invalidation kinds для modeler runtime.
  */
 export class ModelerInvalidationScope {
-  private readonly versions = new Map<ModelerCommitChange, number>()
+  private readonly _versions = new Map<ModelerCommitChange, number>()
 
   bump(kind: ModelerCommitChange): number {
-    const next = (this.versions.get(kind) ?? 0) + 1
-    this.versions.set(kind, next)
+    const next = (this._versions.get(kind) ?? 0) + 1
+    this._versions.set(kind, next)
     return next
   }
 
@@ -19,6 +19,6 @@ export class ModelerInvalidationScope {
   }
 
   get(kind: ModelerCommitChange): number {
-    return this.versions.get(kind) ?? 0
+    return this._versions.get(kind) ?? 0
   }
 }

@@ -12,33 +12,33 @@ import { PluginBase } from '@/model/plugin-runtime/PluginBase'
  * Управляет внешним состоянием mini-map plugin.
  */
 export class MiniMapControllerModule implements MiniMapController {
-  private visibleValue: boolean
-  private readonly adapters = new Set<MiniMapControllerAdapter>()
+  private _visibleValue: boolean
+  private readonly _adapters = new Set<MiniMapControllerAdapter>()
 
-  constructor(private readonly options: MiniMapControllerOptions = {}) {
-    this.visibleValue = options.visible ?? true
+  constructor(private readonly _options: MiniMapControllerOptions = {}) {
+    this._visibleValue = _options.visible ?? true
   }
 
   get visible(): boolean {
-    return this.visibleValue
+    return this._visibleValue
   }
 
   setVisible(visible: boolean): void {
-    if (this.visibleValue === visible) {
+    if (this._visibleValue === visible) {
       return
     }
-    this.visibleValue = visible
-    this.options.onVisibleChange?.(visible)
-    this.adapters.forEach(adapter => adapter.invalidate())
+    this._visibleValue = visible
+    this._options.onVisibleChange?.(visible)
+    this._adapters.forEach(adapter => adapter.invalidate())
   }
 
   toggle(): void {
-    this.setVisible(!this.visibleValue)
+    this.setVisible(!this._visibleValue)
   }
 
   __bind(adapter: MiniMapControllerAdapter): () => void {
-    this.adapters.add(adapter)
-    return () => this.adapters.delete(adapter)
+    this._adapters.add(adapter)
+    return () => this._adapters.delete(adapter)
   }
 }
 
@@ -47,12 +47,12 @@ export class MiniMapControllerModule implements MiniMapController {
  */
 export class MiniMapPlugin extends PluginBase {
   readonly id: string
-  private node: NovaNode<any> | null = null
-  private disposeController: (() => void) | undefined
+  private _node: NovaNode<any> | null = null
+  private _disposeController: (() => void) | undefined
 
-  constructor(private readonly options: MiniMapPluginOptions = {}) {
+  constructor(private readonly _options: MiniMapPluginOptions = {}) {
     super()
-    this.id = options.id ?? 'mini-map'
+    this.id = _options.id ?? 'mini-map'
   }
 
   /**
@@ -73,16 +73,16 @@ export class MiniMapPlugin extends PluginBase {
    * Подключает mini-map component к controls layer.
    */
   protected onSetup(): void {
-    this.node = this.mount('controls', {
+    this._node = this.mount('controls', {
       type: Modeler.MiniMap,
       id: `${this.id}:node`,
-      props: this.createNodeProps(),
+      props: this._createNodeProps(),
     })
-    this.disposeController = this.options.controller?.__bind({
-      invalidate: () => this.syncNodeProps(),
+    this._disposeController = this._options.controller?.__bind({
+      invalidate: () => this._syncNodeProps(),
     })
-    if (this.disposeController) {
-      this.addDisposer(this.disposeController)
+    if (this._disposeController) {
+      this.addDisposer(this._disposeController)
     }
   }
 
@@ -90,31 +90,31 @@ export class MiniMapPlugin extends PluginBase {
    * Сбрасывает локальные ссылки.
    */
   protected onDispose(): void {
-    this.node = null
-    this.disposeController = undefined
+    this._node = null
+    this._disposeController = undefined
   }
 
   /**
    * Синхронизирует props mounted node при изменении controller.
    */
-  private syncNodeProps(): void {
-    const node = this.node as (NovaNode<any> & { setProps?: (patch: Record<string, unknown>) => unknown }) | null
-    node?.setProps?.(this.createNodeProps())
+  private _syncNodeProps(): void {
+    const node = this._node as (NovaNode<any> & { setProps?: (patch: Record<string, unknown>) => unknown }) | null
+    node?.setProps?.(this._createNodeProps())
   }
 
   /**
    * Собирает props для component node.
    */
-  private createNodeProps(): Record<string, unknown> {
+  private _createNodeProps(): Record<string, unknown> {
     return {
       position: 'fixed',
       inset: { right: 16, bottom: 16 },
-      visible: this.options.controller?.visible ?? this.options.visible ?? true,
-      placement: this.options.placement,
-      width: this.options.width,
-      height: this.options.height,
-      margin: this.options.margin,
-      draggableViewport: this.options.draggableViewport,
+      visible: this._options.controller?.visible ?? this._options.visible ?? true,
+      placement: this._options.placement,
+      width: this._options.width,
+      height: this._options.height,
+      margin: this._options.margin,
+      draggableViewport: this._options.draggableViewport,
     }
   }
 }

@@ -74,7 +74,7 @@ export class BpmnMessageFlowView<E extends EventList = Record<string, any>>
   ) {
     super(app, surface, descriptor, props, options)
     this.options({ width: surface.width, height: surface.height, interactive: false })
-    this.syncViewportTransform()
+    this._syncViewportTransform()
   }
 
   static normalizeProps(props: BpmnMessageFlowViewProps): BpmnMessageFlowViewResolvedProps {
@@ -89,7 +89,7 @@ export class BpmnMessageFlowView<E extends EventList = Record<string, any>>
 
   update(): void {
     super.update()
-    this.syncViewportTransform()
+    this._syncViewportTransform()
   }
 
   override setProps(patch: Partial<BpmnMessageFlowViewResolvedProps>): this {
@@ -100,7 +100,7 @@ export class BpmnMessageFlowView<E extends EventList = Record<string, any>>
     }
     if (changedKeys.every(key => key === 'viewport')) {
       this.props.viewport = patch.viewport ?? this.props.viewport
-      this.syncViewportTransform()
+      this._syncViewportTransform()
       this.notifySyncPortChanged('viewport', this.props.viewport)
       this.dirty({ matrix: true })
       return this
@@ -110,17 +110,17 @@ export class BpmnMessageFlowView<E extends EventList = Record<string, any>>
 
   render(): void {
     super.render()
-    this.renderer.schema(this.createSchema())
+    this.renderer.schema(this._createSchema())
   }
 
-  private createSchema(): NovaSchema {
-    const color = this.resolveStroke()
-    const width = this.resolveStrokeWidth()
+  private _createSchema(): NovaSchema {
+    const color = this._resolveStroke()
+    const width = this._resolveStrokeWidth()
     const path = this.props.path
     if (path.length < 2) {
       return []
     }
-    const opacity = Number(this.props.element.style?.opacity ?? this.resolveThemeNumber('elementOpacity'))
+    const opacity = Number(this.props.element.style?.opacity ?? this._resolveThemeNumber('elementOpacity'))
     const schema: NovaSchema = []
     for (let index = 0; index < path.length - 1; index += 1) {
       const start = path[index]!
@@ -134,13 +134,13 @@ export class BpmnMessageFlowView<E extends EventList = Record<string, any>>
         styles: { color, width, opacity, dashPattern: [6, 4] },
       })
     }
-    this.appendMarkers(schema, path, color, width, opacity)
+    this._appendMarkers(schema, path, color, width, opacity)
     return schema
   }
 
-  private appendMarkers(schema: NovaSchema, path: Array<ModelerPoint>, color: string, width: number, opacity: number): void {
+  private _appendMarkers(schema: NovaSchema, path: Array<ModelerPoint>, color: string, width: number, opacity: number): void {
     const start = path[0]!
-    const next = this.findNextDistinctPoint(path, 1, start)
+    const next = this._findNextDistinctPoint(path, 1, start)
     if (next) {
       schema.push({
         type: 'circle',
@@ -155,13 +155,13 @@ export class BpmnMessageFlowView<E extends EventList = Record<string, any>>
       })
     }
     const end = path[path.length - 1]!
-    const previous = this.findPreviousDistinctPoint(path, path.length - 2, end)
+    const previous = this._findPreviousDistinctPoint(path, path.length - 2, end)
     if (previous) {
-      this.appendOpenArrow(schema, end, previous, color, width, opacity)
+      this._appendOpenArrow(schema, end, previous, color, width, opacity)
     }
   }
 
-  private appendOpenArrow(
+  private _appendOpenArrow(
     schema: NovaSchema,
     point: ModelerPoint,
     previous: ModelerPoint,
@@ -190,7 +190,7 @@ export class BpmnMessageFlowView<E extends EventList = Record<string, any>>
     })
   }
 
-  private findPreviousDistinctPoint(path: Array<ModelerPoint>, from: number, point: ModelerPoint): ModelerPoint | null {
+  private _findPreviousDistinctPoint(path: Array<ModelerPoint>, from: number, point: ModelerPoint): ModelerPoint | null {
     for (let index = from; index >= 0; index -= 1) {
       const candidate = path[index]!
       if (candidate.x !== point.x || candidate.y !== point.y) {
@@ -200,7 +200,7 @@ export class BpmnMessageFlowView<E extends EventList = Record<string, any>>
     return null
   }
 
-  private findNextDistinctPoint(path: Array<ModelerPoint>, from: number, point: ModelerPoint): ModelerPoint | null {
+  private _findNextDistinctPoint(path: Array<ModelerPoint>, from: number, point: ModelerPoint): ModelerPoint | null {
     for (let index = from; index < path.length; index += 1) {
       const candidate = path[index]!
       if (candidate.x !== point.x || candidate.y !== point.y) {
@@ -210,7 +210,7 @@ export class BpmnMessageFlowView<E extends EventList = Record<string, any>>
     return null
   }
 
-  private syncViewportTransform(): void {
+  private _syncViewportTransform(): void {
     const scale = Math.max(0.0001, this.props.viewport.scale)
     this.options({
       x: this.props.viewport.x,
@@ -223,29 +223,29 @@ export class BpmnMessageFlowView<E extends EventList = Record<string, any>>
     })
   }
 
-  private resolveStroke(): string {
+  private _resolveStroke(): string {
     const style = this.props.element.style ?? {}
     if (this.props.preview) {
-      return String(style.stroke ?? this.resolveThemeColor('bpmnFlowPreviewStroke'))
+      return String(style.stroke ?? this._resolveThemeColor('bpmnFlowPreviewStroke'))
     }
     if (this.props.selected) {
-      return String(style.selectedStroke ?? this.resolveThemeColor('bpmnFlowSelectedStroke'))
+      return String(style.selectedStroke ?? this._resolveThemeColor('bpmnFlowSelectedStroke'))
     }
-    return String(style.stroke ?? this.resolveThemeColor('bpmnFlowStroke'))
+    return String(style.stroke ?? this._resolveThemeColor('bpmnFlowStroke'))
   }
 
-  private resolveStrokeWidth(): number {
-    const width = Number(this.props.element.style?.strokeWidth ?? this.resolveThemeNumber('bpmnFlowStrokeWidth'))
-    const normalized = Number.isFinite(width) && width > 0 ? width : this.resolveThemeNumber('bpmnFlowStrokeWidth')
+  private _resolveStrokeWidth(): number {
+    const width = Number(this.props.element.style?.strokeWidth ?? this._resolveThemeNumber('bpmnFlowStrokeWidth'))
+    const normalized = Number.isFinite(width) && width > 0 ? width : this._resolveThemeNumber('bpmnFlowStrokeWidth')
     return normalized
   }
 
-  private resolveThemeColor(token: ModelerThemeTokenKey): string {
+  private _resolveThemeColor(token: ModelerThemeTokenKey): string {
     const fallback = String(MODELER_THEME_FALLBACKS[token])
     return this.nova.theme.resolve(MODELER_THEME_TOKENS[token], fallback) ?? fallback
   }
 
-  private resolveThemeNumber(token: ModelerThemeTokenKey): number {
+  private _resolveThemeNumber(token: ModelerThemeTokenKey): number {
     const fallback = Number(MODELER_THEME_FALLBACKS[token])
     const raw = this.nova.theme.resolve(MODELER_THEME_TOKENS[token], String(fallback)) ?? fallback
     const value = typeof raw === 'number' ? raw : Number(raw)

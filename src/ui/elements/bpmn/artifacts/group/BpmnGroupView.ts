@@ -94,16 +94,16 @@ export class BpmnGroupView<E extends EventList = Record<string, any>>
 
   render(): void {
     super.render()
-    this.renderer.schema(this.createSchema())
+    this.renderer.schema(this._createSchema())
   }
 
-  private createSchema(): NovaSchema {
+  private _createSchema(): NovaSchema {
     const style = this.props.element.style ?? {}
     const stroke = this.props.selected
-      ? String(style.selectedStroke ?? this.resolveThemeColor('elementSelectedStroke'))
-      : String(style.stroke ?? this.resolveThemeColor('elementStroke'))
-    const strokeWidth = this.resolveStyleNumber(style.strokeWidth, 'elementStrokeWidth')
-    const opacity = this.resolveStyleNumber(style.opacity, 'elementOpacity')
+      ? String(style.selectedStroke ?? this._resolveThemeColor('elementSelectedStroke'))
+      : String(style.stroke ?? this._resolveThemeColor('elementStroke'))
+    const strokeWidth = this._resolveStyleNumber(style.strokeWidth, 'elementStrokeWidth')
+    const opacity = this._resolveStyleNumber(style.opacity, 'elementOpacity')
     const schema: NovaSchema = [{
       type: 'rect',
       x: -this.width / 2,
@@ -137,7 +137,7 @@ export class BpmnGroupView<E extends EventList = Record<string, any>>
         height: layout.rect.height,
         clip: true,
         styles: {
-          color: this.resolveThemeColor('bpmnTaskTextColor'),
+          color: this._resolveThemeColor('bpmnTaskTextColor'),
           font: {
             family: layout.fontFamily,
             size: layout.fontSize,
@@ -152,17 +152,17 @@ export class BpmnGroupView<E extends EventList = Record<string, any>>
     return schema
   }
 
-  private resolveStyleNumber(value: unknown, token: ModelerThemeTokenKey): number {
+  private _resolveStyleNumber(value: unknown, token: ModelerThemeTokenKey): number {
     const parsed = typeof value === 'number' ? value : Number(value)
-    return Number.isFinite(parsed) ? parsed : this.resolveThemeNumber(token)
+    return Number.isFinite(parsed) ? parsed : this._resolveThemeNumber(token)
   }
 
-  private resolveThemeColor(token: ModelerThemeTokenKey): string {
+  private _resolveThemeColor(token: ModelerThemeTokenKey): string {
     const fallback = String(MODELER_THEME_FALLBACKS[token])
     return this.nova.theme.resolve(MODELER_THEME_TOKENS[token], fallback) ?? fallback
   }
 
-  private resolveThemeNumber(token: ModelerThemeTokenKey): number {
+  private _resolveThemeNumber(token: ModelerThemeTokenKey): number {
     const fallback = Number(MODELER_THEME_FALLBACKS[token])
     const raw = this.nova.theme.resolve(MODELER_THEME_TOKENS[token], String(fallback)) ?? fallback
     const value = typeof raw === 'number' ? raw : Number(raw)

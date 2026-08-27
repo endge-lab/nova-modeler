@@ -12,8 +12,8 @@ const MIN_WAYPOINT_DISTANCE_PX = 4
 
 export class ElementsRouteOptimizer {
   constructor(
-    private readonly geometry: ElementsGeometry,
-    private readonly edges: ElementsEdges,
+    private readonly _geometry: ElementsGeometry,
+    private readonly _edges: ElementsEdges,
   ) {}
 
   optimizeWaypoints(
@@ -25,15 +25,15 @@ export class ElementsRouteOptimizer {
     const collinearTolerance = COLLINEAR_TOLERANCE_PX / scale
     const minDistance = MIN_WAYPOINT_DISTANCE_PX / scale
     let next = waypoints.map(point => ({ x: point.x, y: point.y }))
-    next = this.removeNearDuplicates(next, minDistance)
-    return this.removeCollinear(context, element, next, collinearTolerance)
+    next = this._removeNearDuplicates(next, minDistance)
+    return this._removeCollinear(context, element, next, collinearTolerance)
   }
 
-  private removeNearDuplicates(points: Array<ModelerEdgeWaypoint>, minDistance: number): Array<ModelerEdgeWaypoint> {
+  private _removeNearDuplicates(points: Array<ModelerEdgeWaypoint>, minDistance: number): Array<ModelerEdgeWaypoint> {
     const result: Array<ModelerEdgeWaypoint> = []
     for (const point of points) {
       const previous = result[result.length - 1]
-      if (previous && this.geometry.distance(previous, point) < minDistance) {
+      if (previous && this._geometry.distance(previous, point) < minDistance) {
         continue
       }
       result.push(point)
@@ -41,7 +41,7 @@ export class ElementsRouteOptimizer {
     return result
   }
 
-  private removeCollinear(
+  private _removeCollinear(
     context: ModelerPluginContext,
     element: ModelerEdgeElement,
     waypoints: Array<ModelerEdgeWaypoint>,
@@ -55,7 +55,7 @@ export class ElementsRouteOptimizer {
         const probe = result[index]!
         const testWaypoints = result.filter((_point, itemIndex) => itemIndex !== index)
         const testElement = { ...element, waypoints: testWaypoints }
-        const path = this.edges.createPath(context, testElement)
+        const path = this._edges.createPath(context, testElement)
         const previous = path[index]!
         const next = path[index + 1]!
         if (previous && next && distanceToSegment(probe, previous, next) <= tolerance) {

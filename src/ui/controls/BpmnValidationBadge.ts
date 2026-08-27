@@ -78,7 +78,7 @@ export class BpmnValidationBadge<E extends EventList = Record<string, any>>
   extends NovaComponentNode<BpmnValidationBadgeResolvedProps, Record<string, never>, Record<string, never>, BpmnValidationBadgeProps, E> {
   readonly [NOVA_UI_LAYOUT_TARGET] = true as const
 
-  private externalLayout = false
+  private _externalLayout = false
 
   constructor(
     app: NovaApp<E>,
@@ -94,7 +94,7 @@ export class BpmnValidationBadge<E extends EventList = Record<string, any>>
       interactive: props.visible,
       zIndex: props.zIndex,
     })
-    this.setupEvents()
+    this._setupEvents()
   }
 
   static normalizeProps(props: BpmnValidationBadgeProps = {}): BpmnValidationBadgeResolvedProps {
@@ -112,7 +112,7 @@ export class BpmnValidationBadge<E extends EventList = Record<string, any>>
   override setProps(patch: BpmnValidationBadgeProps): this {
     super.setProps(patch as Partial<BpmnValidationBadgeResolvedProps>)
     this.props = BpmnValidationBadge.normalizeProps(this.props)
-    if (!this.externalLayout) {
+    if (!this._externalLayout) {
       this.options({
         width: BADGE_WIDTH,
         height: BADGE_HEIGHT,
@@ -124,7 +124,7 @@ export class BpmnValidationBadge<E extends EventList = Record<string, any>>
   }
 
   applyLayoutRect(rect: NovaUiLayoutRect): boolean {
-    this.externalLayout = true
+    this._externalLayout = true
     const changed = this.x !== rect.x || this.y !== rect.y || this.width !== rect.width || this.height !== rect.height
     this.options({
       x: rect.x,
@@ -150,12 +150,12 @@ export class BpmnValidationBadge<E extends EventList = Record<string, any>>
       this.renderer.schema([])
       return
     }
-    this.syncCursor()
-    this.renderer.schema(this.createSchema())
+    this._syncCursor()
+    this.renderer.schema(this._createSchema())
   }
 
-  private createSchema(): NovaSchema {
-    const result = this.resolveResult()
+  private _createSchema(): NovaSchema {
+    const result = this._resolveResult()
     const valid = result.status === 'valid'
     const colors = valid
       ? {
@@ -219,22 +219,22 @@ export class BpmnValidationBadge<E extends EventList = Record<string, any>>
     ]
   }
 
-  private resolveResult(): ModelerValidationResult {
+  private _resolveResult(): ModelerValidationResult {
     return this.props.result
       ?? this.props.controller?.getPluginContext().store.inject(BPMN_VALIDATION_RESULT_KEY)
       ?? DEFAULT_VALIDATION_RESULT
   }
 
-  private setupEvents(): void {
-    this.on('mouseenter', () => this.syncCursor())
-    this.on('mousemove', () => this.syncCursor())
-    this.on('mouseleave', () => this.setCursor(null))
+  private _setupEvents(): void {
+    this.on('mouseenter', () => this._syncCursor())
+    this.on('mousemove', () => this._syncCursor())
+    this.on('mouseleave', () => this._setCursor(null))
     this.on('mousedown', (event) => {
-      const result = this.resolveResult()
+      const result = this._resolveResult()
       if (result.status !== 'invalid') {
         return false
       }
-      this.resolveRootApi()?.openDialog({
+      this._resolveRootApi()?.openDialog({
         id: this.props.dialogId,
         type: this.props.dialogType,
         width: MODELER_BPMN_VALIDATION_DIALOG_WIDTH,
@@ -248,15 +248,15 @@ export class BpmnValidationBadge<E extends EventList = Record<string, any>>
     })
   }
 
-  private syncCursor(): void {
-    this.setCursor(this.resolveResult().status === 'invalid' ? 'button' : null)
+  private _syncCursor(): void {
+    this._setCursor(this._resolveResult().status === 'invalid' ? 'button' : null)
   }
 
-  private setCursor(cursor: 'button' | null): void {
+  private _setCursor(cursor: 'button' | null): void {
     this.options({ cursorContext: { bpmnValidationBadgeCursor: cursor ?? 'none' } })
   }
 
-  private resolveRootApi(): RootApi | null {
+  private _resolveRootApi(): RootApi | null {
     return findNovaUiRoot(this)?.getApi?.()
       ?? (this.props.rootId ? this.nova.components.api<RootApi>(this.props.rootId) : undefined)
       ?? null

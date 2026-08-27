@@ -1,33 +1,33 @@
 import type { ModelerEdgeElement } from '@/domain/types/index'
 
 export class ElementsEdgePreview {
-  private element: ModelerEdgeElement | null = null
-  private readonly listeners = new Set<() => void>()
+  private _element: ModelerEdgeElement | null = null
+  private readonly _listeners = new Set<() => void>()
 
   set(element: ModelerEdgeElement): void {
-    this.element = cloneEdgeElement(element)
-    this.notify()
+    this._element = cloneEdgeElement(element)
+    this._notify()
   }
 
   get(): ModelerEdgeElement | null {
-    return this.element ? cloneEdgeElement(this.element) : null
+    return this._element ? cloneEdgeElement(this._element) : null
   }
 
   clear(): void {
-    if (!this.element) {
+    if (!this._element) {
       return
     }
-    this.element = null
-    this.notify()
+    this._element = null
+    this._notify()
   }
 
   subscribe(listener: () => void): () => void {
-    this.listeners.add(listener)
-    return () => this.listeners.delete(listener)
+    this._listeners.add(listener)
+    return () => this._listeners.delete(listener)
   }
 
-  private notify(): void {
-    for (const listener of this.listeners) {
+  private _notify(): void {
+    for (const listener of this._listeners) {
       listener()
     }
   }
