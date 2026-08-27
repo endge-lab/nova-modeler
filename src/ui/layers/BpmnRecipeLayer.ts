@@ -311,7 +311,7 @@ export class BpmnBatchRuntime {
     this._textBatch.y = copyFloat32(this._textBatch.y, nextCapacity)
     this._textBatch.width = copyFloat32(this._textBatch.width, nextCapacity)
     this._textBatch.height = copyFloat32(this._textBatch.height, nextCapacity)
-    const nextText = new Array<string>(nextCapacity)
+    const nextText = Array.from({ length: nextCapacity }) as string[]
     for (let index = 0; index < (this._textBatch.text as Array<string>).length; index += 1) {
       nextText[index] = this._textBatch.text[index] ?? ''
     }

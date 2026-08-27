@@ -60,8 +60,8 @@ export interface ModelerController {
   unmount: () => void
   configure: (options: ControllerOptions) => void
   resize: (width: number, height: number) => void
-  use(plugin: ModelerPlugin): this
-  unuse(pluginOrId: ModelerPlugin | string): this
+  use: (plugin: ModelerPlugin) => this
+  unuse: (pluginOrId: ModelerPlugin | string) => this
   getModel: () => ModelerModel
   setModel: (model: ModelerModel | ModelerModelInput) => ModelerModel
   applyCommand: (command: ModelerCommand) => ModelerModel

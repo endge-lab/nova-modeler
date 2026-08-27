@@ -32,6 +32,8 @@ export interface BpmnConnectionVariantDraft extends ModelerElementVariantDraft {
   conditionExpression?: string
 }
 
+const BPMN_EXPRESSION_PREFIX = '$'
+
 const CONNECTION_FAMILIES: Array<{
   id: BpmnConnectionFamily
   title: string
@@ -102,7 +104,7 @@ export function getBpmnConnectionVariantDescriptor(
         kind: 'input',
         title: 'Condition expression',
         value: typedDraft.conditionExpression ?? '',
-        placeholder: '${ approved }',
+        placeholder: `${BPMN_EXPRESSION_PREFIX}{ approved }`,
         options: [],
       })
     }

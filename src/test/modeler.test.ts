@@ -73,6 +73,8 @@ import {
   toggleBpmnParticipantSingleLane,
 } from '@/index'
 
+const BPMN_EXPRESSION_PREFIX = '$'
+
 class TestMultiLayerPlugin extends PluginBase {
   readonly id = 'test-plugin'
 
@@ -311,7 +313,7 @@ describe('nova modeler minimal kernel', () => {
       flowType: 'conditionalSequence',
       source: { elementId: gateway.id, point: { x: 248, y: 146 } },
       target: { elementId: reject.id, point: { x: 340, y: 218 } },
-      data: { name: 'Needs changes', conditionExpression: '${ approved == false }' },
+      data: { name: 'Needs changes', conditionExpression: `${BPMN_EXPRESSION_PREFIX}{ approved == false }` },
     })
     const xml = new BpmnExporter().export({
       model: createModelerModel({
@@ -323,7 +325,7 @@ describe('nova modeler minimal kernel', () => {
     expect(xml).toContain('<exclusiveGateway id="Gateway_decision" default="Flow_default-path" />')
     expect(xml).toContain('<sequenceFlow id="Flow_default-path" name="Default path" sourceRef="Gateway_decision" targetRef="Task_approve" />')
     expect(xml).toContain('<sequenceFlow id="Flow_reject-path" name="Needs changes" sourceRef="Gateway_decision" targetRef="Task_reject">')
-    expect(xml).toContain('<conditionExpression xsi:type="tFormalExpression">${ approved == false }</conditionExpression>')
+    expect(xml).toContain(`<conditionExpression xsi:type="tFormalExpression">${BPMN_EXPRESSION_PREFIX}{ approved == false }</conditionExpression>`)
   })
 
   it('exports BPMN global event definitions and references', () => {
@@ -3038,12 +3040,12 @@ describe('nova modeler minimal kernel', () => {
       element: currentFlow,
       draft: provider.createDraft?.(context, currentFlow) ?? {},
       control: conditionControl,
-      option: { id: 'conditionExpression:input', title: '${ approved }', data: { conditionExpression: '${ approved }' } },
+      option: { id: 'conditionExpression:input', title: `${BPMN_EXPRESSION_PREFIX}{ approved }`, data: { conditionExpression: `${BPMN_EXPRESSION_PREFIX}{ approved }` } },
     })
     expect(controller.getModel().elements.find(element => element.id === flow.id)).toMatchObject({
       data: {
         name: 'Approved path',
-        conditionExpression: '${ approved }',
+        conditionExpression: `${BPMN_EXPRESSION_PREFIX}{ approved }`,
       },
     })
 
