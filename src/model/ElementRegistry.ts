@@ -1,5 +1,5 @@
 import type {
-  ModelerElementDefinition,
+  AnyModelerElementDefinition,
   ModelerElementRegistry,
 } from '@/domain/types/index'
 import { ModelerElementDefinitions } from '@/elements/elements'
@@ -8,12 +8,12 @@ import { ModelerElementDefinitions } from '@/elements/elements'
  * Хранит доступные definitions элементов Modeler.
  */
 export class ElementRegistry implements ModelerElementRegistry {
-  private readonly _definitions = new Map<string, ModelerElementDefinition>()
+  private readonly _definitions = new Map<string, AnyModelerElementDefinition>()
 
   /**
    * Регистрирует definition элемента.
    */
-  register(definition: ModelerElementDefinition): this {
+  register(definition: AnyModelerElementDefinition): this {
     this._definitions.set(definition.type, definition)
     return this
   }
@@ -21,7 +21,7 @@ export class ElementRegistry implements ModelerElementRegistry {
   /**
    * Регистрирует список definitions.
    */
-  registerMany(definitions: Array<ModelerElementDefinition>): this {
+  registerMany(definitions: Array<AnyModelerElementDefinition>): this {
     definitions.forEach(definition => this.register(definition))
     return this
   }
@@ -29,14 +29,14 @@ export class ElementRegistry implements ModelerElementRegistry {
   /**
    * Возвращает definition элемента, если она зарегистрирована.
    */
-  get(type: string): ModelerElementDefinition | undefined {
+  get(type: string): AnyModelerElementDefinition | undefined {
     return this._definitions.get(type)
   }
 
   /**
    * Возвращает definition элемента или выбрасывает ошибку.
    */
-  require(type: string): ModelerElementDefinition {
+  require(type: string): AnyModelerElementDefinition {
     const definition = this.get(type)
     if (!definition) {
       throw new Error(`[ElementRegistry] Element definition "${type}" is not registered.`)
@@ -47,7 +47,7 @@ export class ElementRegistry implements ModelerElementRegistry {
   /**
    * Возвращает все зарегистрированные definitions.
    */
-  getAll(): ReadonlyArray<ModelerElementDefinition> {
+  getAll(): ReadonlyArray<AnyModelerElementDefinition> {
     return [...this._definitions.values()]
   }
 }
@@ -56,7 +56,7 @@ export class ElementRegistry implements ModelerElementRegistry {
  * Создает registry с базовыми элементами Modeler.
  */
 export function createModelerElementRegistry(
-  definitions: Array<ModelerElementDefinition> = ModelerElementDefinitions,
+  definitions: Array<AnyModelerElementDefinition> = ModelerElementDefinitions,
 ): ElementRegistry {
   return new ElementRegistry().registerMany(definitions)
 }

@@ -56,3 +56,6 @@ export interface ModelerElementDefinition<TElement extends ModelerElement = Mode
   hitTestPart?: (context: ModelerElementHitTestContext, element: TElement, localPoint: ModelerPoint) => ModelerHitTarget | null | undefined
   getTooltip?: (context: ModelerElementHitTestContext, element: TElement) => TooltipInput | null | undefined
 }
+
+/** Стирает конкретный element subtype только на границе heterogeneous registry. */
+export type AnyModelerElementDefinition = ModelerElementDefinition<any>

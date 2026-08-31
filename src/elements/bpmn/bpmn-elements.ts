@@ -1,4 +1,4 @@
-import type { ModelerElementDefinition } from '@/domain/types/index'
+import type { AnyModelerElementDefinition } from '@/domain/types/index'
 import { BpmnGroupDefinition } from '@/elements/bpmn/artifacts/group/bpmn-group.definition'
 import { BpmnTextAnnotationDefinition } from '@/elements/bpmn/artifacts/text-annotation/bpmn-text-annotation.definition'
 import { BpmnAssociationDefinition } from '@/elements/bpmn/association/bpmn-association.definition'
@@ -15,7 +15,7 @@ import { BpmnParticipantDefinition } from '@/elements/bpmn/participant/bpmn-part
 import { BpmnSubProcessDefinition } from '@/elements/bpmn/sub-process/bpmn-sub-process.definition'
 import { BpmnTaskDefinition } from '@/elements/bpmn/task/bpmn-task.definition'
 
-export const BpmnElementDefinitions: Array<ModelerElementDefinition> = [
+export const BpmnElementDefinitions: Array<AnyModelerElementDefinition> = [
   BpmnFlowDefinition,
   BpmnAssociationDefinition,
   BpmnMessageFlowDefinition,
