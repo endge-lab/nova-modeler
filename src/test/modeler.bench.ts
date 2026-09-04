@@ -12,8 +12,8 @@ import insuranceClaimDemoModel from '../../../../insurance-bpmn-full.json'
 
 const diagnosticsIt = isDiagnosticsBenchEnabled() ? it : it.skip
 
-describe('nova modeler minimal benchmarks', () => {
-  it('keeps viewport operations and hit-test bounded', () => {
+describe('минимальные бенчмарки Nova Modeler', () => {
+  it('удерживает операции viewport и hit-test в заданных границах', () => {
     const controller = createModelerController({ model: createModelerModel() })
     controller.mount({
       id: 'bench-host',
@@ -46,7 +46,7 @@ describe('nova modeler minimal benchmarks', () => {
     expect(elapsed).toBeLessThan(900)
   })
 
-  it('creates minimap plugin without model element overhead', () => {
+  it('создаёт plugin minimap без накладных расходов элементов модели', () => {
     const started = performance.now()
     for (let index = 0; index < 10_000; index += 1) {
       MiniMapPlugin.create({ width: 160, height: 100 })
@@ -54,7 +54,7 @@ describe('nova modeler minimal benchmarks', () => {
     expect(performance.now() - started).toBeLessThan(120)
   })
 
-  it('keeps tiny-zoom grid generation under a fixed dot budget', () => {
+  it('удерживает генерацию сетки при малом масштабе в фиксированном бюджете точек', () => {
     const started = performance.now()
     let totalDots = 0
     for (let index = 0; index < 1_000; index += 1) {
@@ -75,7 +75,7 @@ describe('nova modeler minimal benchmarks', () => {
     expect(performance.now() - started).toBeLessThan(700)
   })
 
-  it('keeps procedural grid payload to one GPU pattern item per frame', () => {
+  it('ограничивает payload процедурной сетки одним элементом GPU pattern на кадр', () => {
     const started = performance.now()
     let schemaItems = 0
     let totalDots = 0
@@ -103,7 +103,7 @@ describe('nova modeler minimal benchmarks', () => {
     [500, 120],
     [2_000, 280],
     [10_000, 1_200],
-  ])('keeps retained BPMN node batches stable for %i sparse nodes', (count, budgetMs) => {
+  ])('сохраняет retained-пакеты узлов BPMN стабильными для %i разреженных узлов', (count, budgetMs) => {
     const runtime = new BpmnBatchRuntime()
     const nodes = createSparseBpmnRecipeNodes(count)
     const started = performance.now()
@@ -124,7 +124,7 @@ describe('nova modeler minimal benchmarks', () => {
     expect(performance.now() - started).toBeLessThan(budgetMs)
   })
 
-  it('keeps visibility queries bounded for 10k nodes and 10k edges', () => {
+  it('удерживает запросы видимости в границах для 10 тысяч узлов и рёбер', () => {
     const nodes = createSparseBpmnRecipeNodes(10_000)
     const edges = createSparseBpmnRecipeEdges(10_000, nodes)
     const model = createModelerModel({ elements: [...nodes, ...edges] })
@@ -159,7 +159,7 @@ describe('nova modeler minimal benchmarks', () => {
     expect(performance.now() - started).toBeLessThan(260)
   })
 
-  it('keeps insurance-like swimlane pan and zoom retained', () => {
+  it('сохраняет retained pan и zoom для страховой swimlane-схемы', () => {
     if (!URL.createObjectURL) {
       URL.createObjectURL = vi.fn(() => 'blob:nova-modeler-bench')
     }
@@ -231,7 +231,7 @@ describe('nova modeler minimal benchmarks', () => {
     app.destroy()
   })
 
-  it('keeps the full insurance BPMN demo pan and zoom on retained recipe layers', () => {
+  it('сохраняет pan и zoom полной страховой BPMN-демонстрации на retained-слоях recipe', () => {
     if (!URL.createObjectURL) {
       URL.createObjectURL = vi.fn(() => 'blob:nova-modeler-bench')
     }
@@ -306,7 +306,7 @@ describe('nova modeler minimal benchmarks', () => {
     app.destroy()
   })
 
-  it('keeps full insurance WebGL pan uploads bounded after resident schema batch warmup', () => {
+  it('ограничивает загрузки WebGL pan полной страховой схемы после прогрева резидентного пакета', () => {
     if (!URL.createObjectURL) {
       URL.createObjectURL = vi.fn(() => 'blob:nova-modeler-bench')
     }
@@ -716,7 +716,7 @@ describe('nova modeler minimal benchmarks', () => {
     expect(report.raphRun.totalMs).toBeLessThan(10_000)
   })
 
-  it('writes BPMN batch payload only for visible recipe nodes', () => {
+  it('записывает payload BPMN-пакета только для видимых узлов recipe', () => {
     const nodes = createSparseBpmnRecipeNodes(10_000)
     const model = createModelerModel({ elements: nodes })
     const visibility = new ModelerVisibilityRuntime()
@@ -742,7 +742,7 @@ describe('nova modeler minimal benchmarks', () => {
     expect(performance.now() - started).toBeLessThan(60)
   })
 
-  it('keeps virtual anchor path resolving bounded for large BPMN graphs', () => {
+  it('ограничивает разрешение пути виртуального anchor для больших BPMN-графов', () => {
     const nodes = Array.from({ length: 10_000 }, (_item, index) => {
       const x = (index % 100) * 180
       const y = Math.floor(index / 100) * 120
@@ -773,7 +773,7 @@ describe('nova modeler minimal benchmarks', () => {
     expect(performance.now() - started).toBeLessThan(900)
   })
 
-  it('keeps route optimizer and edge segment hit-test bounded', () => {
+  it('удерживает оптимизатор маршрутов и hit-test сегментов рёбер в границах', () => {
     const source = createBpmnEventElement({ id: 'source', x: 100, y: 100 })
     const target = createBpmnTaskElement({ id: 'target', x: 900, y: 100 })
     const flow = createBpmnFlowElement({
@@ -805,7 +805,7 @@ describe('nova modeler minimal benchmarks', () => {
     expect(performance.now() - started).toBeLessThan(1000)
   })
 
-  it('keeps large BPMN structural validation bounded', () => {
+  it('ограничивает структурную проверку больших BPMN-схем', () => {
     const model = createModelerModel({ elements: createLargeValidBpmnElements(10_000, 10_000) })
     const started = performance.now()
     const result = BpmnValidationRuntime.validate(model)
@@ -813,7 +813,7 @@ describe('nova modeler minimal benchmarks', () => {
     expect(performance.now() - started).toBeLessThan(250)
   })
 
-  it('keeps repeated small BPMN structural validation bounded', () => {
+  it('ограничивает повторную структурную проверку малых BPMN-схем', () => {
     const elements = createSmallValidBpmnElements()
     const started = performance.now()
     let validCount = 0
@@ -827,7 +827,7 @@ describe('nova modeler minimal benchmarks', () => {
     expect(performance.now() - started).toBeLessThan(120)
   })
 
-  it('keeps BPMN validation plugin debounce bounded during rapid model updates', () => {
+  it('ограничивает debounce plugin проверки BPMN при быстрых обновлениях модели', () => {
     vi.useFakeTimers()
     const validate = vi.fn(BpmnValidationRuntime.validate)
     const controller = createModelerController({

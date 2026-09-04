@@ -93,7 +93,7 @@ class TestMultiLayerPlugin extends PluginBase {
   }
 }
 
-describe('nova modeler minimal kernel', () => {
+describe('минимальное ядро Nova Modeler', () => {
   beforeEach(() => {
     if (!URL.createObjectURL) {
       URL.createObjectURL = vi.fn(() => 'blob:nova-modeler-test')
@@ -105,7 +105,7 @@ describe('nova modeler minimal kernel', () => {
     MODEL_ELEMENTS_RUNTIME.contextPadAnchors.clear()
   })
 
-  it('creates and mutates viewport-only model', () => {
+  it('создаёт и изменяет модель только viewport', () => {
     const model = createModelerModel({ id: 'demo', viewport: { scale: 1.5 }, canvas: { width: 5000 } })
     expect(model.id).toBe('demo')
     expect(model.viewport.scale).toBe(1.5)
@@ -181,7 +181,7 @@ describe('nova modeler minimal kernel', () => {
     expect(rotated.elements[0]?.rotation).toBe(Math.PI / 4)
   })
 
-  it('exports BPMN 2.0 XML with DI bounds and waypoints', () => {
+  it('экспортирует XML BPMN 2.0 с границами DI и waypoints', () => {
     const start = createBpmnEventElement({ id: 'start', x: 40, y: 90, eventPosition: 'start' })
     const task = createBpmnTaskElement({ id: 'task', x: 160, y: 74, name: 'Review request', taskType: 'user' })
     const flow = createBpmnFlowElement({
@@ -203,7 +203,7 @@ describe('nova modeler minimal kernel', () => {
     expect(xml).toContain('<di:waypoint x="160" y="114" />')
   })
 
-  it('exports external label DI bounds for events, gateways, sequence flows and message flows', () => {
+  it('экспортирует границы DI внешних меток для events, gateways, sequence flows и message flows', () => {
     const start = createBpmnEventElement({
       id: 'label-start',
       x: 40,
@@ -249,7 +249,7 @@ describe('nova modeler minimal kernel', () => {
     controller.unmount()
   })
 
-  it('exports BPMN event definitions with catch and throw intermediate tags', () => {
+  it('экспортирует определения событий BPMN с промежуточными тегами catch и throw', () => {
     const catchEvent = createBpmnEventElement({
       id: 'catch-message',
       eventPosition: 'intermediate',
@@ -297,7 +297,7 @@ describe('nova modeler minimal kernel', () => {
     expect(xml).toContain('<linkEventDefinition id="Event_link-throw_LinkDefinition" name="handoff" target="Event_link-catch_LinkDefinition" />')
   })
 
-  it('exports BPMN default and conditional sequence flow metadata', () => {
+  it('экспортирует метаданные default и conditional sequence flow BPMN', () => {
     const gateway = createBpmnGatewayElement({ id: 'decision', x: 220, y: 90 })
     const approve = createBpmnTaskElement({ id: 'approve', x: 340, y: 74, name: 'Approve' })
     const reject = createBpmnTaskElement({ id: 'reject', x: 340, y: 174, name: 'Reject' })
@@ -328,7 +328,7 @@ describe('nova modeler minimal kernel', () => {
     expect(xml).toContain(`<conditionExpression xsi:type="tFormalExpression">${BPMN_EXPRESSION_PREFIX}{ approved == false }</conditionExpression>`)
   })
 
-  it('exports BPMN global event definitions and references', () => {
+  it('экспортирует глобальные определения событий BPMN и ссылки', () => {
     const task = createBpmnTaskElement({ id: 'task', x: 160, y: 74, name: 'Review request' })
     const messageStart = createBpmnEventElement({
       id: 'message-start',
@@ -370,7 +370,7 @@ describe('nova modeler minimal kernel', () => {
     expect(xml).toContain('<escalationEventDefinition escalationRef="Escalation_level-two" />')
   })
 
-  it('exports BPMN collaboration participants and message flows', () => {
+  it('экспортирует участников collaboration BPMN и message flows', () => {
     const poolA = createBpmnParticipantElement({ id: 'sales', x: 80, y: 80, name: 'Sales' })
     const poolB = createBpmnParticipantElement({ id: 'support', x: 80, y: 380, name: 'Support' })
     const sourceTask = createBpmnTaskElement({ id: 'send-request', x: 240, y: 120, name: 'Send request' })
@@ -399,7 +399,7 @@ describe('nova modeler minimal kernel', () => {
     expect(xml).toContain('<bpmndi:BPMNEdge id="MessageFlow_request-flow_di" bpmnElement="MessageFlow_request-flow">')
   })
 
-  it('exports BPMN data objects, data stores and data associations', () => {
+  it('экспортирует data objects, data stores и data associations BPMN', () => {
     const dataObject = createBpmnDataObjectElement({ id: 'payload', x: 80, y: 80, name: 'Payload' })
     const task = createBpmnTaskElement({ id: 'task', x: 240, y: 90, name: 'Handle payload' })
     const dataStore = createBpmnDataStoreElement({ id: 'archive', x: 440, y: 82, name: 'Archive' })
@@ -434,7 +434,7 @@ describe('nova modeler minimal kernel', () => {
     expect(xml).toContain('<bpmndi:BPMNEdge id="DataAssociation_input_di" bpmnElement="DataAssociation_input">')
   })
 
-  it('exports PNG on a white tight canvas with padding', async () => {
+  it('экспортирует PNG на белом плотно обрезанном canvas с padding', async () => {
     const ctx = create2DContextStub()
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(ctx)
     vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation((callback: BlobCallback, mime?: string) => {
@@ -455,7 +455,7 @@ describe('nova modeler minimal kernel', () => {
     expect(ctx.translate).toHaveBeenCalledWith(-30, -64)
   })
 
-  it('resolves selection modifiers and delete shortcuts from options', () => {
+  it('разрешает модификаторы выбора и сочетания удаления из параметров', () => {
     const options = normalizeModelerOptions().current.interaction?.selection
     expect(SelectionRuntime.resolvePointerSelection({
       current: ['a'],
@@ -525,7 +525,7 @@ describe('nova modeler minimal kernel', () => {
     })
   })
 
-  it('publishes actions, tools, palette items and shortcuts from plugins and element definitions', () => {
+  it('публикует Actions, инструменты, элементы palette и сочетания из plugins и определений элементов', () => {
     const controller = createModelerController({
       model: createModelerModel(),
       plugins: [MarqueeSelectionPlugin.create()],
@@ -565,7 +565,7 @@ describe('nova modeler minimal kernel', () => {
     controller.unmount()
   })
 
-  it('publishes BPMN event variants and applies them without replacing the element', () => {
+  it('публикует варианты событий BPMN и применяет их без замены элемента', () => {
     const event = createBpmnEventElement({
       id: 'event-1',
       x: 120,
@@ -693,7 +693,7 @@ describe('nova modeler minimal kernel', () => {
     controller.unmount()
   })
 
-  it('normalizes impossible BPMN event definitions to the nearest valid event', () => {
+  it('нормализует невозможные определения событий BPMN к ближайшему корректному событию', () => {
     expect(createBpmnEventElement({
       id: 'bad-start',
       eventPosition: 'start',
@@ -748,7 +748,7 @@ describe('nova modeler minimal kernel', () => {
     }).data?.name).toBeUndefined()
   })
 
-  it('creates and renames BPMN global definitions from event variants', () => {
+  it('создаёт и переименовывает глобальные определения BPMN из вариантов событий', () => {
     const event = createBpmnEventElement({
       id: 'event-1',
       x: 120,
@@ -841,7 +841,7 @@ describe('nova modeler minimal kernel', () => {
     controller.unmount()
   })
 
-  it('adds, changes, moves and exports BPMN boundary events attached to activities', () => {
+  it('добавляет, изменяет, перемещает и экспортирует boundary events BPMN, присоединённые к activities', () => {
     const task = createBpmnTaskElement({ id: 'task-1', x: 220, y: 100, name: 'Task' })
     const boundary = createBpmnBoundaryEventElement({
       id: 'boundary-1',
@@ -931,7 +931,7 @@ describe('nova modeler minimal kernel', () => {
     controller.unmount()
   })
 
-  it('normalizes BPMN task data, variants, ports and fixed bounds', () => {
+  it('нормализует данные, варианты, порты и фиксированные границы задач BPMN', () => {
     const task = createBpmnTaskElement({
       id: 'task-1',
       x: 160,
@@ -1058,7 +1058,7 @@ describe('nova modeler minimal kernel', () => {
     controller.unmount()
   })
 
-  it('switches BPMN activity root variants while preserving identity and behavior', () => {
+  it('переключает корневые варианты activity BPMN с сохранением identity и поведения', () => {
     const task = createBpmnTaskElement({
       id: 'activity-1',
       x: 160,
@@ -1236,7 +1236,7 @@ describe('nova modeler minimal kernel', () => {
     controller.unmount()
   })
 
-  it('keeps independent scroll positions for multiple lists inside one variant menu', () => {
+  it('сохраняет независимые позиции прокрутки нескольких списков в одном меню вариантов', () => {
     const rect = createBasicRectElement({ id: 'rect-variant-scroll', x: 80, y: 80 })
     const controller = createModelerController({
       model: createModelerModel({
@@ -1307,7 +1307,7 @@ describe('nova modeler minimal kernel', () => {
     controller.unmount()
   })
 
-  it('normalizes BPMN gateway data, variants, ports and diamond hit area', () => {
+  it('нормализует данные, варианты, порты и ромбовидную hit-область gateway BPMN', () => {
     expect(createBpmnGatewayElement({ id: 'gateway-default' })).toMatchObject({
       type: 'bpmn.gateway',
       width: 56,
@@ -1386,7 +1386,7 @@ describe('nova modeler minimal kernel', () => {
     controller.unmount()
   })
 
-  it('publishes BPMN artifact and data elements as base palette blocks', () => {
+  it('публикует artifact и data elements BPMN как базовые блоки palette', () => {
     const textAnnotation = createBpmnTextAnnotationElement({
       id: 'annotation-1',
       text: '',
@@ -1502,7 +1502,7 @@ describe('nova modeler minimal kernel', () => {
     controller.unmount()
   })
 
-  it('publishes BPMN swimlane as one palette block with lane geometry and variants', () => {
+  it('публикует swimlane BPMN как один блок palette с геометрией lane и вариантами', () => {
     const participant = createBpmnParticipantElement({ id: 'pool-1', x: 80, y: 80 })
     const withSecondLane = addBpmnParticipantLane(participant)
     expect(participant).toMatchObject({
@@ -1592,7 +1592,7 @@ describe('nova modeler minimal kernel', () => {
     controller.unmount()
   })
 
-  it('toggles a single BPMN participant lane into compact pool layout', () => {
+  it('переключает единственную lane участника BPMN в компактный layout pool', () => {
     const participant = createBpmnParticipantElement({ id: 'pool-1', x: 80, y: 80, name: 'Client' })
     expect(areBpmnParticipantLaneHeadersVisible(participant)).toBe(true)
 
@@ -1611,7 +1611,7 @@ describe('nova modeler minimal kernel', () => {
     expect(createBpmnParticipantLayout(restored).laneHeaderAreaRect.width).toBe(96)
   })
 
-  it('renders BPMN participants in the container band below links and nodes', () => {
+  it('отрисовывает участников BPMN в полосе контейнера ниже связей и узлов', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const participant = createBpmnParticipantElement({ id: 'pool-1', x: 80, y: 80, width: 520, height: 260 })
     const task = createBpmnTaskElement({ id: 'task-inside-pool', x: 240, y: 120, name: 'Inside pool' })
@@ -1672,7 +1672,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('renders unselected BPMN participants through the container recipe layer', () => {
+  it('отрисовывает невыбранных участников BPMN через слой recipe контейнера', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const participant = createBpmnParticipantElement({
       id: 'pool-recipe',
@@ -1718,7 +1718,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('keeps unselected BPMN participants retained in the container recipe layer across viewport culling changes', () => {
+  it('сохраняет невыбранных участников BPMN в retained-слое recipe контейнера при изменениях отсечения viewport', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const nearParticipant = createBpmnParticipantElement({
       id: 'pool-retained-near',
@@ -1773,7 +1773,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('keeps selected BPMN participants on the precise container view while recipes are active', () => {
+  it('оставляет выбранных участников BPMN в точном представлении контейнера при активных recipes', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const participant = createBpmnParticipantElement({ id: 'pool-selected-recipe', x: 80, y: 80, width: 520, height: 260 })
     const app = Nova.createApp({
@@ -1806,7 +1806,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('renders BPMN participant geometry in retained world-space under viewport scale', () => {
+  it('отрисовывает геометрию участника BPMN в retained-мировом пространстве с учётом масштаба viewport', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const participant = createBpmnParticipantElement({
       id: 'pool-scaled',
@@ -1864,7 +1864,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('renders BPMN participant and lane labels rotated by 90 degrees', () => {
+  it('отрисовывает метки участника и lane BPMN с поворотом на 90 градусов', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const participant = createBpmnParticipantElement({
       id: 'pool-rotated-labels',
@@ -1914,7 +1914,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('updates BPMN participant transform without rebuilding schema when viewport scale changes', () => {
+  it('обновляет transform участника BPMN без перестроения схемы при изменении масштаба viewport', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const participant = createBpmnParticipantElement({
       id: 'pool-dynamic-scale',
@@ -2006,7 +2006,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('normalizes BPMN recipe rendering options', () => {
+  it('нормализует параметры render recipe BPMN', () => {
     expect(normalizeBpmnRecipeRenderingOptions({})).toMatchObject({
       enabled: true,
       mode: 'auto',
@@ -2022,7 +2022,7 @@ describe('nova modeler minimal kernel', () => {
     expect(shouldUseBpmnRecipeRendering({ rendering: { bpmnRecipes: { nodes: false } } }, { x: 0, y: 0, scale: 0.1 })).toBe(false)
   })
 
-  it('keeps BPMN batch objects and revisions stable for unchanged payloads', () => {
+  it('сохраняет объекты и ревизии BPMN-пакетов стабильными для неизменного payload', () => {
     const runtime = new BpmnBatchRuntime()
     const rect: ModelerRect = { x: 120, y: 90, width: 160, height: 100 }
     let writers = runtime.begin()
@@ -2075,7 +2075,7 @@ describe('nova modeler minimal kernel', () => {
     expect(runtime.getSlotMap().get('task-1')).toEqual({ fill: [0], text: [0] })
   })
 
-  it('queries visible BPMN modeler elements through the visibility runtime', () => {
+  it('запрашивает видимые элементы BPMN Modeler через runtime видимости', () => {
     const runtime = new ModelerVisibilityRuntime()
     const visibleTask = createBpmnTaskElement({ id: 'visible-task', x: 120, y: 90 })
     const hiddenTask = createBpmnTaskElement({ id: 'hidden-task', x: 1200, y: 900 })
@@ -2099,7 +2099,7 @@ describe('nova modeler minimal kernel', () => {
     })
   })
 
-  it('shrinks visibility padding in world units when zooming in', () => {
+  it('уменьшает padding видимости в мировых единицах при приближении', () => {
     const runtime = new ModelerVisibilityRuntime()
     const visibleTask = createBpmnTaskElement({ id: 'zoom-visible-task', x: 20, y: 20 })
     const hiddenTask = createBpmnTaskElement({ id: 'zoom-hidden-task', x: 700, y: 20 })
@@ -2121,7 +2121,7 @@ describe('nova modeler minimal kernel', () => {
     })
   })
 
-  it('keeps BPMN edges visible when viewport intersects route bounds', () => {
+  it('сохраняет рёбра BPMN видимыми при пересечении viewport с границами маршрута', () => {
     const runtime = new ModelerVisibilityRuntime()
     const flow = createBpmnFlowElement({
       id: 'route-visible-flow',
@@ -2142,7 +2142,7 @@ describe('nova modeler minimal kernel', () => {
     expect(snapshot.diagnostics.visibleEdges).toBe(1)
   })
 
-  it('forces selected and active hover elements into visibility outside viewport', () => {
+  it('принудительно показывает выбранные и активные hover-элементы вне viewport', () => {
     const runtime = new ModelerVisibilityRuntime()
     const hiddenTask = createBpmnTaskElement({ id: 'forced-task', x: 4000, y: 4000 })
     const hiddenFlow = createBpmnFlowElement({
@@ -2171,7 +2171,7 @@ describe('nova modeler minimal kernel', () => {
     expect(snapshot.diagnostics.forcedElements).toBe(2)
   })
 
-  it('keeps visibility signature stable when viewport-only query returns same elements', () => {
+  it('сохраняет сигнатуру видимости стабильной, когда запрос только viewport возвращает те же элементы', () => {
     const runtime = new ModelerVisibilityRuntime()
     const task = createBpmnTaskElement({ id: 'stable-task', x: 120, y: 90 })
     const hiddenTask = createBpmnTaskElement({ id: 'stable-hidden-task', x: 4000, y: 4000 })
@@ -2200,7 +2200,7 @@ describe('nova modeler minimal kernel', () => {
     expect(second.diagnostics.indexRebuilds).toBe(1)
   })
 
-  it('keeps elements visible when their external label intersects the viewport', () => {
+  it('сохраняет элементы видимыми при пересечении их внешней метки с viewport', () => {
     const runtime = new ModelerVisibilityRuntime()
     const hiddenEvent = createBpmnEventElement({
       id: 'label-visible-event',
@@ -2224,7 +2224,7 @@ describe('nova modeler minimal kernel', () => {
     expect(snapshot.recipeNodes.map(element => element.id)).toEqual([hiddenEvent.id])
   })
 
-  it('uses the BPMN recipe layer for unselected nodes at normal zoom', () => {
+  it('использует слой recipe BPMN для невыбранных узлов при обычном масштабе', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const task = createBpmnTaskElement({ id: 'recipe-task', x: 120, y: 120, name: 'Recipe task' })
     const event = createBpmnEventElement({ id: 'recipe-event', x: 80, y: 136 })
@@ -2267,7 +2267,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('wraps BPMN task labels in the recipe layer like the precise task view', () => {
+  it('переносит метки задач BPMN в слое recipe как точное представление задачи', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
       ...create2DContextStub(),
       measureText: vi.fn((text: string) => ({ width: text.length * 7 })),
@@ -2314,7 +2314,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('wraps BPMN event labels in the recipe layer like the precise event view', () => {
+  it('переносит метки событий BPMN в слое recipe как точное представление события', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
       ...create2DContextStub(),
       measureText: vi.fn((text: string) => ({ width: text.length * 7 })),
@@ -2360,7 +2360,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('updates BPMN recipe text batches when external event label geometry changes', () => {
+  it('обновляет текстовые пакеты recipe BPMN при изменении геометрии внешней метки события', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(createMeasured2DContextStub())
     const event = createBpmnEventElement({
       id: 'recipe-external-label-event',
@@ -2409,7 +2409,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('keeps selected BPMN nodes on the precise view path while recipe rendering is active', () => {
+  it('оставляет выбранные узлы BPMN на пути точного представления при активном render recipe', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const selectedTask = createBpmnTaskElement({ id: 'selected-recipe-task', x: 120, y: 120, name: 'Selected' })
     const event = createBpmnEventElement({ id: 'unselected-recipe-event', x: 80, y: 136 })
@@ -2445,7 +2445,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('renders BPMN event trigger markers in the recipe layer without selection', () => {
+  it('отрисовывает markers триггеров событий BPMN в слое recipe без выбора', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const event = createBpmnEventElement({
       id: 'recipe-event-signal',
@@ -2488,7 +2488,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('renders BPMN gateway markers in the recipe layer without selection', () => {
+  it('отрисовывает markers gateway BPMN в слое recipe без выбора', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const name = 'Gateway approved'
     const gateway = createBpmnGatewayElement({
@@ -2548,7 +2548,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('reports culled sparse BPMN recipe nodes in layer diagnostics', () => {
+  it('сообщает об отсечённых разреженных узлах recipe BPMN в диагностике слоя', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const visibleTask = createBpmnTaskElement({ id: 'diagnostic-visible-task', x: 120, y: 120 })
     const hiddenTask = createBpmnTaskElement({ id: 'diagnostic-hidden-task', x: 6000, y: 6000 })
@@ -2584,7 +2584,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('can disable BPMN recipe rendering through modeler options', () => {
+  it('может отключать render recipe BPMN через параметры Modeler', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const task = createBpmnTaskElement({ id: 'recipe-disabled-task', x: 120, y: 120 })
     const app = Nova.createApp({
@@ -2622,7 +2622,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('switches BPMN data object and data store through one variant provider', () => {
+  it('переключает data object и data store BPMN через один provider вариантов', () => {
     const dataObject = createBpmnDataObjectElement({
       id: 'data-1',
       x: 120,
@@ -2731,7 +2731,7 @@ describe('nova modeler minimal kernel', () => {
     controller.unmount()
   })
 
-  it('creates and switches BPMN data associations through context actions and variants', () => {
+  it('создаёт и переключает data associations BPMN через контекстные Actions и варианты', () => {
     const dataObject = createBpmnDataObjectElement({ id: 'data-object-1', x: 80, y: 120 })
     const dataStore = createBpmnDataStoreElement({ id: 'data-store-1', x: 80, y: 260 })
     const task = createBpmnTaskElement({ id: 'task-1', x: 260, y: 128 })
@@ -2824,7 +2824,7 @@ describe('nova modeler minimal kernel', () => {
     controller.unmount()
   })
 
-  it('creates BPMN message flows only across participants and manages message refs', () => {
+  it('создаёт message flows BPMN только между участниками и управляет refs сообщений', () => {
     const poolA = createBpmnParticipantElement({ id: 'pool-a', x: 80, y: 80, name: 'Pool A' })
     const poolB = createBpmnParticipantElement({ id: 'pool-b', x: 80, y: 380, name: 'Pool B' })
     const sourceTask = createBpmnTaskElement({ id: 'source-task', x: 240, y: 120, name: 'Source' })
@@ -2918,7 +2918,7 @@ describe('nova modeler minimal kernel', () => {
     controller.unmount()
   })
 
-  it('creates BPMN association from the palette action through the connection flow', () => {
+  it('создаёт association BPMN из Action palette через flow соединения', () => {
     const start = createBpmnEventElement({ id: 'start-1', x: 100, y: 100 })
     const task = createBpmnTaskElement({ id: 'task-1', x: 220, y: 84 })
     const controller = createModelerController({
@@ -2953,7 +2953,7 @@ describe('nova modeler minimal kernel', () => {
     controller.unmount()
   })
 
-  it('normalizes BPMN flows, resolves endpoints and removes connected flows with nodes', () => {
+  it('нормализует flows BPMN, разрешает endpoints и удаляет связанные flows вместе с узлами', () => {
     const start = createBpmnEventElement({ id: 'start-1', x: 100, y: 100 })
     const task = createBpmnTaskElement({ id: 'task-1', x: 220, y: 84 })
     const flow = createBpmnFlowElement({
@@ -3167,7 +3167,7 @@ describe('nova modeler minimal kernel', () => {
     controller.unmount()
   })
 
-  it('validates structural BPMN graph rules', () => {
+  it('проверяет структурные правила графа BPMN', () => {
     const valid = createValidBpmnProcessElements()
     expect(BpmnValidationRuntime.validate(createModelerModel({ elements: valid })).status).toBe('valid')
 
@@ -3284,7 +3284,7 @@ describe('nova modeler minimal kernel', () => {
     }).issues.map(issue => issue.ruleId)).toContain('bpmn.instantiateNonReceiveTask')
   })
 
-  it('publishes debounced BPMN validation results without reacting to viewport changes', () => {
+  it('публикует результаты проверки BPMN с debounce без реакции на изменения viewport', () => {
     vi.useFakeTimers()
     const validate = vi.fn(model => createValidationResult(model.version, model.elements.length > 0 ? 'valid' : 'invalid'))
     const controller = createModelerController({
@@ -3316,7 +3316,7 @@ describe('nova modeler minimal kernel', () => {
     vi.useRealTimers()
   })
 
-  it('renders BPMN validation badge states and reads cached controller validation result', () => {
+  it('отрисовывает состояния badge проверки BPMN и читает закешированный результат контроллера', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     expect(MODELER_ASSETS.icons.validationValid).toBeTruthy()
     expect(MODELER_ASSETS.icons.validationInvalid).toBeTruthy()
@@ -3367,7 +3367,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('registers BPMN validation dialog and opens it from an invalid badge', () => {
+  it('регистрирует диалог проверки BPMN и открывает его из некорректного badge', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -3428,7 +3428,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('computes layout, hit-test and viewport clamp', () => {
+  it('вычисляет layout, hit-test и ограничение viewport', () => {
     const model = createModelerModel({ canvas: { x: -100, y: -100, width: 200, height: 200 }, viewport: { x: 0, y: 0, scale: 1 } })
     const controller = createModelerController({ model })
     controller.mount(createControllerHost(100, 100))
@@ -3442,7 +3442,7 @@ describe('nova modeler minimal kernel', () => {
     expect(boundsContainsPoint({ x: 0, y: 0, width: 10, height: 10 }, 15, 5)).toBe(false)
   })
 
-  it('allows panning to elements outside the configured canvas bounds', () => {
+  it('разрешает pan к элементам за настроенными границами canvas', () => {
     const model = createModelerModel({
       canvas: { x: -100, y: -100, width: 200, height: 200 },
       viewport: { x: 0, y: 0, scale: 1 },
@@ -3456,7 +3456,7 @@ describe('nova modeler minimal kernel', () => {
     expect(controller.worldToScreen({ x: 0, y: 900 }).y).toBe(4)
   })
 
-  it('keeps viewport-only commits off world-bounds resolution and filtered subscribers', () => {
+  it('не включает фиксации только viewport в разрешение мировых границ и отфильтрованных подписчиков', () => {
     const event = createBpmnEventElement({
       id: 'viewport-label-event',
       x: 120,
@@ -3503,7 +3503,7 @@ describe('nova modeler minimal kernel', () => {
     controller.unmount()
   })
 
-  it('uses ElementsLayer viewport fast path inside the overscan window', () => {
+  it('использует быстрый путь viewport ElementsLayer внутри окна overscan', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const app = Nova.createApp({
       target: document.createElement('canvas'),
@@ -3553,7 +3553,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('keeps retained flow and external-label schemas stable on viewport-only props', () => {
+  it('сохраняет retained-схемы flow и внешних меток стабильными при props только viewport', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const app = Nova.createApp({
       target: document.createElement('canvas'),
@@ -3601,7 +3601,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('keeps the viewport center stable when zoom controls change scale', () => {
+  it('сохраняет центр viewport стабильным при изменении масштаба элементами управления zoom', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -3640,7 +3640,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('hit-tests basic rect body, resize handles and ports', () => {
+  it('выполняет hit-test body базового прямоугольника, handles размера и портов', () => {
     const model = createModelerModel({
       elements: [createBasicRectElement({ id: 'rect-1', x: 100, y: 100, width: 160, height: 96 })],
       selection: ['rect-1'],
@@ -3655,7 +3655,7 @@ describe('nova modeler minimal kernel', () => {
     expect(controller.hitTest({ x: 265, y: 148 })).toEqual({ type: 'port', elementId: 'rect-1', portId: 'right' })
   })
 
-  it('normalizes and hit-tests BPMN none events as circles', () => {
+  it('нормализует и проверяет hit-test событий BPMN none как окружностей', () => {
     const event = createBpmnEventElement({
       id: 'start-1',
       x: 100,
@@ -3687,7 +3687,7 @@ describe('nova modeler minimal kernel', () => {
     expect(controller.hitTest({ x: 124, y: 95 })).toEqual({ type: 'canvas' })
   })
 
-  it('renders BPMN event frames and catch/throw definition markers differently', () => {
+  it('по-разному отрисовывает рамки событий BPMN и markers определений catch/throw', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -3732,7 +3732,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('keeps controller store as reactive source of truth', () => {
+  it('сохраняет Store контроллера реактивным source of truth', () => {
     const controller = createModelerController({
       model: createModelerModel({ viewport: { scale: 1.25 }, selection: ['old'] }),
     })
@@ -3750,7 +3750,7 @@ describe('nova modeler minimal kernel', () => {
     expect(controller.getModel().selection).toEqual(['next'])
   })
 
-  it('snaps move and resize to world grid independently from zoom', () => {
+  it('привязывает перемещение и изменение размера к мировой сетке независимо от zoom', () => {
     const element = createBasicRectElement({ id: 'rect-1', x: 100, y: 120, width: 160, height: 96 })
     const strategy = new GridSnapStrategy()
 
@@ -3779,7 +3779,7 @@ describe('nova modeler minimal kernel', () => {
     })).toMatchObject({ x: 64, y: 120, width: 196, height: 96 })
   })
 
-  it('uses interaction snap options and modifier override through SnapRuntime', () => {
+  it('использует параметры snap взаимодействия и переопределение модификатора через SnapRuntime', () => {
     const element = createBasicRectElement({ id: 'rect-1', x: 100, y: 120 })
     const context = {
       getOptions: () => normalizeModelerOptions({
@@ -3804,7 +3804,7 @@ describe('nova modeler minimal kernel', () => {
     })).toEqual({ x: 119, y: 141 })
   })
 
-  it('keeps dot grid render plan bounded on tiny zoom', () => {
+  it('ограничивает план render точечной сетки при малом zoom', () => {
     const normal = createGridRenderPlan({
       width: 640,
       height: 420,
@@ -3866,7 +3866,7 @@ describe('nova modeler minimal kernel', () => {
     expect(schema.length).toBeLessThanOrEqual(tiny.dotCount)
   })
 
-  it('renders modeler grid as one procedural pattern rect', () => {
+  it('отрисовывает сетку Modeler одним прямоугольником процедурного pattern', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const app = Nova.createApp({
       target: document.createElement('canvas'),
@@ -3907,7 +3907,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('registers root and renders grid with minimap plugin', () => {
+  it('регистрирует корень и отрисовывает сетку с plugin minimap', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -3954,7 +3954,7 @@ describe('nova modeler minimal kernel', () => {
     expect(app.theme.resolve('--modeler-mini-map-background')).toBe('#0f172a')
   })
 
-  it('registers and renders basic rect and BPMN graph elements', () => {
+  it('регистрирует и отрисовывает базовый прямоугольник и элементы графа BPMN', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -4038,7 +4038,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('registers and renders BPMN task icons, markers and fixed hit areas without visual ports', () => {
+  it('регистрирует и отрисовывает иконки задач, markers и фиксированные hit-области BPMN без визуальных портов', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -4097,7 +4097,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('renders BPMN activity variants with BPMN markers, resize handles and editable wrapped labels', () => {
+  it('отрисовывает варианты activity BPMN с markers, handles размера и редактируемыми переносимыми метками', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
       ...create2DContextStub(),
       measureText: vi.fn((text: string) => ({ width: text.length * 7 })),
@@ -4167,7 +4167,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('wraps BPMN task names and shows full-name tooltip only for clipped labels', () => {
+  it('переносит имена задач BPMN и показывает tooltip полного имени только для обрезанных меток', () => {
     const getContextSpy = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
       ...create2DContextStub(),
       measureText: vi.fn((text: string) => ({ width: text.length * 7 })),
@@ -4244,7 +4244,7 @@ describe('nova modeler minimal kernel', () => {
     getContextSpy.mockReturnValue(create2DContextStub())
   })
 
-  it('edits BPMN task name inline from a double click on the text area', () => {
+  it('редактирует имя задачи BPMN inline по двойному клику на текстовой области', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -4335,7 +4335,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('edits BPMN event label inline from the event body and label area', () => {
+  it('редактирует метку события BPMN inline из body события и области метки', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -4413,7 +4413,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('edits BPMN gateway label inline from the diamond body and label area', () => {
+  it('редактирует метку gateway BPMN inline из ромбовидного body и области метки', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -4491,7 +4491,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('moves and resizes external labels without moving their owner', () => {
+  it('перемещает и изменяет размер внешних меток без перемещения их владельца', () => {
     const event = createBpmnEventElement({
       id: 'label-drag-event',
       x: 100,
@@ -4536,7 +4536,7 @@ describe('nova modeler minimal kernel', () => {
     controller.unmount()
   })
 
-  it('renders selected external label connector and handles only for the selected label part', () => {
+  it('отрисовывает connector и handles выбранной внешней метки только для выбранной части метки', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const app = Nova.createApp({
       target: document.createElement('canvas'),
@@ -4584,7 +4584,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('edits BPMN sequence flow label inline from the label area', () => {
+  it('редактирует метку sequence flow BPMN inline из области метки', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -4656,7 +4656,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('renders and moves association, message flow and data association labels through the shared runtime', () => {
+  it('отрисовывает и перемещает метки association, message flow и data association через общий runtime', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(createMeasured2DContextStub())
     const association = createBpmnAssociationElement({
       id: 'assoc-label',
@@ -4723,7 +4723,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('renders and edits BPMN data store label below the database icon', () => {
+  it('отрисовывает и редактирует метку data store BPMN под иконкой базы данных', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(createMeasured2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -4804,7 +4804,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('edits BPMN group title from the header and shows clipped title tooltip', () => {
+  it('редактирует заголовок группы BPMN из header и показывает tooltip обрезанного заголовка', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(createMeasured2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -4873,7 +4873,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('resolves palette item tooltips from virtual palette targets', () => {
+  it('разрешает tooltips элементов palette из виртуальных targets palette', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -4959,7 +4959,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('applies initial root options to an external controller palette', () => {
+  it('применяет начальные параметры корня к palette внешнего контроллера', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -5008,7 +5008,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('updates modeler cursors for object gestures and clears selection on empty click', () => {
+  it('обновляет курсоры Modeler для жестов объектов и очищает выбор по клику на пустом месте', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -5053,7 +5053,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('creates modeler layer surfaces and cleans them up with root', () => {
+  it('создаёт поверхности слоёв Modeler и очищает их вместе с корнем', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -5094,7 +5094,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('lets named layer slots replace default layer content', () => {
+  it('позволяет именованным slots слоёв заменять стандартное содержимое слоя', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -5126,7 +5126,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('keeps default controls when only other named layer slots are provided', () => {
+  it('сохраняет стандартные элементы управления, когда заданы только другие именованные slots слоёв', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -5209,7 +5209,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('downloads BPMN from custom download controls without an explicit controller prop', async () => {
+  it('скачивает BPMN через пользовательские элементы управления без явного prop controller', async () => {
     const getContext = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const toBlob = vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation((callback: BlobCallback, mime?: string) => {
       callback(new Blob(['png'], { type: mime ?? 'image/png' }))
@@ -5307,7 +5307,7 @@ describe('nova modeler minimal kernel', () => {
     click.mockRestore()
   })
 
-  it('hides the default brand logo and keeps the palette at the base offset when branding is disabled', () => {
+  it('скрывает стандартный логотип бренда и сохраняет palette на базовом смещении при отключённом branding', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -5341,7 +5341,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('deletes the selected element from the default context pad', () => {
+  it('удаляет выбранный элемент из стандартного context pad', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -5378,7 +5378,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('adds a BPMN boundary event from the activity context pad', () => {
+  it('добавляет boundary event BPMN из context pad activity', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -5424,7 +5424,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('keeps context pad delete actions last and labels swimlane delete buttons clearly', () => {
+  it('оставляет Actions удаления context pad последними и понятно подписывает кнопки удаления swimlane', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -5473,7 +5473,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('toggles a single BPMN lane from the context pad', () => {
+  it('переключает единственную lane BPMN из context pad', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -5532,7 +5532,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('opens color menu from the default context pad and applies preset fill', () => {
+  it('открывает меню цвета из стандартного context pad и применяет preset заливки', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -5575,7 +5575,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('opens color menu from a BPMN lane context pad and applies lane fill', () => {
+  it('открывает меню цвета из context pad lane BPMN и применяет заливку lane', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -5629,7 +5629,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('resizes BPMN participant lanes by dragging an inner lane boundary', () => {
+  it('изменяет размеры lanes участника BPMN перетаскиванием внутренней границы lane', () => {
     const participant = addBpmnParticipantLane(createBpmnParticipantElement({ id: 'pool-1', x: 80, y: 80 }))
     const controller = createModelerController({
       model: createModelerModel({
@@ -5660,7 +5660,7 @@ describe('nova modeler minimal kernel', () => {
     controller.unmount()
   })
 
-  it('opens custom color controls from the fill color menu and applies hex fill without changing stroke', () => {
+  it('открывает пользовательские элементы цвета из меню заливки и применяет hex-заливку без изменения stroke', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -5714,7 +5714,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('applies rgba custom fill from the fill color menu', () => {
+  it('применяет пользовательскую rgba-заливку из меню цвета заливки', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -5765,7 +5765,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('applies stroke color from the color menu for BPMN associations', () => {
+  it('применяет цвет stroke из меню цвета для associations BPMN', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const start = createBpmnEventElement({ id: 'start-1', x: 100, y: 100 })
     const task = createBpmnTaskElement({ id: 'task-1', x: 220, y: 84 })
@@ -5815,7 +5815,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('routes pointer events to the element variant menu from context pad', () => {
+  it('направляет pointer-события в меню вариантов элемента из context pad', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -5862,7 +5862,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('applies event type changes immediately while preserving a compatible trigger', () => {
+  it('немедленно применяет изменение типа события, сохраняя совместимый trigger', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -5911,7 +5911,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('closes the element variant menu on outside pointer down and Escape', () => {
+  it('закрывает меню вариантов элемента по внешнему pointer down и Escape', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -5957,7 +5957,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('closes the fill color menu when viewport pan starts from wheel input', () => {
+  it('закрывает меню цвета заливки при начале pan viewport через wheel input', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -5995,7 +5995,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('closes menus from slotted context pads when viewport pan starts', () => {
+  it('закрывает меню из context pads в slots при начале pan viewport', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -6046,7 +6046,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('closes the element variant menu when viewport zoom starts', () => {
+  it('закрывает меню вариантов элемента при начале zoom viewport', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -6083,7 +6083,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('deletes selected elements with configurable keyboard shortcuts', () => {
+  it('удаляет выбранные элементы настраиваемыми сочетаниями клавиш', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -6127,7 +6127,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('selects elements with marquee using the configured modifier', () => {
+  it('выбирает элементы рамкой с настроенным модификатором', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -6193,7 +6193,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('uses temporary marquee inside BPMN pool without moving the pool', () => {
+  it('использует временную рамку внутри pool BPMN без перемещения pool', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -6250,7 +6250,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('moves all selected elements when dragging a selected element', () => {
+  it('перемещает все выбранные элементы при перетаскивании одного из них', () => {
     const controller = createModelerController({
       model: createModelerModel({
         elements: [
@@ -6282,7 +6282,7 @@ describe('nova modeler minimal kernel', () => {
     controller.unmount()
   })
 
-  it('moves elements fully enclosed by a BPMN group together with the group', () => {
+  it('перемещает полностью охваченные группой BPMN элементы вместе с группой', () => {
     const controller = createModelerController({
       model: createModelerModel({
         elements: [
@@ -6315,7 +6315,7 @@ describe('nova modeler minimal kernel', () => {
     controller.unmount()
   })
 
-  it('moves elements fully enclosed by BPMN participant content together with the pool', () => {
+  it('перемещает полностью охваченные содержимым участника BPMN элементы вместе с pool', () => {
     const controller = createModelerController({
       model: createModelerModel({
         elements: [
@@ -6350,7 +6350,7 @@ describe('nova modeler minimal kernel', () => {
     controller.unmount()
   })
 
-  it('renders drag shadow and restores moved elements when move is cancelled', () => {
+  it('отрисовывает тень drag и восстанавливает перемещённые элементы при отмене', () => {
     const controller = createModelerController({
       model: createModelerModel({
         elements: [
@@ -6407,7 +6407,7 @@ describe('nova modeler minimal kernel', () => {
     withoutShadowController.unmount()
   })
 
-  it('activates marquee selection from the palette tool item', () => {
+  it('активирует выбор рамкой из элемента инструмента palette', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -6468,7 +6468,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('activates marquee selection from a custom controls palette slot', () => {
+  it('активирует выбор рамкой из пользовательского slot элементов управления palette', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -6520,7 +6520,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('uses pointer cursor when hovering palette item buttons', () => {
+  it('использует курсор pointer при наведении на кнопки элементов palette', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -6552,7 +6552,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('temporarily activates marquee selection while Shift is pressed', () => {
+  it('временно активирует выбор рамкой при нажатом Shift', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -6585,7 +6585,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('activates create tools from shortcuts and creates on the next canvas click', () => {
+  it('активирует инструменты создания сочетаниями клавиш и создаёт элемент по следующему клику canvas', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -6623,7 +6623,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('creates basic rect, BPMN event and BPMN gateway by dragging from the default control palette', () => {
+  it('создаёт базовый прямоугольник, событие и gateway BPMN перетаскиванием из стандартной palette', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const requestAnimationFrameSpy = vi
       .spyOn(globalThis, 'requestAnimationFrame')
@@ -6709,7 +6709,7 @@ describe('nova modeler minimal kernel', () => {
     requestAnimationFrameSpy.mockRestore()
   })
 
-  it('creates BPMN flow by dragging between element bodies, cancels with Escape and edits waypoints', () => {
+  it('создаёт flow BPMN перетаскиванием между body элементов, отменяет через Escape и редактирует waypoints', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const requestAnimationFrameSpy = vi
       .spyOn(globalThis, 'requestAnimationFrame')
@@ -6819,7 +6819,7 @@ describe('nova modeler minimal kernel', () => {
     requestAnimationFrameSpy.mockRestore()
   })
 
-  it('creates BPMN flow with the connect tool by click-click and drag gestures', () => {
+  it('создаёт flow BPMN инструментом connect через два клика и drag-жест', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const requestAnimationFrameSpy = vi
       .spyOn(globalThis, 'requestAnimationFrame')
@@ -6903,7 +6903,7 @@ describe('nova modeler minimal kernel', () => {
     requestAnimationFrameSpy.mockRestore()
   })
 
-  it('starts BPMN flow from the context pad connect action and cancels with Escape', () => {
+  it('начинает flow BPMN из Action connect в context pad и отменяет через Escape', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const requestAnimationFrameSpy = vi
       .spyOn(globalThis, 'requestAnimationFrame')
@@ -6966,7 +6966,7 @@ describe('nova modeler minimal kernel', () => {
     requestAnimationFrameSpy.mockRestore()
   })
 
-  it('docks palette by placement and switches between vertical and horizontal layouts', () => {
+  it('закрепляет palette по placement и переключает вертикальный и горизонтальный layouts', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -7031,7 +7031,7 @@ describe('nova modeler minimal kernel', () => {
     topApp.destroy()
   })
 
-  it('drags palette by the grip and resets it on double click', () => {
+  it('перетаскивает palette за grip и сбрасывает двойным кликом', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -7103,7 +7103,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('hides palette grip when dragging is disabled', () => {
+  it('скрывает grip palette при отключённом перетаскивании', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -7146,7 +7146,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('registers modeler settings dialog categories and DSL sections', () => {
+  it('регистрирует категории диалога настроек Modeler и секции DSL', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -7231,7 +7231,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('opens, updates and closes settings dialog through controller', () => {
+  it('открывает, обновляет и закрывает диалог настроек через контроллер', () => {
     const root = {
       ids: [] as Array<string>,
       patches: [] as Array<Record<string, unknown>>,
@@ -7266,7 +7266,7 @@ describe('nova modeler minimal kernel', () => {
     expect(detached.isOpen()).toBe(false)
   })
 
-  it('routes pointer events to buttons mounted inside the controls layer slot', () => {
+  it('направляет pointer-события кнопкам, смонтированным в slot слоя элементов управления', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -7370,7 +7370,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('keeps modeler controls above the modeler root after UI Kit dialog registry mounts', () => {
+  it('сохраняет элементы управления Modeler над корнем после монтирования реестра диалогов UI Kit', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -7441,7 +7441,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('keeps controls slot spatial hit-test in sync after canvas resize', () => {
+  it('синхронизирует пространственный hit-test slot элементов управления после изменения размера canvas', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -7502,7 +7502,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('does not resync layer slots on render-only dirties', () => {
+  it('не синхронизирует slots слоёв повторно при изменениях только render', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const app = Nova.createApp({
@@ -7536,7 +7536,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('binds runtime plugins and lets them mount nodes into multiple layers', () => {
+  it('связывает runtime plugins и позволяет им монтировать узлы в несколько слоёв', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(create2DContextStub())
     const canvas = document.createElement('canvas')
     const runtime = createPluginRuntime()
@@ -7572,7 +7572,7 @@ describe('nova modeler minimal kernel', () => {
     app.destroy()
   })
 
-  it('normalizes root props and controls marquee controller state', () => {
+  it('нормализует props корня и управляет состоянием контроллера рамки', () => {
     const props = Root.normalizeProps({ model: createModelerModel(), width: 100, height: 80 })
     expect(props.width).toBe(100)
     expect(props.features.marqueeSelection).toBe(true)
