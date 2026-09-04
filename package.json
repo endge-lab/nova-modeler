@@ -1,7 +1,7 @@
 {
   "name": "@endge/nova-modeler",
   "type": "module",
-  "version": "0.29.16",
+  "version": "0.30.0",
   "private": false,
   "license": "Apache-2.0",
   "sideEffects": false,
@@ -32,9 +32,9 @@
     "lint-fix": "eslint . --fix --cache"
   },
   "dependencies": {
-    "@endge/nova": "^0.13.11",
-    "@endge/nova-ui-kit": "^0.10.14",
-    "@endge/utils": "^0.25.3"
+    "@endge/nova": "^0.14.0",
+    "@endge/nova-ui-kit": "^0.11.0",
+    "@endge/utils": "^0.26.0"
   },
   "devDependencies": {
     "@antfu/eslint-config": "9.3.0",
